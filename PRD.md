@@ -192,8 +192,9 @@ throughout.
 
 ### The loop
 
-1. **One Linear issue per unit of work.** The issue anchors the branch, the commit and
-   the PR.
+1. **One GitHub issue per unit of work.** The issue anchors the branch, the commit and
+   the PR. Issues carry a phase milestone (`Phase 0`–`Phase 7`, or `Foundation`), so the
+   build order in §5 is visible on the board.
 2. **Claude implements on a feature branch**, runs the checks, opens a PR into `dev`.
 3. **You review and merge**, then tell Claude "merged #N" so it re-syncs.
 4. **You test** against `/preview/`, hard-refreshed.

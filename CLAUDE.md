@@ -29,7 +29,7 @@
 | `DATA-MODEL.md` | Pack and character schemas, validation, authoring | Before any change to a schema, validator, or anything that reads a pack | Same session as any schema change |
 | `DEPLOY.md` | GitHub Pages hosting, base paths, the deploy workflow | Before touching `vite.config.ts`, any asset path, or the workflow | Hosting or build config changes |
 | `docs/workflow.md` | Branching, CI, deploy, the sync loop | When unsure how code ships | The branch model or deploy mapping changes |
-| Linear | Issue tracker — anchors every branch and commit | Every session | Issue status, completion comments, discovered work |
+| GitHub Issues | Issue tracker — anchors every branch, commit and PR | Every session | Issue status, completion comments, discovered work |
 
 **Quick reference**
 - *"What should this do?"* → `PRD.md`
@@ -81,7 +81,7 @@ easy to get wrong and fail quietly:
 9. **Never ship rules text.** Names, mechanics and page references only. If a task would
    add rulebook prose to the repo, stop and flag it.
 10. **Limits live in `constants.ts`.** No business-rule number inline.
-11. **No placeholders in committed code.** `TODO` requires a Linear id, except the
+11. **No placeholders in committed code.** `TODO` requires an issue number, except the
     `// TODO: LATER` pattern for deliberate deferrals.
 12. **Never commit secrets.**
 13. **Never hardcode an absolute path.** Runtime paths use `import.meta.env.BASE_URL`.
@@ -96,7 +96,7 @@ easy to get wrong and fail quietly:
   note it.
 - **Batch related changes** — a feature touching a type, a component, a validator and a
   doc is one response.
-- **Batch Linear issue creation** into one call.
+- **Batch GitHub issue creation** into one call.
 - **One question maximum per response**, and only when the answer would change the
   output.
 - **Deliver complete, runnable code.** No partial implementations.
@@ -255,8 +255,8 @@ main  (production — always deployable)
 ```bash
 git checkout dev
 git pull origin dev
-git checkout -b feature/LAN-{id}-{slug}
-git push -u origin feature/LAN-{id}-{slug}
+git checkout -b feature/{issue}-{slug}
+git push -u origin feature/{issue}-{slug}
 ```
 
 🚫 Do not use GitHub MCP `create_branch` — it creates the remote branch first, which
@@ -265,26 +265,31 @@ makes the local branch look diverged and the first push gets rejected.
 ### Commits
 
 ```
-type(scope): imperative description — closes LAN-{id}
+type(scope): imperative description — closes #{issue}
 ```
 
 **Types:** `feat` `fix` `refactor` `test` `chore` `docs` `perf`
 **Scopes:** `model` `net` `ui` `state` `packs` `infra` `docs`
 
 ```bash
-feat(model): compute AC from equipped armour and dex — closes LAN-12
-fix(net): overwrite sender id from the transport — closes LAN-31
-test(packs): reject unknown keys in pack validation — closes LAN-19
-docs: document the extends operation — closes LAN-20
+feat(model): compute AC from equipped armour and dex — closes #12
+fix(net): overwrite sender id from the transport — closes #31
+test(packs): reject unknown keys in pack validation — closes #19
+docs: document the extends operation — closes #20
 ```
 
-Imperative, 72 characters max. `— refs LAN-{id}` when it relates but does not complete.
+Imperative, 72 characters max. `— refs #{issue}` when it relates but does not complete.
+
+📌 **`dev` is the repository's default branch.** GitHub only auto-closes an issue when a
+PR merges into the default branch, and every feature PR targets `dev`. This is also why
+`gh pr create` picks the right base without `--base`. 🚫 Do not change the default to
+`main` — issues would silently stop closing.
 
 ### 🚫 Never in a commit
 
 - `any`, `dangerouslySetInnerHTML`, `console.log`
 - Commented-out code
-- `TODO` without a Linear id (except `// TODO: LATER`)
+- `TODO` without an issue number (except `// TODO: LATER`)
 - Hardcoded limits — use `constants.ts`
 - **Rules text from any published book**
 - `.env`, keys, tokens
@@ -292,10 +297,12 @@ Imperative, 72 characters max. `— refs LAN-{id}` when it relates but does not 
 
 ### PRs ⚡
 
-Claude opens the PR after pushing. Title: `[LAN-{id}] Description`.
+Claude opens the PR after pushing. Title: `[#{issue}] Description`.
 
 ```markdown
-## [LAN-{id}] {Issue title}
+## [#{issue}] {Issue title}
+
+Closes #{issue}
 
 ### What
 - [what was implemented]
@@ -337,14 +344,19 @@ Before writing code against any library.
 
 Always look up: Trystero, Zod, React, Vite, Vitest.
 
-### GitHub MCP ⚡
+### GitHub ⚡
 
-Opening and checking PRs. Branches are created locally (see §9).
+Issues, milestones, labels, and opening and checking PRs — via the `gh` CLI or GitHub
+MCP. Branches are always created locally (see §9).
 
-### Linear MCP ⚡
+Every issue carries a **phase milestone** (`Phase 0`–`Phase 7`, or `Foundation`) and an
+owner label: `owner:claude` ⚡ or `owner:you` 👤. Batch issue creation into one call.
 
-Creating issues, updating status, completion comments. Every issue carries an owner:
-⚡ Claude or 👤 You.
+```bash
+gh issue list --milestone "Phase 1"        # what is in this phase
+gh issue view 12                            # acceptance criteria before starting
+gh issue comment 12 --body "…"              # completion comment
+```
 
 ---
 
@@ -353,12 +365,12 @@ Creating issues, updating status, completion comments. Every issue carries an ow
 ### Start
 
 1. ⚡ Read `CLAUDE.md` and `PRD.md`
-2. ⚡ Pull the Linear issue, read acceptance criteria
+2. ⚡ `gh issue view {issue}`, read acceptance criteria
 3. ⚡ Read `DESIGN.md` or `DATA-MODEL.md` if the work touches protocol, packs or visuals
 4. ⚡ Context7 for any library involved
 5. ⚡ Pull `dev`, branch locally, push with `-u`
 
-**You provide:** the Linear id, current state, anything broken or delicate.
+**You provide:** the issue number, current state, anything broken or delicate.
 
 ### During
 
@@ -372,7 +384,7 @@ Creating issues, updating status, completion comments. Every issue carries an ow
 2. Verify: no `any`, no `innerHTML`, no hardcoded limits, no rules text
 3. Verify: model logic has tests; smoke test passes
 4. Commit, push, open the PR
-5. Move the Linear issue to In Review with a completion comment
+5. Comment on the issue with what shipped — the PR's `Closes #{issue}` closes it on merge
 
 ---
 
@@ -393,7 +405,7 @@ Creating issues, updating status, completion comments. Every issue carries an ow
 - 🚫 `git add .`
 - 🚫 Commit to `dev` or `main` directly
 - 🚫 Hardcode a limit inline
-- 🚫 Mark a Linear issue Done before acceptance criteria are confirmed
+- 🚫 Close an issue before acceptance criteria are confirmed
 - 🚫 Build a pack directory, pack sharing, or a PDF importer (see `DESIGN.md` §7)
 
 ---

@@ -25,6 +25,11 @@ feature/<id>-<slug>  ── one per feature, always cut from dev
 and a PR, including one-line fixes. Branch protection is by convention on this repo,
 which means it is enforced by discipline.
 
+📌 **`dev` is the repository's default branch, deliberately.** GitHub auto-closes an
+issue only when a PR merges into the *default* branch, and every feature PR targets
+`dev`. Setting `main` as default would leave `Closes #N` silently doing nothing. It also
+means `gh pr create` picks the correct base without `--base dev`.
+
 ---
 
 ## 2. Automated versus manual
@@ -46,7 +51,7 @@ not. The test suite is the gate; do not merge around it.
 
 | # | Step | Who | Detail |
 |---|---|---|---|
-| 1 | **Start** | ⚡ | `git checkout dev && git pull origin dev`, then `git checkout -b feature/LAN-{id}-{slug}` |
+| 1 | **Start** | ⚡ | `gh issue view {issue}`, then `git checkout dev && git pull origin dev && git checkout -b feature/{issue}-{slug}` |
 | 2 | **Build** | ⚡ | Implement; run `npm run typecheck && npm test` locally |
 | 3 | **PR** | ⚡ | Push with `-u`, open a PR **into `dev`** using the CLAUDE.md template |
 | 4 | **Merge** | 👤 | Review and merge on GitHub |
@@ -116,12 +121,35 @@ Beyond CI, do these by hand. They are the ones that have actually caught things.
 
 ---
 
-## 7. Branch naming
+## 7. Issues, milestones and branch naming
+
+Work is tracked in **GitHub Issues** on this repo. One issue per unit of work; the issue
+number anchors the branch, the commit and the PR.
+
+**Milestones map 1:1 to the build order in [`PRD.md`](../PRD.md) §5:** `Foundation`, then
+`Phase 0` through `Phase 7`. The milestone is how you see what a phase still owes.
+
+| Label | Meaning |
+|---|---|
+| `owner:claude` ⚡ | Claude implements it |
+| `owner:you` 👤 | Manual — a setting, a device test, a judgement call |
+| `blocked` | Waiting on an earlier phase or an external decision |
+
+Later-phase issues are deliberately low-resolution when created — acceptance criteria for
+Phase 6 depend on decisions made in Phases 2–3. **Sharpen an issue before picking it up**,
+not when filing it.
+
+```bash
+gh issue list --milestone "Phase 1"            # what this phase still owes
+gh issue list --label owner:you                # what is waiting on you
+```
+
+### Branch naming
 
 ```
-feature/LAN-{id}-{slug}    # tied to a Linear issue
+feature/{issue}-{slug}     # tied to a GitHub issue — e.g. feature/12-compute-ac
 feature/{slug}             # no issue (a spike, an alignment pass)
-fix/LAN-{id}-{slug}        # bug fix
+fix/{issue}-{slug}         # bug fix
 hotfix/{slug}              # urgent, branched from main, PR'd to main, back-merged to dev
 ```
 
@@ -131,7 +159,7 @@ hotfix/{slug}              # urgent, branched from main, PR'd to main, back-merg
 
 | Moment | Say this |
 |---|---|
-| Starting | "Branch off dev for `<thing>`" + Linear id (or "no issue") + anything broken |
+| Starting | "Start #N" — or "Branch off dev for `<thing>`" + "no issue" — plus anything broken |
 | Ready to ship | "Open a PR into dev" |
 | After merging | **"Merged #N"** |
 | Releasing | "Promote dev → main" |
