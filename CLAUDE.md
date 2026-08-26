@@ -29,7 +29,7 @@
 | `DATA-MODEL.md` | Pack and character schemas, validation, authoring | Before any change to a schema, validator, or anything that reads a pack | Same session as any schema change |
 | `DEPLOY.md` | GitHub Pages hosting, base paths, the deploy workflow | Before touching `vite.config.ts`, any asset path, or the workflow | Hosting or build config changes |
 | `docs/workflow.md` | Branching, CI, deploy, the sync loop | When unsure how code ships | The branch model or deploy mapping changes |
-| `.claude/commands/` | The session rituals as slash commands — `/start`, `/ship`, `/merged` | Every session, by running them | §11 or the workflow changes |
+| `docs/commands.md` | Cheat sheet for `/start`, `/ship`, `/merged` | When unsure which command to run | A command in `.claude/commands/` changes |
 | GitHub Issues | Issue tracker — anchors every branch, commit and PR | Every session | Issue status, completion comments, discovered work |
 
 **Quick reference**
@@ -38,6 +38,7 @@
 - *"What shape is this data?"* → `DATA-MODEL.md`
 - *"How do I write this correctly?"* → `CLAUDE.md`
 - *"How does this ship?"* → `docs/workflow.md`
+- *"Which command do I run?"* → `docs/commands.md`
 - *"Why did the deployed build break?"* → `DEPLOY.md`
 
 ---
@@ -368,7 +369,7 @@ keeps context on the work rather than on three issues' worth of history.
 
 📌 **The rituals below are slash commands.** 👤 Type these rather than retyping the
 sequence; they live in `.claude/commands/` and are version controlled, so they are fixed
-in a PR like anything else.
+in a PR like anything else. Cheat sheet: [`docs/commands.md`](docs/commands.md).
 
 | Command | Does |
 |---|---|
