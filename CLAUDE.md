@@ -29,6 +29,7 @@
 | `DATA-MODEL.md` | Pack and character schemas, validation, authoring | Before any change to a schema, validator, or anything that reads a pack | Same session as any schema change |
 | `DEPLOY.md` | GitHub Pages hosting, base paths, the deploy workflow | Before touching `vite.config.ts`, any asset path, or the workflow | Hosting or build config changes |
 | `docs/workflow.md` | Branching, CI, deploy, the sync loop | When unsure how code ships | The branch model or deploy mapping changes |
+| `.claude/commands/` | The session rituals as slash commands — `/start`, `/ship`, `/merged` | Every session, by running them | §11 or the workflow changes |
 | GitHub Issues | Issue tracker — anchors every branch, commit and PR | Every session | Issue status, completion comments, discovered work |
 
 **Quick reference**
@@ -362,15 +363,31 @@ gh issue comment 12 --body "…"              # completion comment
 
 ## 11. Session structure
 
+📌 **One session per issue** — or per small cluster of coupled issues. A fresh session
+keeps context on the work rather than on three issues' worth of history.
+
+📌 **The rituals below are slash commands.** 👤 Type these rather than retyping the
+sequence; they live in `.claude/commands/` and are version controlled, so they are fixed
+in a PR like anything else.
+
+| Command | Does |
+|---|---|
+| `/start {issue} [what's broken]` | Loads the issue, the state of `dev` and the working tree, then runs the Start list |
+| `/ship {issue}` | Runs the End list: self-review, the prohibition sweep, checks, commit, push, PR |
+| `/merged {pr}` | The `docs/workflow.md` §3 step 5 sync — pull `dev`, delete the branch, confirm clean |
+
 ### Start
 
 1. ⚡ Read `CLAUDE.md` and `PRD.md`
 2. ⚡ `gh issue view {issue}`, read acceptance criteria
-3. ⚡ Read `DESIGN.md` or `DATA-MODEL.md` if the work touches protocol, packs or visuals
+3. ⚡ Read `DESIGN.md`, `DATA-MODEL.md` or `DEPLOY.md` **only if** §0 says they apply.
+   🚫 Do not read all of them by default — the doc map is conditional on purpose, and an
+   irrelevant document crowds out the relevant one.
 4. ⚡ Context7 for any library involved
 5. ⚡ Pull `dev`, branch locally, push with `-u`
 
-**You provide:** the issue number, current state, anything broken or delicate.
+**You provide:** the issue number, current state, anything broken or delicate. `/start`
+derives the first two from `gh` and `git`; the third is the part only you know.
 
 ### During
 
@@ -378,7 +395,7 @@ gh issue comment 12 --body "…"              # completion comment
 - ⚡ Update `DATA-MODEL.md` or `DESIGN.md` in the same session as the change
 - ⚡ Flag scope discovered mid-session rather than absorbing it
 
-### End ⚡
+### End ⚡ — `/ship {issue}`
 
 1. Self-review against acceptance criteria
 2. Verify: no `any`, no `innerHTML`, no hardcoded limits, no rules text

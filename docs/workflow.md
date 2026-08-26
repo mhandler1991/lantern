@@ -49,17 +49,24 @@ not. The test suite is the gate; do not merge around it.
 
 ## 3. Standard feature loop
 
-| # | Step | Who | Detail |
-|---|---|---|---|
-| 1 | **Start** | ⚡ | `gh issue view {issue}`, then `git checkout dev && git pull origin dev && git checkout -b feature/{issue}-{slug}` |
-| 2 | **Build** | ⚡ | Implement; run `npm run typecheck && npm test` locally |
-| 3 | **PR** | ⚡ | Push with `-u`, open a PR **into `dev`** using the CLAUDE.md template |
-| 4 | **Merge** | 👤 | Review and merge on GitHub |
-| 5 | **Sync** | ⚡ | Tell Claude **"merged #N"** → it pulls `dev`, deletes the branch, confirms the tree is clean |
-| 6 | **Test** | 👤 | Open `/preview/`. It is live a minute or two after step 4. **Hard-refresh** — Pages caches `index.html`. |
+| # | Step | Who | Say this | Detail |
+|---|---|---|---|---|
+| 1 | **Start** | 👤→⚡ | **`/start {issue}`** | Loads the issue, `dev`'s recent history and the working tree, then branches `feature/{issue}-{slug}` off `dev` |
+| 2 | **Build** | ⚡ | — | Implement; `npm run typecheck && npm run lint && npm test` locally |
+| 3 | **PR** | 👤→⚡ | **`/ship {issue}`** | Self-review, prohibition sweep, checks, commit, push with `-u`, PR **into `dev`** |
+| 4 | **Merge** | 👤 | — | Review and merge on GitHub |
+| 5 | **Sync** | 👤→⚡ | **`/merged {pr}`** | Pulls `dev`, deletes the branch, confirms the tree is clean and the issue closed |
+| 6 | **Test** | 👤 | — | Open `/preview/`. Live a minute or two after step 4. **Hard-refresh** — Pages caches `index.html`. |
+
+The three commands live in [`.claude/commands/`](../.claude/commands/) and are version
+controlled. If a ritual turns out to be wrong, fix it in a PR — not in your muscle memory.
+
+📌 **Start a new session per issue** (or per small cluster of coupled issues). `/start`
+re-derives everything it needs from `gh` and `git`, so a fresh session costs nothing and
+keeps context on the work instead of on three issues' worth of history.
 
 > ### ⚠️ Always sync after a merge
-> Say **"merged #N"** every time. Claude then runs, without exception:
+> Run **`/merged {pr}`** every time. Claude then runs, without exception:
 > `git checkout dev` → `git pull origin dev` → delete the merged branch → confirm clean.
 >
 > Skipping it leaves local `dev` behind, and the next session builds on stale code. This
@@ -159,11 +166,16 @@ hotfix/{slug}              # urgent, branched from main, PR'd to main, back-merg
 
 | Moment | Say this |
 |---|---|
-| Starting | "Start #N" — or "Branch off dev for `<thing>`" + "no issue" — plus anything broken |
-| Ready to ship | "Open a PR into dev" |
-| After merging | **"Merged #N"** |
+| Starting | **`/start {issue}`** — append anything broken or delicate: `/start 13 export broke after #12` |
+| Starting, no issue | "Branch off dev for `<thing>`, no issue" — a spike or an alignment pass |
+| Ready to ship | **`/ship {issue}`** |
+| After merging | **`/merged {pr}`** |
 | Releasing | "Promote dev → main" |
 | Reporting a bug | What you did, what happened, what you expected — and the console output if it is a peer bug |
+
+**The only thing `/start` cannot derive is what is broken.** It reads the issue from `gh`
+and the branch state from `git`, but it cannot know you noticed the torch timer drifting
+last night. That is what the trailing text is for.
 
 ---
 
