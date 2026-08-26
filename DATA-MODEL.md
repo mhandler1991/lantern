@@ -1,0 +1,341 @@
+# Data model — Lantern
+
+> The content pack format, the character format, and how to author them.
+> A pack format is a contract players' characters depend on. Changing it casually
+> breaks people's data.
+
+---
+
+## 1. Content packs
+
+### The envelope
+
+```json
+{
+  "format": "lantern-pack",
+  "formatVersion": 1,
+  "id": "frostbound",
+  "name": "Frostbound",
+  "version": "1.2.0",
+  "author": "Max",
+  "description": "A cold-weather supplement. Two classes, fourteen spells.",
+
+  "classes": [],
+  "ancestries": [],
+  "spells": [],
+  "items": [],
+  "talents": [],
+  "tables": [],
+  "extends": []
+}
+```
+
+Every content array is optional. A pack of four spells has one array.
+
+| Field | Required | Notes |
+|---|---|---|
+| `format` | yes | Always `"lantern-pack"`. Rejects unrelated JSON early. |
+| `formatVersion` | yes | Integer. Currently `1`. |
+| `id` | yes | Lowercase, `a-z0-9-`, 2-32 chars. **Namespaces every id inside.** |
+| `name` | yes | Shown in the UI. 1-60 chars. |
+| `version` | yes | Semver. Used to detect an updated pack. |
+| `author` | no | 0-60 chars. |
+| `description` | no | 0-300 chars. |
+
+### IDs and namespacing
+
+Every id inside a pack is namespaced by the pack id automatically:
+
+```
+pack "frostbound" + spell "hoarfrost"  →  frostbound:hoarfrost
+```
+
+You write `"id": "hoarfrost"`. You reference across packs with the full form
+`"core:class:wizard"`.
+
+**Two packs can both define a Skald and nothing collides.** You get two Skalds, each
+labelled with its source. Collisions happen only when someone writes `overrides`.
+
+### The three operations
+
+| Operation | How | Collides? |
+|---|---|---|
+| **define** | Put the thing in its array | Never |
+| **extend** | Add an entry to `extends` | Never |
+| **override** | Add `"overrides": "core:spell:fireball"` | Yes, deliberately. Warned. Last loaded wins. |
+
+---
+
+## 2. Enums
+
+Constrained everywhere it is possible. Validatable, sortable, and **a list you can put
+in a prompt** — which is most of why authoring with an AI works at all.
+
+| Field | Allowed values |
+|---|---|
+| `stat` | `str` `dex` `con` `int` `wis` `cha` |
+| `range` | `self` `close` `near` `far` |
+| `duration` | `instant` `focus` `round` `minute` `hour` `day` `permanent` |
+| `tier` | `1` `2` `3` `4` `5` |
+| `die` | `d4` `d6` `d8` `d10` `d12` `d20` `d100` |
+| `armorType` | `none` `light` `medium` `heavy` `shield` |
+| `weaponType` | `melee` `ranged` `both` |
+| `alignment` | `lawful` `neutral` `chaotic` |
+
+Free text is allowed only in `name`, `text` and `description`.
+
+---
+
+## 3. Spells
+
+```json
+{
+  "id": "hoarfrost",
+  "name": "Hoarfrost",
+  "tier": 2,
+  "classes": ["wizard", "frostbound:rimewalker"],
+  "range": "near",
+  "duration": "focus",
+  "text": "Optional. Present only in packs, never in core.",
+  "page": 53
+}
+```
+
+**The spell is the source of truth for which lists it is on.** A class names its list; a
+spell declares its classes. This means adding spells to an existing class needs no
+`extends` at all — just declare the class in the spell.
+
+`text` optional. `page` optional; shown when `text` is absent.
+
+## 4. Items
+
+```json
+{
+  "id": "rimeblade",
+  "name": "Rimeblade",
+  "slots": 1,
+  "cost": { "amount": 90, "currency": "gp" },
+  "weapon": {
+    "type": "melee",
+    "damage": "1d8",
+    "properties": ["versatile"]
+  },
+  "armor": null,
+  "text": "Optional.",
+  "page": null
+}
+```
+
+`weapon` and `armor` are both optional and mutually exclusive in practice. An armour
+entry looks like:
+
+```json
+"armor": { "type": "light", "ac": 12, "addDex": true }
+```
+
+## 5. Classes
+
+```json
+{
+  "id": "rimewalker",
+  "name": "Rimewalker",
+  "hitDie": "d6",
+  "weapons": ["core:item:dagger", "core:item:staff"],
+  "armor": ["none"],
+  "spellcasting": {
+    "stat": "wis",
+    "highestTierByLevel": [1, 1, 2, 2, 3, 3, 4, 4, 5, 5]
+  },
+  "talentTable": "rimewalker-talents",
+  "text": "Optional.",
+  "page": null
+}
+```
+
+XP thresholds are uniform across Shadowdark classes, so there is no per-class
+progression to model.
+
+`spellcasting` is `null` for non-casters. `highestTierByLevel` is indexed by level − 1.
+
+**A class referencing an item no pack defines warns and renders as plain text.** It does
+not block the pack. (`PRD.md` principle 4.)
+
+## 6. Ancestries
+
+```json
+{
+  "id": "frostborn",
+  "name": "Frostborn",
+  "talent": "Optional text describing the ancestry knack.",
+  "page": null
+}
+```
+
+## 7. Tables
+
+Random tables are first class. Talents, loot, monsters, creation, quirks — all one shape.
+
+```json
+{
+  "id": "rimewalker-talents",
+  "name": "Rimewalker talents",
+  "die": "2d6",
+  "rerollable": false,
+  "rows": [
+    { "roll": 2,      "text": "Choose a talent or +2 to a stat" },
+    { "roll": [3, 6], "text": "+1 to melee and ranged attacks" },
+    { "roll": [7, 9], "text": "+2 to your spellcasting checks" },
+    { "roll": [10, 11], "text": "+1 to a stat of your choice" },
+    { "roll": 12,     "text": "Choose any talent" }
+  ]
+}
+```
+
+- `roll` is a single number or an inclusive `[low, high]` range
+- Ranges must not overlap and must cover the die's full span
+- `die` accepts `2d6`, `1d20`, `d100` — count optional, defaults to 1
+- `rerollable` lets a table offer a reroll before the result is kept
+
+**Table results are recorded, never applied.** There is no `grants` field. That is
+deliberate (`PRD.md` principle 1).
+
+## 8. Extends
+
+```json
+"extends": [
+  { "target": "core:class:wizard", "talents": ["frostbound:frost-affinity"] },
+  { "target": "core:table:loot-minor", "rows": [ { "roll": [19, 20], "text": "A rimeblade" } ] }
+]
+```
+
+Extensions apply in **load order**, so the pack list is reorderable and the resulting
+stack is shown in the UI:
+
+```
+Wizard = core (32 spells, 4 talents) + Frostbound (4 spells) + Cursed Scroll 1 (2 talents)
+```
+
+An extension whose `target` no pack defines **warns and is skipped**. It does not fail
+the pack.
+
+---
+
+## 9. Validation
+
+Validation does two jobs from one implementation.
+
+### Security
+
+A pack arrives from another peer. It is hostile input.
+
+- Whitelist every field. **Reject unknown keys** rather than ignoring them.
+- Cap every string length and every array length.
+- Enums are exact matches.
+- Text renders as text nodes. **Never `innerHTML`.**
+- No formulas, no expressions, no scripting. Nothing is ever evaluated.
+
+### Repair
+
+Error messages are written to be **pasted back into an AI**.
+
+```
+3 problems in "Frostbound":
+  spells[4].range — expected one of: self, close, near, far — got "medium"
+  spells[7] — missing required field: tier
+  extends[0].target — no pack defines "core:class:skald"
+```
+
+Path, expectation, actual. A model fixes that in one turn. "Invalid pack" starts a
+guessing game.
+
+---
+
+## 10. Authoring with an AI
+
+Most people will not read a schema. They will paste a template and their notes into a
+chat window, and **making that path work well is most of the adoption.**
+
+Ship all of:
+
+1. `schema/pack.schema.json` — JSON Schema, for models and editors
+2. `docs/authoring-prompt.md` — the template below
+3. `packs/example-pack.json` — one of everything
+4. The in-app validator, with copy-pasteable errors
+
+### The prompt template
+
+```
+You are generating a content pack for Lantern, a Shadowdark RPG companion app.
+
+Output ONLY valid JSON. No commentary, no markdown fences.
+
+Rules:
+- format is "lantern-pack", formatVersion is 1
+- ids are lowercase a-z0-9- and are NOT prefixed with the pack id
+- Every content array is optional; omit what you do not need
+- Enums are exact:
+    stat: str dex con int wis cha
+    range: self close near far
+    duration: instant focus round minute hour day permanent
+    die: d4 d6 d8 d10 d12 d20 d100
+    armorType: none light medium heavy shield
+    weaponType: melee ranged both
+- Table `roll` is a number or an inclusive [low, high] range.
+  Ranges must not overlap and must cover the whole die.
+- No formulas. "1d8" is fine; "1d8 + level/2" is not.
+- No HTML in any field.
+- Do not copy text from a published rulebook you do not have the rights to.
+
+Here is the schema: [paste schema/pack.schema.json]
+Here is my content: [paste your notes]
+```
+
+### Advice worth giving authors
+
+- **Start small.** Four spells validating beats a whole supplement that does not.
+- **Paste the errors back.** They are written for exactly this.
+- **Check what the model invented.** It will happily produce plausible spells you never
+  wrote. Read the output.
+
+---
+
+## 11. Characters
+
+The character is local and never sent whole. Export writes this file.
+
+```json
+{
+  "format": "lantern-character",
+  "formatVersion": 1,
+  "id": "c_9f3a2b",
+  "name": "Vess of the Low Road",
+  "ancestry": "core:ancestry:human",
+  "class": "core:class:thief",
+  "alignment": "neutral",
+  "level": 3,
+  "xp": 6,
+  "stats": { "str": 13, "dex": 16, "con": 11, "int": 9, "wis": 12, "cha": 6 },
+  "hp": { "current": 11, "max": 17 },
+  "luck": 1,
+  "gold": { "gp": 22, "sp": 0, "cp": 0 },
+  "items": [ { "ref": "core:item:shortsword", "qty": 1, "equipped": true } ],
+  "spells": [ { "ref": "core:spell:magic-missile" } ],
+  "talents": [
+    { "text": "+1 to melee and ranged attacks", "source": "core:table:thief-talents", "rolled": 5 }
+  ],
+  "lights": [ { "ref": "core:item:torch", "litAt": null, "minutes": 60 } ],
+  "conditions": [],
+  "journal": [],
+  "quests": [],
+  "packsUsed": ["core", "frostbound"]
+}
+```
+
+**Derived values are never stored.** AC, slot count, modifiers, XP-to-next and spell DC
+are computed. Storing them guarantees they will disagree with reality.
+
+`packsUsed` lets the app warn when a character needs a pack that is not loaded, and
+render those items as orphaned rather than losing them.
+
+Talents store the **text** and the **source**, because that text may come from a pack
+that is later turned off. The sheet must survive that.
