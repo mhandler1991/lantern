@@ -60,6 +60,7 @@ not. The test suite is the gate; do not merge around it.
 
 The three commands live in [`.claude/commands/`](../.claude/commands/) and are version
 controlled. If a ritual turns out to be wrong, fix it in a PR — not in your muscle memory.
+**Cheat sheet: [`commands.md`](commands.md).**
 
 📌 **Start a new session per issue** (or per small cluster of coupled issues). `/start`
 re-derives everything it needs from `gh` and `git`, so a fresh session costs nothing and
