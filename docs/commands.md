@@ -124,9 +124,27 @@ Each is frontmatter plus a prompt body. Three substitutions:
 
 | Syntax | Does |
 |---|---|
-| `$1` | First argument — the issue or PR number |
 | `$ARGUMENTS` | Everything you typed after the command |
+| `$0`, `$1`, `$2` | **Zero-indexed** positional arguments — `$0` is the first word |
 | `` !`cmd` `` | Runs the shell command and **injects its output into the prompt** |
+
+⚠️ **The positional placeholders are zero-indexed in Claude Code 2.1.245.** `$0` is the
+first argument, not the command name. Verified by probe:
+`/probe alpha beta gamma` → `$0`=`alpha`, `$1`=`beta`, `$2`=`gamma`.
+
+This is the opposite of what shell habit expects, and it fails in a way that reads like a
+broken command rather than a broken placeholder. `/start 2` against a body containing
+`` !`gh issue view $1` `` leaves `$1` **unsubstituted** — there is no second argument — so
+the shell expands it to the empty string and `gh` reports:
+
+```
+accepts 1 arg(s), received 0
+```
+
+**Prefer `$ARGUMENTS`.** It is stable, and for `/ship` and `/merged` — which take exactly
+one number — it is exactly right. `/start` uses `$0` because its argument line is a number
+followed by free text, and `$0` takes the number without dragging the prose into the
+shell command.
 
 `allowed-tools` scopes what the injected commands may run. It is deliberately narrow —
 specific `git` / `gh` / `npm` patterns, never `Bash(*)` — so an injection point cannot

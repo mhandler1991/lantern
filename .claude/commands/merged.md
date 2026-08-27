@@ -4,13 +4,13 @@ argument-hint: <pr-number>
 allowed-tools: Bash(git:*), Bash(gh pr view:*), Bash(gh issue list:*)
 ---
 
-# Merged #$1
+# Merged #$ARGUMENTS
 
 ## Before
 
 - Current branch: !`git branch --show-current`
 - Local branches: !`git branch -vv`
-- The PR: !`gh pr view $1 --json number,title,state,mergedAt,headRefName,baseRefName`
+- The PR: !`gh pr view $ARGUMENTS --json number,title,state,mergedAt,headRefName,baseRefName`
 
 ## Sequence
 

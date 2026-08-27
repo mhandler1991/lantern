@@ -4,11 +4,11 @@ argument-hint: <issue-number> [anything broken or delicate]
 allowed-tools: Bash(gh issue view:*), Bash(git log:*), Bash(git status:*), Bash(git branch:*), Bash(git fetch:*)
 ---
 
-# Start issue #$1
+# Start issue #$0
 
 ## The issue
 
-!`gh issue view $1`
+!`gh issue view $0`
 
 ## Repo state
 
@@ -37,10 +37,10 @@ changed. If there is nothing after the number, there is nothing to flag.
 4. **Branch off `dev`** per §9:
    ```bash
    git checkout dev && git pull origin dev
-   git checkout -b feature/$1-{slug}
-   git push -u origin feature/$1-{slug}
+   git checkout -b feature/$0-{slug}
+   git push -u origin feature/$0-{slug}
    ```
-5. **Implement, test, commit.** Commit trailer: `— closes #$1`.
+5. **Implement, test, commit.** Commit trailer: `— closes #$0`.
 6. **State assumptions inline rather than asking** (§3). Ask one question, and only
    when the answer would change what gets built.
 
