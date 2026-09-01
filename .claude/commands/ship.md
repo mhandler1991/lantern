@@ -4,7 +4,7 @@ argument-hint: <issue-number>
 allowed-tools: Bash(git:*), Bash(gh pr create:*), Bash(gh issue view:*), Bash(gh issue comment:*), Bash(npm run:*), Bash(npm test:*)
 ---
 
-# Ship issue #$1
+# Ship issue #$ARGUMENTS
 
 ## State
 
@@ -14,7 +14,7 @@ allowed-tools: Bash(git:*), Bash(gh pr create:*), Bash(gh issue view:*), Bash(gh
 
 ## The issue being closed
 
-!`gh issue view $1`
+!`gh issue view $ARGUMENTS`
 
 ## Sequence
 
@@ -35,9 +35,9 @@ Run `CLAUDE.md` §11's end-of-session list, in order. Do not skip a step because
    ```
    If anything fails, fix the implementation. 🚫 Never change a test to make it pass.
 4. **Stage specific files** — 🚫 never `git add .` — and commit with
-   `type(scope): description — closes #$1`.
-5. **Push**, then open a PR **into `dev`** using the §9 template. Title `[#$1] …`.
-   The body must contain `Closes #$1`; the commit trailer alone will not close the
+   `type(scope): description — closes #$ARGUMENTS`.
+5. **Push**, then open a PR **into `dev`** using the §9 template. Title `[#$ARGUMENTS] …`.
+   The body must contain `Closes #$ARGUMENTS`; the commit trailer alone will not close the
    issue, because merges land on `dev` rather than the default-branch-close path.
 6. **Comment on the issue** with what shipped.
 
