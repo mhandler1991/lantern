@@ -75,7 +75,8 @@ library or network problem from one of ours in about ten seconds.
 | [`DATA-MODEL.md`](DATA-MODEL.md) | Pack and character schemas, validation, authoring with an AI |
 | [`CLAUDE.md`](CLAUDE.md) | Development standards |
 | [`DEPLOY.md`](DEPLOY.md) | GitHub Pages hosting, base paths, the deploy workflow |
-| [`docs/workflow.md`](docs/workflow.md) | Branching, CI, deploy, the sync loop |
+| [`docs/workflow.md`](docs/workflow.md) | Branching, commands, CI, deploy, the sync loop |
+| [`docs/rationale.md`](docs/rationale.md) | Why the rules are the way they are — reference only |
 
 ---
 
