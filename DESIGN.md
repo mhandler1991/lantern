@@ -201,6 +201,12 @@ sheet, marked and read only.
 
 > **A dark room with real paper on the table.**
 
+📌 This section is implemented in `src/styles/tokens.css`, which is the only file
+allowed to hold a raw colour or length. It has two layers: **palette** names the
+material (`--parchment`, `--torch`), **roles** name the job (`--surface-page`,
+`--rule-hairline`). Components use roles — the torch dims the room by reassigning
+them, so a component reaching past a role into the palette stops dimming with it.
+
 Shadowdark's own book design is deliberately stark: white pages, black bars, no ornament.
 That is an OSR statement, and the licence FAQ explicitly permits matching it. But a book
 is already a physical object in your hands and a screen has to earn that.
