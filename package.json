@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "tokens": "node scripts/token-report.js",
     "lint": "eslint ."
   },
   "dependencies": {

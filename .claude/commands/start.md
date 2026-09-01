@@ -6,11 +6,7 @@ allowed-tools: Bash(gh issue view:*), Bash(git log:*), Bash(git status:*), Bash(
 
 # Start issue #$0
 
-## The issue
-
 !`gh issue view $0`
-
-## Repo state
 
 - Latest on `dev`: !`git fetch origin dev --quiet && git log --oneline -5 origin/dev`
 - Working tree: !`git status --short`
@@ -20,66 +16,45 @@ allowed-tools: Bash(gh issue view:*), Bash(git log:*), Bash(git status:*), Bash(
 
 `$ARGUMENTS`
 
-Everything after the issue number is context about what is broken, delicate or recently
-changed. If there is nothing after the number, there is nothing to flag.
+Everything after the issue number is context about what is broken or delicate. Nothing
+after the number means nothing to flag.
 
-## How to run this session
+## Build
 
-1. **Read the issue above first.** The acceptance criteria are the definition of done.
-2. **Read `PRD.md`, then only the docs `CLAUDE.md` §0 says apply to this issue.**
-   Do not read all five. The doc map is conditional on purpose:
-   - `DESIGN.md` — networking, the data model, or the look of anything
-   - `DATA-MODEL.md` — a schema, a validator, or anything that reads a pack
-   - `DEPLOY.md` — `vite.config.ts`, any asset path, or the workflow
-   `CLAUDE.md` is already in context. Do not spend a tool call re-reading it.
-3. **Context7 for every library involved** before writing a line against it (§10).
-   Trystero especially — `DESIGN.md` §8 flags recent API churn.
-4. **Branch off `dev`** per §9:
+1. **The acceptance criteria above are the definition of done.**
+2. **Read `PRD.md`, then only the docs `CLAUDE.md` §0 says apply.** 🚫 Not all of them —
+   an irrelevant document crowds out the relevant one. `CLAUDE.md` is already in context.
+3. **Context7 for every library involved** before writing a line against it. Trystero
+   especially — `DESIGN.md` §8 flags recent API churn.
+4. **Branch off `dev`:**
    ```bash
    git checkout dev && git pull origin dev
    git checkout -b feature/$0-{slug}
    git push -u origin feature/$0-{slug}
    ```
-5. **Implement.** State assumptions inline rather than asking (§3). Ask one question,
-   and only when the answer would change what gets built.
+5. **Implement.** State assumptions inline rather than asking. One question maximum, and
+   only when the answer changes what gets built.
 
-📌 **Notice findings as you go.** When something surprises you — a doc that was wrong, a
-tool that lied, a step that could not do what it claimed — say so in the moment. This
-session is the only place that knowledge exists; `/merged` §3 is where it gets written
-to the audit log, and a `/merged` run cold has nothing to write from. The bar is high on
-purpose: transferable *and* evidenced. **Most sessions produce none, and that is the
-right answer** — 🚫 never manufacture one.
+📌 **Notice findings as you go** — a doc that was wrong, a tool that lied, a step that could
+not do what it claimed. This session is the only place that knowledge exists; `/merged` §3
+writes it to the audit log. The bar is high: transferable *and* evidenced. Most sessions
+produce none, and that is the right answer. 🚫 Never manufacture one.
 
-## Finishing the work — no `/ship` step
+## Finish — this session, no second command
 
-📌 **`/ship` is deprecated (#66).** This session carries the work through to the PR. The
-gate that used to live there now lives here, and it is not optional — it is the only
-mechanical check on `CLAUDE.md` §12, and "no rules text from any published book" is a
-licensing boundary, not a style preference.
+6. **Self-review against each criterion.** Say plainly what is not met rather than shipping
+   it quietly.
+7. **Sweep — actually look, do not assume:** no `any`, no `dangerouslySetInnerHTML`, no
+   `console.log`, no commented-out code, no `TODO` without an issue, no hardcoded limits,
+   **no rules text from any published book**, no `.env`, keys or tokens.
+8. **`npm run typecheck && npm run lint && npm test`** — report the real output. If it
+   fails, fix the implementation. 🚫 Never change a test to make it pass.
+9. **Stage specific files** (🚫 never `git add .`) and commit
+   `type(scope): description — closes #$0`, with the **reasoning in the body** — GitHub
+   seeds the PR body from it.
+10. **Push, open the PR into `dev`.** Title `[#$0] …`, body containing `Closes #$0`.
+    Template in `docs/workflow.md` §4.
 
-6. **Self-review against each acceptance criterion**, item by item. Anything not met,
-   say so plainly rather than shipping it quietly.
-7. **Prohibition sweep** (§9, §12) — actually look, do not assume:
-   - no `any`, no `dangerouslySetInnerHTML`, no `console.log`
-   - no commented-out code, no `TODO` without an issue number
-   - no hardcoded limits — they live in `constants.ts`
-   - **no rules text from any published book**
-   - no `.env`, keys or tokens
-8. **Run the checks and report the real output:**
-   ```bash
-   npm run typecheck && npm run lint && npm test
-   ```
-   If anything fails, fix the implementation. 🚫 Never change a test to make it pass.
-9. **Stage specific files** — 🚫 never `git add .` — and commit with
-   `type(scope): description — closes #$0`.
+👤 You merge, then run `/merged {pr}`.
 
-   📌 Put the *reasoning* in the commit body: why this pin, this library, this approach,
-   and what was rejected. GitHub seeds the PR body from it, so it is what survives to
-   the issue when `/merged` reconstructs the record cold.
-10. **Push, then open the PR into `dev`** using the §9 template. Title `[#$0] …`, body
-    containing `Closes #$0`.
-
-👤 You merge. Then run **`/merged {pr}`** — that is where the completion record gets
-written to the issue, and where any findings above reach the audit log.
-
-Then confirm the branch and give a one-paragraph plan before writing code.
+Confirm the branch and give a one-paragraph plan before writing code.
