@@ -296,7 +296,7 @@ internal code name; confirm the public one before any marketing string ships.
 |---|---|
 | **TURN / NAT traversal** | ~10-15% of connections need a relay. Trystero ships STUN only. Add TURN **only** with working credentials — the predecessor shipped dead public relays and it was worse than none. |
 | **Characters live in one browser** | No account means no sync. Export is the mitigation and must be prominent. |
-| **Trystero API churn** | It changed shape recently. Read the README before upgrading. |
+| **Trystero API churn** | Pinned at `0.25.4`, which is split across `@trystero-p2p/core` and `@trystero-p2p/nostr`; `trystero` itself only re-exports the Nostr strategy. `joinRoom(config, roomId, callbacks)` takes a third argument (`onJoinError`) and `leave()` is now async. **The README and every trained-on example are behind this.** The `.d.mts` files under `node_modules/@trystero-p2p/core/dist` are the truth — read them before upgrading. |
 | **Pack schema is a contract** | Players' characters depend on it. Version it from day one. |
 | **Protocol has no negotiation** | Version mismatches reject outright. Fine while everyone loads the same URL. |
 | **Pages serves from a subpath** | Absolute asset paths 404 and runtime paths fail **silently**. `base: './'` plus `import.meta.env.BASE_URL` everywhere. |

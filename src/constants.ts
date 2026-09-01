@@ -216,3 +216,49 @@ export const STORAGE_VERSION = 1;
 
 /** Writes to localStorage are coalesced; a character sheet is edited keystroke by keystroke. */
 export const PERSIST_DEBOUNCE_MS = 500;
+
+// ---------------------------------------------------------------------------
+// Transport. DESIGN.md §1 — Trystero over public Nostr relays.
+// ---------------------------------------------------------------------------
+
+/**
+ * Trystero namespaces every topic by this, so two apps sharing a relay never see each
+ * other. It is not a secret and it is not a room code — it identifies the software.
+ * Changing it makes every existing client invisible, exactly like PROTOCOL_VERSION.
+ */
+export const TRYSTERO_APP_ID = 'lantern-p2p-v1';
+
+// ---------------------------------------------------------------------------
+// The peer-discovery harness — test-room.html. PRD.md §5 Phase 0.
+// ---------------------------------------------------------------------------
+
+/**
+ * Fixed and hardcoded on purpose. The harness answers "can two browsers find each
+ * other at all", and a room code to type in is one more thing that can be wrong.
+ */
+export const HARNESS_ROOM_ID = 'lantern-transport-harness';
+
+/**
+ * The harness broadcasts a beat on its own action channel. This is the only thing that
+ * proves application-level messages cross the wire rather than merely that a peer
+ * connection exists — the two failures look identical without it.
+ */
+export const HARNESS_HEARTBEAT_MS = 3_000;
+
+/** A connected peer whose last beat is older than this is reported as silent. */
+export const HARNESS_SILENCE_MS = 10_000;
+
+/**
+ * How long a peer — and the page itself — is given before its state is worth reporting.
+ * A peer that joined a millisecond ago has not sent a beat yet and is not a fault; a
+ * page 40ms old has no relay socket open yet and is not a network outage. Warning about
+ * either puts a red herring at the top of the log, which is the one thing this page
+ * must never do. Two heartbeat intervals, so one beat can be missed before it counts.
+ */
+export const HARNESS_SETTLE_MS = HARNESS_HEARTBEAT_MS * 2;
+
+/** How often the harness re-reads the transport and re-renders. */
+export const HARNESS_RECONCILE_MS = 2_000;
+
+/** The log is a ring buffer. A page left open overnight must not exhaust the tab. */
+export const MAX_HARNESS_LOG_LINES = 500;
