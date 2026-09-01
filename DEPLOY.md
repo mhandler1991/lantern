@@ -89,6 +89,12 @@ the only honest connectivity test there is.
 `.github/workflows/deploy.yml`. Publishes to the `gh-pages` branch, `main` at the root
 and `dev` under `preview/`.
 
+📌 **This is not the only workflow.** `.github/workflows/ci.yml` is the merge gate and
+runs on `pull_request` into `dev`; this one runs on `push` to `main` and `dev`, after
+the merge. Both re-run the checks deliberately — CI decides whether a change may land,
+deploy decides whether a build may reach a URL, and a `dev` push can arrive without a
+PR. Keep the action pins in the two files in step.
+
 ```yaml
 name: Deploy
 
@@ -108,9 +114,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
