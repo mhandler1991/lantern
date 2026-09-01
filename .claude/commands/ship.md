@@ -1,10 +1,26 @@
 ---
-description: Run the checks, push, and open a PR into dev
+description: DEPRECATED — /start now carries through to the PR. Kept for reference only.
 argument-hint: <issue-number>
 allowed-tools: Bash(git:*), Bash(gh pr create:*), Bash(gh issue view:*), Bash(gh issue comment:*), Bash(npm run:*), Bash(npm test:*)
 ---
 
 # Ship issue #$ARGUMENTS
+
+> ## ⚠️ Deprecated — do not use
+>
+> `/start` now carries the work through to the PR itself, and `/merged` writes the
+> completion record. This command is kept only so the reasoning below is not lost.
+>
+> **It was retired because it never ran.** The documented loop said `/start` → build →
+> `/ship` → merge → `/merged`. The loop actually used skipped straight from build to
+> merging on GitHub. Issue #3 closed with **0 comments** as the direct result: step 6
+> here was the only thing that would have written the record, and it never fired. A gate
+> that is not run is not a gate. Retired under #66.
+>
+> Everything below still describes work that must happen — it happens in the build
+> session now, driven by `/start` steps 6–8. 🚫 Do not invoke this command; if you were
+> reaching for it, the sequence you want is in `start.md`.
+
 
 ## State
 

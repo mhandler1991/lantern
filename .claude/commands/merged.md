@@ -50,11 +50,13 @@ guess an issue number and comment on the wrong ticket.
 
 🚫 **Do not reach for `gh pr view --json closingIssuesReferences`.** It is populated from
 the PR *body* only. When the closing keyword rides in on the commit message instead —
-which is what `/ship` step 4 produces, and what GitHub auto-seeds the PR body from — it
+which is what `/start` step 9 produces, and what GitHub auto-seeds the PR body from — it
 returns `[]` even though the issue closed. Verified on #64: empty array, issue #3 closed
 regardless. The injected text above is the reliable source.
 
-**First check whether this already happened** — `/ship` may have posted it:
+**First check whether this already happened.** Normally it has not — this command is
+where the record gets written — but a build session may have posted one already, and
+`/ship` (deprecated, #66) did so historically:
 
 ```bash
 gh issue view {issue} --json comments -q '.comments[].body' | grep -q 'Shipped in #'

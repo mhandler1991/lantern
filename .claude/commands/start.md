@@ -40,8 +40,39 @@ changed. If there is nothing after the number, there is nothing to flag.
    git checkout -b feature/$0-{slug}
    git push -u origin feature/$0-{slug}
    ```
-5. **Implement, test, commit.** Commit trailer: `— closes #$0`.
-6. **State assumptions inline rather than asking** (§3). Ask one question, and only
-   when the answer would change what gets built.
+5. **Implement.** State assumptions inline rather than asking (§3). Ask one question,
+   and only when the answer would change what gets built.
+
+## Finishing the work — no `/ship` step
+
+📌 **`/ship` is deprecated (#66).** This session carries the work through to the PR. The
+gate that used to live there now lives here, and it is not optional — it is the only
+mechanical check on `CLAUDE.md` §12, and "no rules text from any published book" is a
+licensing boundary, not a style preference.
+
+6. **Self-review against each acceptance criterion**, item by item. Anything not met,
+   say so plainly rather than shipping it quietly.
+7. **Prohibition sweep** (§9, §12) — actually look, do not assume:
+   - no `any`, no `dangerouslySetInnerHTML`, no `console.log`
+   - no commented-out code, no `TODO` without an issue number
+   - no hardcoded limits — they live in `constants.ts`
+   - **no rules text from any published book**
+   - no `.env`, keys or tokens
+8. **Run the checks and report the real output:**
+   ```bash
+   npm run typecheck && npm run lint && npm test
+   ```
+   If anything fails, fix the implementation. 🚫 Never change a test to make it pass.
+9. **Stage specific files** — 🚫 never `git add .` — and commit with
+   `type(scope): description — closes #$0`.
+
+   📌 Put the *reasoning* in the commit body: why this pin, this library, this approach,
+   and what was rejected. GitHub seeds the PR body from it, so it is what survives to
+   the issue when `/merged` reconstructs the record cold.
+10. **Push, then open the PR into `dev`** using the §9 template. Title `[#$0] …`, body
+    containing `Closes #$0`.
+
+👤 You merge. Then run **`/merged {pr}`** — that is where the completion record gets
+written to the issue.
 
 Then confirm the branch and give a one-paragraph plan before writing code.
