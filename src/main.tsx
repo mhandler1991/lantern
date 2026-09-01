@@ -1,3 +1,5 @@
+// Design tokens first, so every rule that follows can resolve a var(). CLAUDE.md §6.
+import './styles/tokens.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './ui/App';

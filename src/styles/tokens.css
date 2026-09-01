@@ -1,0 +1,260 @@
+/**
+ * Design tokens — the only file in the app allowed to contain a raw colour or a raw
+ * length. CLAUDE.md §6: components say `color: var(--ink)`, never `#20180F`.
+ *
+ * The language is DESIGN.md §6, and it has exactly one idea:
+ *
+ *     a dark room with real paper on the table.
+ *
+ * Chrome is the room — wood, leather, torchlight falling from above, corners going
+ * dark. Content is paper — warm parchment, a gold hairline ruled inside the edge, a
+ * real shadow under it. Black banners stay, because they are the most recognisable
+ * thing about the book's design and a black bar on parchment is exactly how it looks.
+ *
+ * Two layers, and components use the second:
+ *
+ *   1. **Palette and scale** — named materials and raw steps. `--parchment`, `--wood`,
+ *      `--torch`, `--text-lg`. These describe the thing itself.
+ *   2. **Roles** — what a material is for. `--surface-page`, `--rule-hairline`,
+ *      `--text-on-banner`. These describe the job.
+ *
+ * Reach for a role. Reaching past it into the palette is how the torch dimming and any
+ * later theme quietly stop working, because the room dims by reassigning roles.
+ */
+
+:root {
+  /* ---------------------------------------------------------------------
+   * Palette — the room
+   * ------------------------------------------------------------------ */
+
+  --wood-deep: #120c08;
+  --wood: #1f160f;
+  --wood-raised: #2b1e14;
+  --leather: #33241a;
+  --leather-worn: #453224;
+
+  /* Torchlight, which arrives from above and warm. */
+  --torch: #ffb65c;
+  --torch-bright: #ffd9a0;
+  --torch-dim: #a86a2a;
+  --ember: #c4571f;
+
+  /* The gold hairline ruled inside a page edge, and its brighter state. */
+  --gold: #b08a3e;
+  --gold-bright: #d9b463;
+
+  /* ---------------------------------------------------------------------
+   * Palette — the paper
+   * ------------------------------------------------------------------ */
+
+  --parchment: #efe3c8;
+  --parchment-high: #f7efdb;
+  --parchment-low: #e0d0ae;
+  --parchment-edge: #c9b58d;
+
+  /* Ink on paper. Long text reads as ink, which is legibility before aesthetics. */
+  --ink: #20180f;
+  --ink-soft: #4a3c2b;
+  --ink-faint: #7a6a54;
+
+  /* The black banner, and what sits on it. */
+  --banner: #0d0b08;
+  --banner-ink: #f4ecd8;
+
+  /* ---------------------------------------------------------------------
+   * Palette — meaning
+   *
+   * Sparing on purpose. The book is stark; colour that means something has to stay
+   * rare enough to be read as a signal.
+   * ------------------------------------------------------------------ */
+
+  --blood: #7a1f16;
+  --blood-bright: #a8352a;
+  --moss: #4a6141;
+  --caution: #9a6f1c;
+
+  /* ---------------------------------------------------------------------
+   * Roles — surfaces
+   * ------------------------------------------------------------------ */
+
+  --surface-room: var(--wood);
+  --surface-room-deep: var(--wood-deep);
+  --surface-raised: var(--wood-raised);
+  --surface-inset: var(--leather);
+  --surface-page: var(--parchment);
+  --surface-page-high: var(--parchment-high);
+  --surface-page-low: var(--parchment-low);
+  --surface-banner: var(--banner);
+
+  /* ---------------------------------------------------------------------
+   * Roles — text
+   * ------------------------------------------------------------------ */
+
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-soft);
+  --text-muted: var(--ink-faint);
+  --text-on-banner: var(--banner-ink);
+  --text-on-room: var(--parchment-low);
+  --text-on-room-muted: var(--torch-dim);
+  --text-danger: var(--blood);
+  --text-link: var(--blood);
+
+  /* ---------------------------------------------------------------------
+   * Roles — lines, edges and states
+   * ------------------------------------------------------------------ */
+
+  --rule-hairline: var(--gold);
+  --rule-page: var(--parchment-edge);
+  --rule-room: var(--leather-worn);
+  --edge-page: var(--parchment-edge);
+
+  --state-danger: var(--blood);
+  --state-danger-strong: var(--blood-bright);
+  --state-good: var(--moss);
+  --state-caution: var(--caution);
+  --state-focus: var(--torch);
+
+  /* ---------------------------------------------------------------------
+   * Type
+   *
+   * Cinzel for headings, names and numbers — Roman inscriptional caps, which is where
+   * fantasy typography actually comes from. EB Garamond for prose, because a character
+   * sheet is a document. Montserrat for small uppercase labels.
+   *
+   * The families are named first and fall back to system faces behind them. The woff2
+   * files are not vendored yet, so today everything renders in the fallback — #81.
+   * When they land they must resolve against the deploy base, never '/' (DEPLOY.md §2).
+   * ------------------------------------------------------------------ */
+
+  --font-display: 'Cinzel', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  --font-body: 'EB Garamond', Garamond, 'Palatino Linotype', Georgia, 'Times New Roman', serif;
+  --font-label: 'Montserrat', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+  /* A 1.25 scale off a 16px root. Steps are named by job, not by size, so a heading
+   * that changes rank does not need every rule around it rewritten. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5625rem;
+  --text-2xl: 1.9531rem;
+  --text-3xl: 2.4414rem;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-body: 1.55;
+  --leading-loose: 1.75;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  /* Inscriptional caps want air between letters; body text does not. */
+  --tracking-display: 0.04em;
+  --tracking-label: 0.12em;
+  --tracking-body: 0;
+
+  /* Prose measure. A column wider than this stops being readable. */
+  --measure: 68ch;
+
+  /* ---------------------------------------------------------------------
+   * Space — a 4px base, doubling with halves where it needs them
+   * ------------------------------------------------------------------ */
+
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* ---------------------------------------------------------------------
+   * Edges
+   *
+   * Paper is barely rounded and the room is not rounded at all. A 12px radius reads as
+   * software; the point is that this reads as an object.
+   * ------------------------------------------------------------------ */
+
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-page: 2px;
+
+  --border-hairline: 1px;
+  --border-thick: 2px;
+  --border-banner: 3px;
+
+  /* The gold hairline is ruled *inside* the page edge, not drawn on it. */
+  --inset-rule: var(--space-2);
+
+  /* ---------------------------------------------------------------------
+   * Depth
+   *
+   * Light comes from above, so shadows fall below and are warm-black rather than grey.
+   * ------------------------------------------------------------------ */
+
+  --shadow-page:
+    0 1px 2px rgb(9 6 4 / 45%),
+    0 8px 24px rgb(9 6 4 / 35%);
+  --shadow-raised: 0 2px 6px rgb(9 6 4 / 50%);
+  --shadow-overlay: 0 12px 40px rgb(9 6 4 / 60%);
+  --shadow-inset: inset 0 1px 3px rgb(9 6 4 / 40%);
+
+  /* The pool of torchlight over the room, used as a background layer on the chrome. */
+  --glow-torch: radial-gradient(
+    ellipse 120% 80% at 50% -10%,
+    rgb(255 182 92 / 14%),
+    rgb(255 182 92 / 0%) 60%
+  );
+
+  /* ---------------------------------------------------------------------
+   * Motion
+   *
+   * Short and unshowy. The one long duration is the torch dimming the room, which is
+   * meant to be felt rather than noticed.
+   * ------------------------------------------------------------------ */
+
+  --duration-instant: 90ms;
+  --duration-quick: 160ms;
+  --duration-settle: 320ms;
+  --duration-room: 1200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  /* ---------------------------------------------------------------------
+   * Layers
+   *
+   * Named, and the only place a stacking order is decided. Dice always happen in the
+   * same corner, above the sheet and below a modal.
+   * ------------------------------------------------------------------ */
+
+  --z-base: 0;
+  --z-raised: 10;
+  --z-banner: 20;
+  --z-dice: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+}
+
+/* The room dims and sepia-shifts as a torch burns down, then closes to a pool of light
+ * (DESIGN.md §6). It is a role reassignment, not a filter over the app: paper stays
+ * paper, it just has less light on it. Set by the DM, room-wide, mid-session. */
+:root[data-light='dimmed'] {
+  --surface-room: var(--wood-deep);
+  --surface-page: var(--parchment-low);
+  --surface-page-high: var(--parchment);
+  --text-primary: var(--ink-soft);
+  --rule-hairline: var(--torch-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0ms;
+    --duration-quick: 0ms;
+    --duration-settle: 0ms;
+    --duration-room: 0ms;
+  }
+}
