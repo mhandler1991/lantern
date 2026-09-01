@@ -55,7 +55,7 @@ not. The test suite is the gate; do not merge around it.
 | 2 | **Build** | ⚡ | — | Implement; `npm run typecheck && npm run lint && npm test` locally |
 | 3 | **PR** | 👤→⚡ | **`/ship {issue}`** | Self-review, prohibition sweep, checks, commit, push with `-u`, PR **into `dev`** |
 | 4 | **Merge** | 👤 | — | Review and merge on GitHub |
-| 5 | **Sync** | 👤→⚡ | **`/merged {pr}`** | Pulls `dev`, deletes the branch, confirms the tree is clean and the issue closed |
+| 5 | **Sync** | 👤→⚡ | **`/merged {pr}`** | Pulls `dev`, deletes the branch, confirms the tree is clean and the issue closed, and posts the completion record on the issue |
 | 6 | **Test** | 👤 | — | Open `/preview/`. Live a minute or two after step 4. **Hard-refresh** — Pages caches `index.html`. |
 
 The three commands live in [`.claude/commands/`](../.claude/commands/) and are version
@@ -68,10 +68,19 @@ keeps context on the work instead of on three issues' worth of history.
 
 > ### ⚠️ Always sync after a merge
 > Run **`/merged {pr}`** every time. Claude then runs, without exception:
-> `git checkout dev` → `git pull origin dev` → delete the merged branch → confirm clean.
+> `git checkout dev` → `git pull origin dev` → `git branch -D {headRefName}` → prune →
+> confirm clean → **record what shipped on the issue**.
 >
 > Skipping it leaves local `dev` behind, and the next session builds on stale code. This
-> is the "I don't see my change" trap and it costs an hour every time.
+> is the "I don't see my change" trap and it costs an hour every time. It also loses the
+> decision record: `/ship` is not always run, so `/merged` is the step that reliably
+> writes down *why* the work was done the way it was.
+>
+> 📌 **`-D`, and the name comes from the merged PR's `headRefName`.** This repo
+> squash-merges, so the local tip is never an ancestor of `dev` and `-d` fails with
+> `the branch is not fully merged` — which looks exactly like a merge that did not land.
+> Force is safe because `/merged` confirms the PR is `MERGED` first. The remote side is
+> handled by GitHub's **Automatically delete head branches** setting, now enabled.
 
 ---
 

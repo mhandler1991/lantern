@@ -63,7 +63,7 @@ Runs the [`CLAUDE.md`](../CLAUDE.md) §11 End list, in order, without skipping.
 3. `npm run typecheck && npm run lint && npm test`, reporting the real output
 4. Stage **specific files** (🚫 never `git add .`), commit `— closes #{issue}`
 5. Push, open the PR **into `dev`**, body containing `Closes #{issue}`
-6. Comment on the issue
+6. Comment on the issue with the completion record (same shape `/merged` uses)
 
 > A failing check gets the **implementation** fixed, never the test. Anything it could
 > not verify gets said out loud rather than quietly passed.
@@ -79,14 +79,48 @@ The [`workflow.md`](workflow.md) §3 step 5 sync.
 ```
 
 `checkout dev` → `pull` → delete the merged branch → prune → confirm clean → confirm the
-issue closed → list what is still open in the milestone.
+issue closed → **record what shipped on the issue** → list what is still open.
 
 > **Do not skip this.** It is the one that looks optional and is not. Skipping leaves
 > local `dev` behind and the next session builds on stale code — the "I don't see my
 > change" trap, which §3 notes costs an hour every time.
 >
-> Per-issue sessions make it *partly* redundant, since `/start` pulls `dev` too. It still
-> earns its place: it deletes the stale branch and confirms the issue actually closed.
+> Per-issue sessions make the *sync* partly redundant, since `/start` pulls `dev` too.
+> The rest is not: it deletes the stale branch, confirms the issue actually closed, and
+> writes the decision record.
+
+### The completion comment
+
+`/merged` posts a `## Shipped in #{PR}` comment on the issue: what shipped, **decisions
+and what was rejected**, how each acceptance criterion was actually verified, scope
+deliberately left out, and follow-ups **filed as real issues**.
+
+It lives here rather than only on `/ship` for a blunt reason: `/ship` is not always run,
+and issue #3 closed with **0 comments** as a result. `/merged` runs every cycle. The step
+is idempotent — it checks for an existing `## Shipped in #` comment first, so whichever
+command runs first writes it and neither duplicates the other.
+
+> Run in the build session, the comment is written from memory of the work. Run cold, it
+> is reconstructed from the PR body, commits and file list the command injects — and it
+> says so. 🚫 It never invents a rationale the PR does not evidence.
+
+### Why `-D` and not `-d`
+
+The branch name comes from the merged PR's `headRefName`, and the delete is forced:
+
+```bash
+git branch -D {headRefName}
+```
+
+This repo squash-merges, and a squash rewrites the commit — so the local tip is never an
+ancestor of `dev`. `git branch -d` then fails with `error: the branch is not fully
+merged`, which reads exactly like a merge that did not land. Force is safe **because**
+`/merged` confirms the PR is `MERGED` before touching anything.
+
+📌 The remote side is GitHub's job: **Settings → General → Automatically delete head
+branches** is on, so the remote branch disappears at merge and `git remote prune origin`
+finally has something to prune. Before it was enabled, that prune step had never deleted
+anything.
 
 ---
 

@@ -39,6 +39,13 @@ Run `CLAUDE.md` §11's end-of-session list, in order. Do not skip a step because
 5. **Push**, then open a PR **into `dev`** using the §9 template. Title `[#$ARGUMENTS] …`.
    The body must contain `Closes #$ARGUMENTS`; the commit trailer alone will not close the
    issue, because merges land on `dev` rather than the default-branch-close path.
-6. **Comment on the issue** with what shipped.
+6. **Comment on the issue** using the completion-comment shape in
+   [`merged.md`](merged.md) §2 — what shipped, **decisions and what was rejected**, how
+   each criterion was actually verified, scope deliberately left out, and follow-ups
+   filed as real issues.
+
+   📌 This is the same record `/merged` posts. Whichever runs first writes it; `/merged`
+   checks for an existing `## Shipped in #` comment and does not duplicate it. The
+   reasoning is freshest here, so if you are in the build session, write it here.
 
 Report the PR URL and anything you could not verify.

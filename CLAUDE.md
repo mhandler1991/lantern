@@ -375,7 +375,7 @@ in a PR like anything else. Cheat sheet: [`docs/commands.md`](docs/commands.md).
 |---|---|
 | `/start {issue} [what's broken]` | Loads the issue, the state of `dev` and the working tree, then runs the Start list |
 | `/ship {issue}` | Runs the End list: self-review, the prohibition sweep, checks, commit, push, PR |
-| `/merged {pr}` | The `docs/workflow.md` §3 step 5 sync — pull `dev`, delete the branch, confirm clean |
+| `/merged {pr}` | The `docs/workflow.md` §3 step 5 sync — pull `dev`, delete the branch, record what shipped on the issue, confirm clean |
 
 ### Start
 
@@ -402,7 +402,14 @@ derives the first two from `gh` and `git`; the third is the part only you know.
 2. Verify: no `any`, no `innerHTML`, no hardcoded limits, no rules text
 3. Verify: model logic has tests; smoke test passes
 4. Commit, push, open the PR
-5. Comment on the issue with what shipped — the PR's `Closes #{issue}` closes it on merge
+5. Comment on the issue with the completion record — what shipped, **decisions and what
+   was rejected**, how each criterion was verified, scope deliberately left out, and
+   follow-ups filed as issues. The PR's `Closes #{issue}` closes it on merge.
+
+📌 **The completion record is `/merged`'s job too.** `/ship` is not always run — issue #3
+closed with 0 comments — so `/merged` posts the same record if no `## Shipped in #`
+comment exists yet. Whichever fires first writes it; neither duplicates the other. The
+shape lives in `.claude/commands/merged.md` §2.
 
 ---
 
