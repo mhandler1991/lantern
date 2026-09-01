@@ -4,14 +4,59 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lantern — peer discovery harness</title>
+    <script type="module" crossorigin src="./assets/testRoom-BphMIPEe.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/tokens-A1sD4Zv2.js">
+    <link rel="stylesheet" crossorigin href="./assets/tokens-CphfjWF7.css">
+    <link rel="stylesheet" crossorigin href="./assets/testRoom-DE_Gq970.css">
   </head>
   <body>
     <h1>Peer discovery harness</h1>
-    <p>
-      Open this page in three tabs, then on a phone over cellular. Each should
-      report the others.
+    <p class="lede">
+      Bare Trystero, one hardcoded room, no app. Open this in three tabs, then on a
+      phone over cellular. Each should report the others. The readings below are
+      gathered independently, so when they disagree, the disagreement names the
+      failure — a peer the transport has and the layer does not is our bug; no peers
+      anywhere with no relay open is the network.
     </p>
-    <!-- TODO: #10 — bare Trystero, a fixed room name, a peer counter and a log. -->
+
+    <section class="panel">
+      <h2>Readings</h2>
+      <dl class="readings">
+        <div>
+          <dt>Room</dt>
+          <dd id="room-id">—</dd>
+        </div>
+        <div>
+          <dt>This peer</dt>
+          <dd id="self-id">—</dd>
+        </div>
+        <div>
+          <dt>Relays open</dt>
+          <dd id="relay-count">—</dd>
+        </div>
+        <div>
+          <dt>Peers connected</dt>
+          <dd id="peer-count">—</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="panel">
+      <h2>Verdict</h2>
+      <p class="diagnosis" id="diagnosis">Joining…</p>
+    </section>
+
+    <section class="panel">
+      <h2>Peers</h2>
+      <ul class="peers" id="peer-list"></ul>
+    </section>
+
+    <section class="panel">
+      <h2>Log</h2>
+      <ul class="log" id="log"></ul>
+    </section>
+
     <p><a href="./index.html">Back to Lantern</a></p>
+
   </body>
 </html>
