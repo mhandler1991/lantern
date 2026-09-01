@@ -1,0 +1,72 @@
+# Deploy — publishes to GitHub Pages after a change lands. DEPLOY.md §4.
+#
+# Separate from ci.yml on purpose: different trigger, different question. CI asks
+# "is this change safe to merge?" on a pull_request into dev. Deploy asks "may this
+# build reach a URL?" on a push to a long-lived branch. Both re-run the checks
+# deliberately — a push to dev can arrive without a PR, and a broken build must
+# never reach a URL. Keep the action pins in the two files in step.
+#
+# Pages publishes one site per repository, so both branches share it at different
+# paths: main at the root, dev under /preview/. DEPLOY.md §3.
+name: Deploy
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+# Write, unlike ci.yml: peaceiris pushes the built site to the gh-pages branch.
+permissions:
+  contents: write
+
+# One deploy at a time, and never cancel one in flight — a half-finished publish
+# leaves the site inconsistent. The opposite of ci.yml, where cancelling a
+# superseded check costs nothing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: build and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # `ci`, not `install`: fails on a lockfile that disagrees with package.json
+      # rather than quietly building a different tree than the one committed.
+      - run: npm ci
+
+      # The gate. A build that cannot start must never reach a URL. Lint is
+      # deliberately absent — it decides whether a change may merge, not whether
+      # a build may deploy, and ci.yml already ran it.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Pages runs Jekyll by default, which silently skips anything starting with
+      # an underscore. Nothing emits one today; a future dependency that does
+      # would vanish with no error at all. DEPLOY.md §2.
+      - name: Disable Jekyll
+        run: touch dist/.nojekyll
+
+      # keep_files matters: without it, deploying dev wipes the production build
+      # sitting at the root of gh-pages.
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          destination_dir: ${{ github.ref_name == 'main' && '.' || 'preview' }}
+          keep_files: true
