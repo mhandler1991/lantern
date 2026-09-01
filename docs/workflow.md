@@ -54,7 +54,7 @@ not. The test suite is the gate; do not merge around it.
 | 1 | **Start** | 👤→⚡ | **`/start {issue}`** | Loads the issue, `dev`'s recent history and the working tree, branches `feature/{issue}-{slug}` off `dev` |
 | 2 | **Build → PR** | ⚡ | — | Implement · self-review · prohibition sweep · `npm run typecheck && npm run lint && npm test` · commit · push `-u` · PR **into `dev`**. All in the same session, no second command. |
 | 3 | **Merge** | 👤 | — | Review and merge on GitHub |
-| 4 | **Sync** | 👤→⚡ | **`/merged {pr}`** | Pulls `dev`, deletes the branch, confirms the tree is clean and the issue closed, and posts the completion record on the issue |
+| 4 | **Sync** | 👤→⚡ | **`/merged {pr}`** | Pulls `dev`, deletes the branch, confirms the tree is clean and the issue closed, posts the completion record on the issue, and logs any findings to the audit log |
 | 5 | **Test** | 👤 | — | Open `/preview/`. Live a minute or two after step 3. **Hard-refresh** — Pages caches `index.html`. |
 
 🚫 **There is no `/ship` step.** It was retired under #66 because it never ran: the
@@ -75,7 +75,7 @@ keeps context on the work instead of on three issues' worth of history.
 > ### ⚠️ Always sync after a merge
 > Run **`/merged {pr}`** every time. Claude then runs, without exception:
 > `git checkout dev` → `git pull origin dev` → `git branch -D {headRefName}` → prune →
-> confirm clean → **record what shipped on the issue**.
+> confirm clean → **record what shipped on the issue** → **log any findings**.
 >
 > Skipping it leaves local `dev` behind, and the next session builds on stale code. This
 > is the "I don't see my change" trap and it costs an hour every time. It also loses the
@@ -87,6 +87,36 @@ keeps context on the work instead of on three issues' worth of history.
 > `the branch is not fully merged` — which looks exactly like a merge that did not land.
 > Force is safe because `/merged` confirms the PR is `MERGED` first. The remote side is
 > handled by GitHub's **Automatically delete head branches** setting, now enabled.
+
+---
+
+## 3a. The audit log
+
+One permanent issue — the one labelled `audit-log` — accumulates **findings**: things
+this project has taught us about how it is built. Inconsistencies, tooling that behaved
+differently from its documentation, a doc that was wrong, a step that could not do what
+it claimed. `/merged` §3 appends one comment per cycle, headed `## Cycle #{PR}`.
+
+It is deliberately **not** a to-do list and **not** a changelog:
+
+| | Goes to |
+|---|---|
+| Work discovered | A real issue (`gh issue create`) |
+| What shipped, and why | The `## Shipped in #{PR}` comment on that issue |
+| A now-settled standard | `CLAUDE.md` — the finding should say it caused the edit |
+| *How we work*, learned the hard way | **The audit log** |
+
+**Why it exists at all.** The log is written to be read in aggregate and distilled into a
+reusable skill later. Eight findings written in that format during the #3 → #66 sequence
+(#68) are what produced the current two-command loop — including the one that retired
+`/ship`. That worked once by hand; this makes it continuous.
+
+**Two tests, both required.** A finding must be **transferable** — it would apply to
+another session, issue or project — *and* **evidenced** by a real command, output, file
+or number from that cycle.
+
+🚫 **Never pad the log.** "No findings" is the normal outcome and the correct one most
+cycles. Filler destroys the only thing it is for.
 
 ---
 

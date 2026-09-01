@@ -31,6 +31,7 @@
 | `docs/workflow.md` | Branching, CI, deploy, the sync loop | When unsure how code ships | The branch model or deploy mapping changes |
 | `docs/commands.md` | Cheat sheet for `/start` and `/merged` | When unsure which command to run | A command in `.claude/commands/` changes |
 | GitHub Issues | Issue tracker — anchors every branch, commit and PR | Every session | Issue status, completion comments, discovered work |
+| The `audit-log` issue | Running findings log — what each cycle taught us about *how we work* | Before changing a command or a workflow doc | `/merged` §3, one comment per cycle |
 
 **Quick reference**
 - *"What should this do?"* → `PRD.md`
@@ -374,7 +375,7 @@ in a PR like anything else. Cheat sheet: [`docs/commands.md`](docs/commands.md).
 | Command | Does |
 |---|---|
 | `/start {issue} [what's broken]` | Loads the issue, the state of `dev` and the working tree, then runs the Start list **and carries the work through to the PR** |
-| `/merged {pr}` | The `docs/workflow.md` §3 step 4 sync — pull `dev`, delete the branch, record what shipped on the issue, confirm clean |
+| `/merged {pr}` | The `docs/workflow.md` §3 step 4 sync — pull `dev`, delete the branch, record what shipped on the issue, log any findings to the audit log, confirm clean |
 
 🚫 **`/ship` is deprecated (#66) — do not invoke it.** The file survives in
 `.claude/commands/` so its reasoning is not lost, but the loop is two commands now. It
@@ -424,6 +425,25 @@ and follow-ups filed as issues. The shape lives in `.claude/commands/merged.md` 
 📌 It sits after the merge because that is the step that reliably runs. The record is
 idempotent — `/merged` checks for an existing `## Shipped in #` comment first — so a
 session that already wrote one is never duplicated.
+
+### The audit log ⚡ — `/merged` §3
+
+📌 **One permanent issue** — the one labelled `audit-log` — collects **findings**: what
+each cycle taught us about how this project is built. Tooling that behaved differently
+from its documentation, a doc that was wrong, an acceptance criterion a file could not
+satisfy. One comment per cycle, headed `## Cycle #{PR}`, structured
+`finding → evidence → response → confidence` so it can be **audited later and distilled
+into a reusable skill**.
+
+It is distinct from the three things it is easily confused with. Work discovered becomes
+a real issue. What shipped goes on the closing issue. A now-settled standard belongs in
+this file — and the finding should say it caused the edit.
+
+**Two tests, both required:** transferable to another session or project, *and* evidenced
+by a real command, output, file or number.
+
+🚫 **Never pad it.** "No findings" is the normal, correct outcome most cycles. The log's
+only value is aggregate signal, and filler destroys it.
 
 ---
 
