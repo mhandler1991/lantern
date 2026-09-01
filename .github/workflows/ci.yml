@@ -1,0 +1,58 @@
+# CI — the gate on every PR into dev.
+#
+# Separate from deploy.yml on purpose: different trigger, different question.
+# Deploy asks "can this build and reach a URL?" on a push to a long-lived branch.
+# CI asks "is this change safe to merge?" before the merge happens.
+#
+# The gate exists because the predecessor project shipped a blank page: an import
+# was deleted while its call site stayed. `node --check` passed, a browser did not.
+# npm test — including the jsdom smoke test — is what catches that class of bug.
+name: CI
+
+on:
+  pull_request:
+    branches: [dev]
+
+# Read-only. CI reports a status; it never writes to the repo.
+permissions:
+  contents: read
+
+# A second push to the same PR makes the first run irrelevant, so cancel it.
+# The opposite of deploy.yml's `cancel-in-progress: false` — cancelling a half
+# finished deploy can leave a site inconsistent, cancelling a check cannot.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: typecheck, lint, test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # `ci`, not `install`: fails on a lockfile that disagrees with package.json
+      # rather than quietly resolving a different tree than the one committed.
+      - run: npm ci
+
+      # The three checks run independently. `!cancelled()` means a typecheck
+      # failure does not hide a test failure behind it — one push surfaces
+      # everything wrong, instead of one problem per round trip. The job still
+      # fails if any of them does.
+      - name: Typecheck
+        if: ${{ !cancelled() }}
+        run: npm run typecheck
+
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: npm run lint
+
+      - name: Test
+        if: ${{ !cancelled() }}
+        run: npm test
