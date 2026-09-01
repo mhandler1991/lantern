@@ -51,14 +51,20 @@ not. The test suite is the gate; do not merge around it.
 
 | # | Step | Who | Say this | Detail |
 |---|---|---|---|---|
-| 1 | **Start** | 👤→⚡ | **`/start {issue}`** | Loads the issue, `dev`'s recent history and the working tree, then branches `feature/{issue}-{slug}` off `dev` |
-| 2 | **Build** | ⚡ | — | Implement; `npm run typecheck && npm run lint && npm test` locally |
-| 3 | **PR** | 👤→⚡ | **`/ship {issue}`** | Self-review, prohibition sweep, checks, commit, push with `-u`, PR **into `dev`** |
-| 4 | **Merge** | 👤 | — | Review and merge on GitHub |
-| 5 | **Sync** | 👤→⚡ | **`/merged {pr}`** | Pulls `dev`, deletes the branch, confirms the tree is clean and the issue closed |
-| 6 | **Test** | 👤 | — | Open `/preview/`. Live a minute or two after step 4. **Hard-refresh** — Pages caches `index.html`. |
+| 1 | **Start** | 👤→⚡ | **`/start {issue}`** | Loads the issue, `dev`'s recent history and the working tree, branches `feature/{issue}-{slug}` off `dev` |
+| 2 | **Build → PR** | ⚡ | — | Implement · self-review · prohibition sweep · `npm run typecheck && npm run lint && npm test` · commit · push `-u` · PR **into `dev`**. All in the same session, no second command. |
+| 3 | **Merge** | 👤 | — | Review and merge on GitHub |
+| 4 | **Sync** | 👤→⚡ | **`/merged {pr}`** | Pulls `dev`, deletes the branch, confirms the tree is clean and the issue closed, and posts the completion record on the issue |
+| 5 | **Test** | 👤 | — | Open `/preview/`. Live a minute or two after step 3. **Hard-refresh** — Pages caches `index.html`. |
 
-The three commands live in [`.claude/commands/`](../.claude/commands/) and are version
+🚫 **There is no `/ship` step.** It was retired under #66 because it never ran: the
+documented loop routed through it, the loop actually used skipped it, and issue #3 closed
+with **0 comments** as a direct result. Its prohibition sweep is now part of step 2, which
+happens in the build session and therefore actually fires. The file survives in
+[`.claude/commands/`](../.claude/commands/) with a deprecation banner so the reasoning is
+not lost.
+
+The two live commands live in [`.claude/commands/`](../.claude/commands/) and are version
 controlled. If a ritual turns out to be wrong, fix it in a PR — not in your muscle memory.
 **Cheat sheet: [`commands.md`](commands.md).**
 
@@ -68,10 +74,19 @@ keeps context on the work instead of on three issues' worth of history.
 
 > ### ⚠️ Always sync after a merge
 > Run **`/merged {pr}`** every time. Claude then runs, without exception:
-> `git checkout dev` → `git pull origin dev` → delete the merged branch → confirm clean.
+> `git checkout dev` → `git pull origin dev` → `git branch -D {headRefName}` → prune →
+> confirm clean → **record what shipped on the issue**.
 >
 > Skipping it leaves local `dev` behind, and the next session builds on stale code. This
-> is the "I don't see my change" trap and it costs an hour every time.
+> is the "I don't see my change" trap and it costs an hour every time. It also loses the
+> decision record: `/merged` is the only step that reliably writes down *why* the work
+> was done the way it was.
+>
+> 📌 **`-D`, and the name comes from the merged PR's `headRefName`.** This repo
+> squash-merges, so the local tip is never an ancestor of `dev` and `-d` fails with
+> `the branch is not fully merged` — which looks exactly like a merge that did not land.
+> Force is safe because `/merged` confirms the PR is `MERGED` first. The remote side is
+> handled by GitHub's **Automatically delete head branches** setting, now enabled.
 
 ---
 
@@ -169,7 +184,7 @@ hotfix/{slug}              # urgent, branched from main, PR'd to main, back-merg
 |---|---|
 | Starting | **`/start {issue}`** — append anything broken or delicate: `/start 13 export broke after #12` |
 | Starting, no issue | "Branch off dev for `<thing>`, no issue" — a spike or an alignment pass |
-| Ready to ship | **`/ship {issue}`** |
+| Ready to ship | *(nothing — `/start`'s session carries through to the PR)* |
 | After merging | **`/merged {pr}`** |
 | Releasing | "Promote dev → main" |
 | Reporting a bug | What you did, what happened, what you expected — and the console output if it is a peer bug |

@@ -1,6 +1,6 @@
 # Slash commands — cheat sheet
 
-> The three session rituals, as commands. Source: [`.claude/commands/`](../.claude/commands/).
+> The two session rituals, as commands. Source: [`.claude/commands/`](../.claude/commands/).
 > Full mechanics in [`workflow.md`](workflow.md) §3 · rules in [`../CLAUDE.md`](../CLAUDE.md) §11.
 >
 > Legend: ⚡ Claude · 👤 You
@@ -10,19 +10,21 @@
 ## The loop
 
 ```
-/start 2  →  build  →  /ship 2  →  👤 merge on GitHub  →  /merged 61  →  👤 test /preview/
-                                                                │
-                                                    new session ─┘  /start 3
+/start 2  →  ⚡ build · sweep · check · commit · push · PR  →  👤 merge  →  /merged 67  →  👤 test /preview/
+                                                                              │
+                                                                  new session ─┘  /start 3
 ```
 
 | | Command | Takes | When |
 |---|---|---|---|
-| 1 | `/start {issue}` | **issue** № | First message of a new session |
-| 3 | `/ship {issue}` | **issue** № | Work done, tested locally, before you touch GitHub |
-| 5 | `/merged {pr}` | **PR** № | Immediately after clicking Merge |
+| 1 | `/start {issue}` | **issue** № | First message of a new session. Runs through to the PR. |
+| 4 | `/merged {pr}` | **PR** № | Immediately after clicking Merge |
 
-⚠️ **`/merged` takes the PR number. The other two take the issue number.** They are
-different numbers and it is the easiest mistake to make.
+⚠️ **`/merged` takes the PR number. `/start` takes the issue number.** They are different
+numbers and it is the easiest mistake to make.
+
+🚫 **`/ship` is deprecated (#66) — do not use it.** Two commands, not three. See
+[below](#ship-issue--deprecated).
 
 ---
 
@@ -49,44 +51,86 @@ branches `feature/{issue}-{slug}` off `dev` · gives you a one-paragraph plan.
 
 ---
 
-## `/ship {issue}`
+## `/ship {issue}` — deprecated
 
-Runs the [`CLAUDE.md`](../CLAUDE.md) §11 End list, in order, without skipping.
+🚫 **Retired under #66. Do not use it.** The file stays in
+[`.claude/commands/`](../.claude/commands/) behind a deprecation banner so the reasoning
+survives, but it is not part of the loop.
 
-```bash
-/ship 2
-```
+**Why it went.** The documented loop was `/start` → build → `/ship` → merge → `/merged`.
+The loop *actually used* was `/start` → build → merge → `/merged`. `/ship` was never run,
+so its step 6 never fired, and **issue #3 closed with 0 comments** — the ESLint 9-vs-10
+reasoning survived only because it happened to be written into the commit body. A gate
+that is not run is not a gate.
 
-1. Self-review against **each** acceptance criterion
-2. Prohibition sweep — `any` · `dangerouslySetInnerHTML` · `console.log` · commented-out
-   code · `TODO` without an issue № · hardcoded limits · **rules text** · secrets
-3. `npm run typecheck && npm run lint && npm test`, reporting the real output
-4. Stage **specific files** (🚫 never `git add .`), commit `— closes #{issue}`
-5. Push, open the PR **into `dev`**, body containing `Closes #{issue}`
-6. Comment on the issue
+**Where its parts went.** Nothing was dropped:
 
-> A failing check gets the **implementation** fixed, never the test. Anything it could
-> not verify gets said out loud rather than quietly passed.
+| `/ship` did | Now happens |
+|---|---|
+| Acceptance self-review | `/start` step 6 — build session |
+| **Prohibition sweep** (rules text, secrets, `any`) | `/start` step 7 — build session |
+| `typecheck && lint && test` | `/start` step 8 |
+| Commit, push, open the PR | `/start` steps 9–10 |
+| Comment the completion record | `/merged` §2 — the step that reliably runs |
+
+> The prohibition sweep was the part with no substitute — "no rules text from any
+> published book" is a licensing boundary, not a style preference. Moving it into the
+> build session is the whole point of the retirement: it now runs on every issue instead
+> of on none.
 
 ---
 
 ## `/merged {pr}`
 
-The [`workflow.md`](workflow.md) §3 step 5 sync.
+The [`workflow.md`](workflow.md) §3 step 4 sync, plus the decision record.
 
 ```bash
-/merged 61
+/merged 67
 ```
 
 `checkout dev` → `pull` → delete the merged branch → prune → confirm clean → confirm the
-issue closed → list what is still open in the milestone.
+issue closed → **record what shipped on the issue** → list what is still open.
 
 > **Do not skip this.** It is the one that looks optional and is not. Skipping leaves
 > local `dev` behind and the next session builds on stale code — the "I don't see my
 > change" trap, which §3 notes costs an hour every time.
 >
-> Per-issue sessions make it *partly* redundant, since `/start` pulls `dev` too. It still
-> earns its place: it deletes the stale branch and confirms the issue actually closed.
+> Per-issue sessions make the *sync* partly redundant, since `/start` pulls `dev` too.
+> The rest is not: it deletes the stale branch, confirms the issue actually closed, and
+> writes the decision record.
+
+### The completion comment
+
+`/merged` posts a `## Shipped in #{PR}` comment on the issue: what shipped, **decisions
+and what was rejected**, how each acceptance criterion was actually verified, scope
+deliberately left out, and follow-ups **filed as real issues**.
+
+It lives here for a blunt reason: this is the command that actually runs every cycle.
+`/ship` did not, and issue #3 closed with **0 comments** as a result. The step is still
+idempotent — it checks for an existing `## Shipped in #` comment first — so a session
+that already wrote the record is never duplicated.
+
+> Run in the build session, the comment is written from memory of the work. Run cold, it
+> is reconstructed from the PR body, commits and file list the command injects — and it
+> says so. 🚫 It never invents a rationale the PR does not evidence.
+
+### Why `-D` and not `-d`
+
+The branch name comes from the merged PR's `headRefName`, and the delete is forced:
+
+```bash
+git branch -D {headRefName}
+```
+
+This repo squash-merges, and a squash rewrites the commit — so the local tip is never an
+ancestor of `dev`. `git branch -d` then fails with `error: the branch is not fully
+merged`, which reads exactly like a merge that did not land. Force is safe **because**
+`/merged` confirms the PR is `MERGED` before touching anything.
+
+📌 The remote side is GitHub's job: **Settings → General → Automatically delete head
+branches** is on, so the remote branch disappears at merge and `git remote prune origin`
+finally has something to prune. Before it was enabled, that prune step had never deleted
+anything.
 
 ---
 
@@ -141,8 +185,8 @@ the shell expands it to the empty string and `gh` reports:
 accepts 1 arg(s), received 0
 ```
 
-**Prefer `$ARGUMENTS`.** It is stable, and for `/ship` and `/merged` — which take exactly
-one number — it is exactly right. `/start` uses `$0` because its argument line is a number
+**Prefer `$ARGUMENTS`.** It is stable, and for `/merged` — which takes exactly one
+number — it is exactly right. `/start` uses `$0` because its argument line is a number
 followed by free text, and `$0` takes the number without dragging the prose into the
 shell command.
 

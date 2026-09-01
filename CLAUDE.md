@@ -29,7 +29,7 @@
 | `DATA-MODEL.md` | Pack and character schemas, validation, authoring | Before any change to a schema, validator, or anything that reads a pack | Same session as any schema change |
 | `DEPLOY.md` | GitHub Pages hosting, base paths, the deploy workflow | Before touching `vite.config.ts`, any asset path, or the workflow | Hosting or build config changes |
 | `docs/workflow.md` | Branching, CI, deploy, the sync loop | When unsure how code ships | The branch model or deploy mapping changes |
-| `docs/commands.md` | Cheat sheet for `/start`, `/ship`, `/merged` | When unsure which command to run | A command in `.claude/commands/` changes |
+| `docs/commands.md` | Cheat sheet for `/start` and `/merged` | When unsure which command to run | A command in `.claude/commands/` changes |
 | GitHub Issues | Issue tracker — anchors every branch, commit and PR | Every session | Issue status, completion comments, discovered work |
 
 **Quick reference**
@@ -373,9 +373,14 @@ in a PR like anything else. Cheat sheet: [`docs/commands.md`](docs/commands.md).
 
 | Command | Does |
 |---|---|
-| `/start {issue} [what's broken]` | Loads the issue, the state of `dev` and the working tree, then runs the Start list |
-| `/ship {issue}` | Runs the End list: self-review, the prohibition sweep, checks, commit, push, PR |
-| `/merged {pr}` | The `docs/workflow.md` §3 step 5 sync — pull `dev`, delete the branch, confirm clean |
+| `/start {issue} [what's broken]` | Loads the issue, the state of `dev` and the working tree, then runs the Start list **and carries the work through to the PR** |
+| `/merged {pr}` | The `docs/workflow.md` §3 step 4 sync — pull `dev`, delete the branch, record what shipped on the issue, confirm clean |
+
+🚫 **`/ship` is deprecated (#66) — do not invoke it.** The file survives in
+`.claude/commands/` so its reasoning is not lost, but the loop is two commands now. It
+was retired because it never ran: the documented loop routed through it, the loop
+actually used did not, and issue #3 closed with 0 comments as a direct result. Its
+prohibition sweep moved into the End list below, which runs in the build session.
 
 ### Start
 
@@ -396,13 +401,29 @@ derives the first two from `gh` and `git`; the third is the part only you know.
 - ⚡ Update `DATA-MODEL.md` or `DESIGN.md` in the same session as the change
 - ⚡ Flag scope discovered mid-session rather than absorbing it
 
-### End ⚡ — `/ship {issue}`
+### End ⚡ — in the build session, no command
+
+There is no `/ship`. The session that wrote the code finishes it.
 
 1. Self-review against acceptance criteria
 2. Verify: no `any`, no `innerHTML`, no hardcoded limits, no rules text
 3. Verify: model logic has tests; smoke test passes
-4. Commit, push, open the PR
-5. Comment on the issue with what shipped — the PR's `Closes #{issue}` closes it on merge
+4. `npm run typecheck && npm run lint && npm test`, reporting the real output
+5. Commit — **reasoning in the commit body**, not just the headline — push, open the PR
+
+📌 **Why the commit body matters.** GitHub seeds the PR body from it. That is the only
+reason the ESLint 9-vs-10 rationale from #3 reached GitHub at all, and it is what
+`/merged` reads when it has to reconstruct the record without the build session's memory.
+
+### After the merge ⚡ — `/merged {pr}`
+
+The completion record is written **here**, not at commit time: what shipped, **decisions
+and what was rejected**, how each criterion was verified, scope deliberately left out,
+and follow-ups filed as issues. The shape lives in `.claude/commands/merged.md` §2.
+
+📌 It sits after the merge because that is the step that reliably runs. The record is
+idempotent — `/merged` checks for an existing `## Shipped in #` comment first — so a
+session that already wrote one is never duplicated.
 
 ---
 
