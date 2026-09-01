@@ -43,6 +43,13 @@ changed. If there is nothing after the number, there is nothing to flag.
 5. **Implement.** State assumptions inline rather than asking (§3). Ask one question,
    and only when the answer would change what gets built.
 
+📌 **Notice findings as you go.** When something surprises you — a doc that was wrong, a
+tool that lied, a step that could not do what it claimed — say so in the moment. This
+session is the only place that knowledge exists; `/merged` §3 is where it gets written
+to the audit log, and a `/merged` run cold has nothing to write from. The bar is high on
+purpose: transferable *and* evidenced. **Most sessions produce none, and that is the
+right answer** — 🚫 never manufacture one.
+
 ## Finishing the work — no `/ship` step
 
 📌 **`/ship` is deprecated (#66).** This session carries the work through to the PR. The
@@ -73,6 +80,6 @@ licensing boundary, not a style preference.
     containing `Closes #$0`.
 
 👤 You merge. Then run **`/merged {pr}`** — that is where the completion record gets
-written to the issue.
+written to the issue, and where any findings above reach the audit log.
 
 Then confirm the branch and give a one-paragraph plan before writing code.

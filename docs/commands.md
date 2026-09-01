@@ -89,7 +89,8 @@ The [`workflow.md`](workflow.md) §3 step 4 sync, plus the decision record.
 ```
 
 `checkout dev` → `pull` → delete the merged branch → prune → confirm clean → confirm the
-issue closed → **record what shipped on the issue** → list what is still open.
+issue closed → **record what shipped on the issue** → **log any findings** → list what is
+still open.
 
 > **Do not skip this.** It is the one that looks optional and is not. Skipping leaves
 > local `dev` behind and the next session builds on stale code — the "I don't see my
@@ -113,6 +114,32 @@ that already wrote the record is never duplicated.
 > Run in the build session, the comment is written from memory of the work. Run cold, it
 > is reconstructed from the PR body, commits and file list the command injects — and it
 > says so. 🚫 It never invents a rationale the PR does not evidence.
+
+### The findings log
+
+`/merged` §3 posts to a **single permanent issue** — the one carrying the `audit-log`
+label, resolved by label rather than a hardcoded number. One comment per cycle, headed
+`## Cycle #{PR}`, so the step is idempotent and any entry is addressable as `#{PR}/F{n}`.
+
+The point is aggregate, not per-cycle: the log is written to be **audited later and
+distilled into a reusable skill**, which is why entries are structured
+`finding → evidence → response → confidence` rather than narrative.
+
+| §2 record | §3 findings |
+|---|---|
+| Goes on **the issue that just closed** | Goes on **one permanent issue**, forever |
+| What shipped and why | What this cycle taught us about *how we work* |
+| About the feature | About the process, tooling, docs or standards |
+| Written every cycle | **Usually empty — and that is correct** |
+
+Two tests, both required: **transferable** (it would apply to another session or another
+project) and **evidenced** (a real command and its real output). Work items are follow-up
+issues, not findings; implementation choices are commit bodies, not findings.
+
+> 🚫 **Never pad it.** "No findings" is the common, expected outcome. A skill distilled
+> from filler entries is worse than no skill, and a cold `/merged` — one that did not do
+> the build — should return "No findings" more often, since it may only draw on what the
+> PR actually evidences.
 
 ### Why `-D` and not `-d`
 

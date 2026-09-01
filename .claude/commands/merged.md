@@ -13,6 +13,7 @@ allowed-tools: Bash(git:*), Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh issu
 - The PR: !`gh pr view $ARGUMENTS --json number,title,state,mergedAt,headRefName,baseRefName,body`
 - Commits in the PR: !`gh pr view $ARGUMENTS --json commits -q '.commits[] | "- " + .messageHeadline + "\n" + (.messageBody // "")'`
 - Files changed: !`gh pr diff $ARGUMENTS --name-only`
+- The audit log: !`gh issue list --label audit-log --state open --limit 1 --json number,title -q '.[] | "#\(.number) \(.title)"'`
 
 ## 1. Sync
 
@@ -98,7 +99,78 @@ list injected above, and say plainly that it is reconstructed from the PR rather
 recalled. 🚫 Never invent a rationale that is not evidenced there — a confident wrong
 reason is worse than a missing one.
 
-## 3. What is next
+## 3. Log the findings
+
+Separate from §2 and easy to conflate. §2 records **what shipped on this issue**. This
+records **what this cycle taught us about how we work** — and it goes on one permanent
+issue, not on the issue being closed, because its value is only visible in aggregate.
+
+📌 **The log issue is injected above**, resolved by the `audit-log` label rather than a
+hardcoded number. If that line came back empty, say so and skip this section. 🚫 Never
+guess the number — a finding posted to the wrong issue is worse than one not posted.
+
+### The bar — both tests, not either
+
+1. **Transferable.** It would apply to another session, another issue, or another
+   project. *"This issue needed a `cache: npm` line"* is not a finding.
+2. **Evidenced from this cycle.** A real command and its real output, a real file, a
+   real number.
+
+📌 **"No findings" is normal and common. It is the correct answer most cycles.**
+Manufacturing filler to look thorough destroys the signal the log exists to carry, and a
+skill distilled from padded entries is worse than no skill. 🚫 Never pad.
+
+🚫 **Do not log a work item here** — that is a follow-up issue (§2). 🚫 Do not log an
+ordinary implementation choice — that is the commit body. A finding is about the
+*process, tooling, docs or standards*, not about the feature.
+
+### Idempotency
+
+Per the same rule as §2 — the entry is keyed on the PR number:
+
+```bash
+gh issue view {log issue} --json comments -q '.comments[].body' | grep -q '## Cycle #$ARGUMENTS'
+```
+
+Exit `0` — already logged, skip. Exit `1` — post:
+
+```bash
+gh issue comment {log issue} --body '...'
+```
+
+### Shape
+
+```markdown
+## Cycle #{PR} — {issue title}
+
+### F1. {The finding, as a transferable rule, one line}
+- **Category:** workflow · tooling · docs · process · code-standard · repo-config
+- **Evidence:** what actually happened. Command, output, file, number.
+- **Response:** what was done — an edit, an issue number, or `logged only`.
+- **Confidence:** `verified` (observed) · `inferred` (reasoned, not yet seen to be true)
+- **Suggested rule:** the generalised form, if it is not already the finding line.
+```
+
+`Confidence` is not decoration. `PRD.md` §6: never ship a fix you have not observed
+working, and say plainly when one is inferred. An `inferred` finding is a hypothesis the
+next cycle can confirm or kill.
+
+When nothing qualified:
+
+```markdown
+## Cycle #{PR} — {issue title}
+
+No findings.
+```
+
+📌 **If this session did the build, write from what you actually hit** — the dead end,
+the surprising output, the doc that was wrong. Run cold, draw only on the injected PR
+body, commits and file list, and 🚫 never invent a finding the PR does not evidence
+(B8). Cold sessions will legitimately produce "No findings" more often.
+
+---
+
+## 4. What is next
 
 ```bash
 gh issue list --milestone "{current phase}" --state open
