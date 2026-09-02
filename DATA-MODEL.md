@@ -321,15 +321,34 @@ The character is local and never sent whole. Export writes this file.
   "items": [ { "ref": "core:item:shortsword", "qty": 1, "equipped": true } ],
   "spells": [ { "ref": "core:spell:magic-missile" } ],
   "talents": [
-    { "text": "+1 to melee and ranged attacks", "source": "core:table:thief-talents", "rolled": 5 }
+    { "text": "Your torch burns a quarter longer than anyone else's", "source": "core:table:thief-talents", "rolled": 5 }
   ],
   "lights": [ { "ref": "core:item:torch", "litAt": null, "minutes": 60 } ],
-  "conditions": [],
-  "journal": [],
-  "quests": [],
+  "conditions": ["blessed"],
+  "journal": [ { "at": 1735689600000, "text": "The innkeeper lied about the well." } ],
+  "quests": [ { "text": "Find out what is down the well", "done": false } ],
   "packsUsed": ["core", "frostbound"]
 }
 ```
+
+| Field | Shape | Notes |
+|---|---|---|
+| `id` | `[A-Za-z0-9_-]`, 1-32 | Generated locally. A storage key and a React key. |
+| `ancestry`, `class`, `alignment` | ref or `null` | Null before creation fills them in. A half-built character still loads. |
+| `level` | 0-10 | Zero is a real state, not an empty one. |
+| `hp.current` | may be negative | A dying character is a state the sheet has to hold. |
+| `conditions` | strings | The only private field the public projection carries (`DESIGN.md` §2). |
+| `journal` | `{ at, text }` | `at` is epoch milliseconds. |
+| `quests` | `{ text, done }` | |
+| `lights[].litAt` | epoch ms or `null` | **When** it was lit, never how much is left. Remaining time is computed from the clock, so a backgrounded tab cannot drift it. |
+| `talents[].rolled` | number or `null` | The face that produced it; null when it was chosen. |
+
+Every object is **strict**: an unknown key is rejected, not ignored. That is what makes
+"no derived values" enforceable rather than merely intended — a file carrying an `ac` or
+an `xpToNext` is reported, not silently stripped and re-saved.
+
+`src/model/character.ts` is this table, executable, and its tests parse the example
+above verbatim. If the two ever disagree, the tests fail.
 
 **Derived values are never stored.** AC, slot count, modifiers, XP-to-next and spell DC
 are computed. Storing them guarantees they will disagree with reality.

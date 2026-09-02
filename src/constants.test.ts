@@ -11,6 +11,7 @@ import {
   MAX_REF_LENGTH,
   MAX_TABLE_ROWS,
   PACK_ID_MAX_LENGTH,
+  REF_PATTERN,
   PACK_ID_MIN_LENGTH,
   PACK_ID_PATTERN,
   ROOM_CODE_ALPHABET,
@@ -63,5 +64,22 @@ describe('caps that depend on each other', () => {
 
   it('keeps a pack chunk inside what a single event may carry', () => {
     expect(MAX_PACK_CHUNK_BYTES).toBeLessThan(MAX_EVENT_BYTES);
+  });
+
+  it('admits nothing in a reference that a bare id would reject', () => {
+    expect(REF_PATTERN.test('core:class:wizard')).toBe(true);
+    expect(REF_PATTERN.test('frost-bound:table:loot-minor-2')).toBe(true);
+    expect(REF_PATTERN.test('core:class')).toBe(false);
+    expect(REF_PATTERN.test('core:class:wizard:extra')).toBe(false);
+    expect(REF_PATTERN.test('Core:Class:Wizard')).toBe(false);
+    expect(REF_PATTERN.flags).not.toContain('g');
+  });
+
+  it('cannot match a reference longer than the cap allows', () => {
+    const segment = 'a'.repeat(ENTRY_ID_MAX_LENGTH);
+    const longest = [segment, segment, segment].join(':');
+    expect(REF_PATTERN.test(longest)).toBe(true);
+    expect(longest.length).toBe(MAX_REF_LENGTH);
+    expect(REF_PATTERN.test(`${longest}a`)).toBe(false);
   });
 });
