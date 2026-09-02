@@ -299,6 +299,22 @@ export const PERSIST_DEBOUNCE_MS = 500;
  */
 export const TRYSTERO_APP_ID = 'lantern-p2p-v1';
 
+/**
+ * Every Lantern event travels on one Trystero action. One channel rather than one per
+ * event type, because the event's own `t` field already discriminates it (DESIGN.md §3)
+ * and a second dispatch layer would be a second place for the two to disagree.
+ */
+export const TRYSTERO_ACTION_NAMESPACE = 'lantern';
+
+/**
+ * Trystero encodes the action name into a fixed field of every frame and throws if the
+ * name does not fit. 32 bytes in 0.25.4 — it was 12 in earlier versions, so this is
+ * exactly the kind of number DESIGN.md §8 warns changes underneath us. Asserted in
+ * `constants.test.ts` against the name above, so a rename that overflows fails a test
+ * rather than a room join.
+ */
+export const TRYSTERO_ACTION_NAMESPACE_MAX_BYTES = 32;
+
 // ---------------------------------------------------------------------------
 // The peer-discovery harness — test-room.html. PRD.md §5 Phase 0.
 // ---------------------------------------------------------------------------

@@ -112,6 +112,28 @@ has, so all clients agree with no election and host migration is automatic.
 A peer can lie about `joinedAt` to claim the chair. It is a cosmetic role with no
 authority over anyone's dice, so this is not worth a consensus protocol.
 
+### The transport boundary
+
+`net/transport.ts` is the interface — `broadcast`, `sendTo`, `getPeers`, `leave`, and
+peer join/leave/message callbacks. It imports no library. `net/trystero.ts` is the only
+file in the app that imports Trystero, and it names the slice of that API it uses as
+`RoomLike`/`JoinRoomLike`, with the real `joinRoom` assigned to it at module load. That
+assignment is the guard §8 asks for: an upgrade that moves a signature fails
+`npm run typecheck` in one file instead of failing a room join in a browser.
+
+Three things the boundary is responsible for:
+
+- **Identity.** An inbound message arrives as `{ from, data }` where `from` is the peer
+  id the transport reports. `data` stays `unknown` until `net/protocol.ts` parses it.
+- **Errors as values.** Join, send and leave return a `Result`. Sending to a peer that
+  has gone is `unknown-peer` — Trystero's own `send` only prints a console warning and
+  resolves, which would read to the caller as delivery.
+- **`MAX_EVENT_BYTES`.** Checked outbound and inbound. Trystero decodes a payload before
+  we see it, so inbound this bounds what is parsed and kept, not what is received.
+
+Every peer event is logged, `console.info` by default, because a peer bug is diagnosed
+from a console — usually somebody else's, after the fact.
+
 ---
 
 ## 4. Dice
@@ -296,7 +318,7 @@ internal code name; confirm the public one before any marketing string ships.
 |---|---|
 | **TURN / NAT traversal** | ~10-15% of connections need a relay. Trystero ships STUN only. Add TURN **only** with working credentials — the predecessor shipped dead public relays and it was worse than none. |
 | **Characters live in one browser** | No account means no sync. Export is the mitigation and must be prominent. |
-| **Trystero API churn** | Pinned at `0.25.4`, which is split across `@trystero-p2p/core` and `@trystero-p2p/nostr`; `trystero` itself only re-exports the Nostr strategy. `joinRoom(config, roomId, callbacks)` takes a third argument (`onJoinError`) and `leave()` is now async. **The README and every trained-on example are behind this.** The `.d.mts` files under `node_modules/@trystero-p2p/core/dist` are the truth — read them before upgrading. |
+| **Trystero API churn** | Pinned at `0.25.4`, which is split across `@trystero-p2p/core` and `@trystero-p2p/nostr`; `trystero` itself only re-exports the Nostr strategy. `joinRoom(config, roomId, callbacks)` takes a third argument (`onJoinError`) and `leave()` is now async. **The README and every trained-on example are behind this.** The `.d.mts` files under `node_modules/@trystero-p2p/core/dist` are the truth — read them before upgrading. `net/trystero.ts` pins the surface we use behind `JoinRoomLike`, checked at compile time. |
 | **Pack schema is a contract** | Players' characters depend on it. Version it from day one. |
 | **Protocol has no negotiation** | Version mismatches reject outright. Fine while everyone loads the same URL. |
 | **Pages serves from a subpath** | Absolute asset paths 404 and runtime paths fail **silently**. `base: './'` plus `import.meta.env.BASE_URL` everywhere. |
