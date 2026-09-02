@@ -361,3 +361,56 @@ render those items as orphaned rather than losing them.
 
 Talents store the **text** and the **source**, because that text may come from a pack
 that is later turned off. The sheet must survive that.
+
+---
+
+## 12. Storage
+
+The character lives in `localStorage` under **`lantern:character`**, as the same document
+§11 describes — `format` and `formatVersion` included, with no wrapper of its own. What
+is stored and what an export writes are byte-identical, so storage and import are brought
+forward by one migration path and cannot drift apart.
+
+| Key | Holds |
+|---|---|
+| `lantern:character` | The active sheet. |
+| `lantern:character.rejected` | A value the app could not read, copied aside before anything overwrote it. Never read back; it exists so "corrupt" means "set aside" rather than "gone". |
+
+### Reading
+
+`loadCharacter()` returns one of four outcomes and throws none of them:
+
+| Outcome | When | What the app does |
+|---|---|---|
+| `loaded` | Read, migrated if needed, validated. | Opens it. `migratedFrom` names the version it came from. |
+| `empty` | Nothing stored. | Opens a new character. |
+| `rejected` | Not JSON, not ours, from a newer build, or failed the schema. | Copies the raw text to the rejected key, opens a new character, and shows the problems. |
+| `unavailable` | The browser refused — private mode, blocked site data. | Opens a new character and says edits will not be kept. |
+
+A rejected value is **never overwritten in place by the loader**, and an existing
+rejected copy is never replaced by a later one: the first thing that broke is the likelier
+to be real player data.
+
+### `formatVersion`
+
+Checked on every read. `CHARACTER_MIGRATIONS` maps the version being migrated **from** to
+the step that produces the next one, and `migrateCharacterDocument` walks the chain from
+the stored version to the current one.
+
+- A missing step is refused, never skipped.
+- A step that does not leave the document at the version it claims is refused.
+- A document from a **newer** build is refused and left exactly as it was found. This
+  build cannot know what a later one added; downgrading it would be the data loss
+  PRD.md principle 4 forbids.
+
+The map is empty at `formatVersion: 1` — nothing has been superseded yet. The chain that
+walks it is tested against injected migrations, so the first real migration is written
+against machinery that already works.
+
+### Writing
+
+Autosave is debounced by `PERSIST_DEBOUNCE_MS`, because a sheet is edited keystroke by
+keystroke, and flushed on `pagehide`, on the tab being hidden and on unmount — a debounce
+that swallows the last keystroke is indistinguishable from losing it. Every write is
+validated on the way out as well as in (`CLAUDE.md` §2.7): a character that would not load
+back is reported rather than stored.

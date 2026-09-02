@@ -3,13 +3,17 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  ABILITY_SCORE_BASELINE,
+  DEFAULT_STAT_SCORE,
   ENTRY_ID_MAX_LENGTH,
   ENTRY_ID_PATTERN,
   MAX_DIE_SIDES,
   MAX_PACK_CHUNK_BYTES,
   MAX_EVENT_BYTES,
   MAX_REF_LENGTH,
+  MAX_STAT,
   MAX_TABLE_ROWS,
+  MIN_STAT,
   PACK_ID_MAX_LENGTH,
   REF_PATTERN,
   PACK_ID_MIN_LENGTH,
@@ -81,5 +85,18 @@ describe('caps that depend on each other', () => {
     expect(REF_PATTERN.test(longest)).toBe(true);
     expect(longest.length).toBe(MAX_REF_LENGTH);
     expect(REF_PATTERN.test(`${longest}a`)).toBe(false);
+  });
+});
+
+describe('a blank sheet', () => {
+  it('starts at the score that yields no modifier — the two are written apart', () => {
+    // DEFAULT_STAT_SCORE is a literal because ABILITY_SCORE_BASELINE is declared below
+    // it in the file. This is the assertion that keeps them honest.
+    expect(DEFAULT_STAT_SCORE).toBe(ABILITY_SCORE_BASELINE);
+  });
+
+  it('starts at a score the schema will accept', () => {
+    expect(DEFAULT_STAT_SCORE).toBeGreaterThanOrEqual(MIN_STAT);
+    expect(DEFAULT_STAT_SCORE).toBeLessThanOrEqual(MAX_STAT);
   });
 });
