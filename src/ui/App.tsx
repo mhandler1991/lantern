@@ -1,48 +1,69 @@
+/**
+ * The app: a dark room, and one sheet of paper on the table (DESIGN.md §6).
+ *
+ * Everything above the sheet is a report on the state of the save, and every one of them
+ * degrades rather than blocks (PRD.md principle 4): a stored character that could not be
+ * read is set aside and a new sheet opens, a browser that will not let us write says so
+ * and the sheet still works, and a save that failed is shown rather than swallowed. None
+ * of them can stop a player using the sheet, which is the whole point of the principle.
+ *
+ * There is no room, no packs and no dice yet, and the sheet does not need any of them.
+ */
+
 import type { ReactElement } from 'react';
-import { MAX_CHARACTER_NAME_LENGTH } from '../constants';
+import '../styles/app.css';
 import { formatProblems } from '../model/character';
 import { usePersistentCharacter } from '../state/use-persistent-character';
+import { CharacterSheet } from './sheet/CharacterSheet';
 
-/**
- * A placeholder sheet — one field — standing in until issue #17 builds the real one.
- * It exists so the persistence loop in `state/` has a writer: type a name, reload the
- * tab, and the name is still there. Everything below the hook call is temporary; the
- * hook is not.
- */
 export function App(): ReactElement {
-  const { character, setCharacter, load } = usePersistentCharacter();
+  const { character, setCharacter, load, lastSave } = usePersistentCharacter();
 
   return (
-    <main>
-      <h1>Lantern</h1>
-      <p>A companion for playing Shadowdark RPG with friends who are not in the room.</p>
-
-      <label htmlFor="character-name">Name</label>
-      <input
-        id="character-name"
-        value={character.name}
-        maxLength={MAX_CHARACTER_NAME_LENGTH}
-        onChange={(event) => {
-          const { value } = event.target;
-          setCharacter((previous) => ({ ...previous, name: value }));
-        }}
-      />
-
-      {/* Warn, do not block: the sheet is usable in every one of these cases. */}
-      {load.kind === 'rejected' && (
-        <p role="alert">
-          The saved character could not be read, so this is a new one.
-          {load.kept ? ' The old value has been kept aside, unchanged.' : ''}
-          {'\n'}
-          {formatProblems(load.problems)}
+    <div className="app">
+      <header className="app__header">
+        <h1 className="app__title">Lantern</h1>
+        <p className="app__tagline">
+          A companion for playing Shadowdark RPG with friends who are not in the room.
         </p>
-      )}
-      {load.kind === 'unavailable' && (
-        <p role="alert">
-          This browser is not letting Lantern save. The sheet works, but it will be gone
-          when you close the tab. ({load.failure.detail})
-        </p>
-      )}
-    </main>
+      </header>
+
+      <div className="app__notices">
+        {load.kind === 'rejected' && (
+          <p className="notice notice--danger" role="alert">
+            The saved character could not be read, so this is a new one.
+            {load.kept ? ' The old value has been kept aside, unchanged.' : ''}
+            {'\n'}
+            {formatProblems(load.problems)}
+          </p>
+        )}
+
+        {load.kind === 'unavailable' && (
+          <p className="notice notice--danger" role="alert">
+            This browser is not letting Lantern save. The sheet works, but it will be gone
+            when you close the tab. ({load.failure.detail})
+          </p>
+        )}
+
+        {load.kind === 'loaded' && load.migratedFrom !== null && (
+          <p className="notice" role="status">
+            This character was saved by an older version of Lantern (format{' '}
+            {load.migratedFrom}) and has been brought forward.
+          </p>
+        )}
+
+        {lastSave !== null && !lastSave.ok && (
+          <p className="notice notice--danger" role="alert">
+            {lastSave.reason === 'storage'
+              ? `The last change could not be saved. (${lastSave.failure.detail})`
+              : `The last change could not be saved, because the sheet did not validate:\n${formatProblems(lastSave.problems)}`}
+          </p>
+        )}
+      </div>
+
+      <main>
+        <CharacterSheet character={character} setCharacter={setCharacter} />
+      </main>
+    </div>
   );
 }

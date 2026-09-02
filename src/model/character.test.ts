@@ -20,7 +20,10 @@ import {
   MAX_COIN,
   MAX_CONDITION_LENGTH,
   MAX_HP,
+  MAX_ITEM_SLOTS,
   MAX_ITEMS,
+  MAX_NAME_LENGTH,
+  MAX_ROW_ID_LENGTH,
   MAX_STAT,
   MIN_CHARACTER_LEVEL,
   MIN_STAT,
@@ -28,11 +31,11 @@ import {
 
 const VESS = {
   format: 'lantern-character',
-  formatVersion: 1,
+  formatVersion: 2,
   id: 'c_9f3a2b',
   name: 'Vess of the Low Road',
-  ancestry: 'core:ancestry:human',
-  class: 'core:class:thief',
+  ancestry: { ref: 'core:ancestry:human', name: '' },
+  class: { ref: 'core:class:thief', name: '' },
   alignment: 'neutral',
   level: 3,
   xp: 6,
@@ -40,21 +43,30 @@ const VESS = {
   hp: { current: 11, max: 17 },
   luck: 1,
   gold: { gp: 22, sp: 0, cp: 0 },
-  items: [{ ref: 'core:item:shortsword', qty: 1, equipped: true }],
-  spells: [{ ref: 'core:spell:magic-missile' }],
+  items: [
+    { id: 'r_7c1e4a', ref: 'core:item:shortsword', name: '', slots: 0, qty: 1, equipped: true },
+    { id: 'r_18bd90', ref: null, name: 'Silvered dagger', slots: 1, qty: 1, equipped: false },
+  ],
+  spells: [{ id: 'r_2b4801', ref: 'core:spell:magic-missile', name: '' }],
   talents: [
     {
+      id: 'r_91af22',
       text: "Your torch burns a quarter longer than anyone else's",
       source: 'core:table:thief-talents',
       rolled: 5,
     },
   ],
-  lights: [{ ref: 'core:item:torch', litAt: null, minutes: 60 }],
+  lights: [{ id: 'r_3d0255', ref: 'core:item:torch', name: '', litAt: null, minutes: 60 }],
   conditions: ['blessed'],
-  journal: [{ at: 1735689600000, text: 'The innkeeper lied about the well.' }],
-  quests: [{ text: 'Find out what is down the well', done: false }],
+  journal: [{ id: 'r_5e7713', at: 1735689600000, text: 'The innkeeper lied about the well.' }],
+  quests: [{ id: 'r_a4c9f0', text: 'Find out what is down the well', done: false }],
   packsUsed: ['core', 'frostbound'],
 } as const;
+
+/** One inventory row, so a test about one field does not restate the other five. */
+function item(over: Record<string, unknown> = {}): unknown {
+  return { id: 'r_row', ref: 'core:item:torch', name: '', slots: 0, qty: 1, equipped: false, ...over };
+}
 
 /** A copy of Vess with one field replaced. Structured so a test reads as one claim. */
 function withField(field: string, value: unknown): unknown {
@@ -78,8 +90,8 @@ describe('the documented shape', () => {
     const blank = {
       ...VESS,
       name: '',
-      ancestry: null,
-      class: null,
+      ancestry: { ref: null, name: '' },
+      class: { ref: null, name: '' },
       alignment: null,
       level: MIN_CHARACTER_LEVEL,
       xp: 0,
@@ -98,7 +110,7 @@ describe('the documented shape', () => {
 
   it('keeps a talent whose pack is gone — text and source, chosen or rolled', () => {
     const chosen = withField('talents', [
-      { text: 'Written in by hand, not rolled for', source: null, rolled: null },
+      { id: 'r_hand', text: 'Written in by hand, not rolled for', source: null, rolled: null },
     ]);
     expect(parseCharacter(chosen).ok).toBe(true);
   });
@@ -111,6 +123,62 @@ describe('the documented shape', () => {
     const first = result.data.talents[0];
     expect(level).toBe(3);
     expect(first?.text).toBe("Your torch burns a quarter longer than anyone else's");
+  });
+});
+
+describe('a sheet built with no packs loaded', () => {
+  // PRD.md principle 6: the app must be usable alone, offline, with no packs at all.
+  // Version 1 could not hold this character, which is why version 2 exists.
+  it('accepts a row that is words rather than a reference', () => {
+    const typed = {
+      ...VESS,
+      ancestry: { ref: null, name: 'Half-orc' },
+      class: { ref: null, name: 'Ratcatcher' },
+      items: [item({ ref: null, name: 'Silvered dagger', slots: 1 })],
+      spells: [{ id: 'r_s', ref: null, name: 'Hoarfrost' }],
+      lights: [{ id: 'r_l', ref: null, name: 'Lantern', litAt: null, minutes: 60 }],
+    };
+    expect(parseCharacter(typed).ok).toBe(true);
+  });
+
+  it('refuses the version 1 shape, where ancestry was a bare ref', () => {
+    expect(parseCharacter(withField('ancestry', 'core:ancestry:human')).ok).toBe(false);
+    expect(parseCharacter(withField('ancestry', null)).ok).toBe(false);
+  });
+
+  it('bounds what a player may claim one of a thing costs to carry', () => {
+    expect(parseCharacter(withField('items', [item({ slots: MAX_ITEM_SLOTS })])).ok).toBe(true);
+    expect(parseCharacter(withField('items', [item({ slots: MAX_ITEM_SLOTS + 1 })])).ok).toBe(false);
+    expect(parseCharacter(withField('items', [item({ slots: -1 })])).ok).toBe(false);
+    expect(parseCharacter(withField('items', [item({ slots: 0.5 })])).ok).toBe(false);
+  });
+
+  it('bounds the words themselves', () => {
+    const long = 'n'.repeat(MAX_NAME_LENGTH + 1);
+    expect(parseCharacter(withField('items', [item({ name: long })])).ok).toBe(false);
+    expect(parseCharacter(withField('ancestry', { ref: null, name: long })).ok).toBe(false);
+  });
+});
+
+describe('row ids', () => {
+  // Two torches are two rows with the same ref, so the id is the only key that works.
+  it('requires one on every row', () => {
+    const withoutId: Record<string, unknown> = { ...(item() as Record<string, unknown>) };
+    delete withoutId.id;
+    expect(pathsOf(withField('items', [withoutId]))).toEqual(['items[0].id']);
+  });
+
+  it('rejects one that could not be used as a key', () => {
+    expect(parseCharacter(withField('items', [item({ id: '' })])).ok).toBe(false);
+    expect(parseCharacter(withField('items', [item({ id: 'r 1' })])).ok).toBe(false);
+    expect(
+      parseCharacter(withField('items', [item({ id: 'r'.repeat(MAX_ROW_ID_LENGTH + 1) })])).ok,
+    ).toBe(false);
+  });
+
+  it('allows two rows of the same thing, told apart by their ids', () => {
+    const twoTorches = withField('items', [item({ id: 'r_one' }), item({ id: 'r_two' })]);
+    expect(parseCharacter(twoTorches).ok).toBe(true);
   });
 });
 
@@ -132,7 +200,7 @@ describe('no derived value can be stored', () => {
 describe('the envelope', () => {
   it('rejects unrelated JSON early', () => {
     expect(parseCharacter(withField('format', 'lantern-pack')).ok).toBe(false);
-    expect(parseCharacter(withField('formatVersion', 2)).ok).toBe(false);
+    expect(parseCharacter(withField('formatVersion', 3)).ok).toBe(false);
   });
 
   it.each([null, undefined, 'a string', 42, [], true])('rejects %p', (input) => {
@@ -179,11 +247,7 @@ describe('numbers a hostile file would inflate', () => {
   });
 
   it('bounds the lists, so an import cannot exhaust the tab', () => {
-    const many = Array.from({ length: MAX_ITEMS + 1 }, () => ({
-      ref: 'core:item:torch',
-      qty: 1,
-      equipped: false,
-    }));
+    const many = Array.from({ length: MAX_ITEMS + 1 }, () => item());
     expect(parseCharacter(withField('items', many)).ok).toBe(false);
   });
 
@@ -209,7 +273,7 @@ describe('references into pack content', () => {
     ['a path', '../../etc/passwd'],
     ['markup', '<script>alert(1)</script>'],
   ])('rejects a ref that is %s', (_why, ref) => {
-    expect(parseCharacter(withField('items', [{ ref, qty: 1, equipped: false }])).ok).toBe(false);
+    expect(parseCharacter(withField('items', [item({ ref })])).ok).toBe(false);
   });
 
   it('rejects a pack id in packsUsed that is not a bare id', () => {
@@ -220,8 +284,7 @@ describe('references into pack content', () => {
 
 describe('rows', () => {
   it('requires a whole, positive quantity', () => {
-    const qty = (value: unknown): unknown =>
-      withField('items', [{ ref: 'core:item:torch', qty: value, equipped: false }]);
+    const qty = (value: unknown): unknown => withField('items', [item({ qty: value })]);
     expect(parseCharacter(qty(0)).ok).toBe(false);
     expect(parseCharacter(qty(-1)).ok).toBe(false);
     expect(parseCharacter(qty(1.5)).ok).toBe(false);
@@ -229,23 +292,33 @@ describe('rows', () => {
   });
 
   it('rejects a light that stores a countdown instead of when it was lit', () => {
-    const light = { ref: 'core:item:torch', litAt: null, minutes: 60, remaining: 12 };
+    const light = {
+      id: 'r_torch',
+      ref: 'core:item:torch',
+      name: '',
+      litAt: null,
+      minutes: 60,
+      remaining: 12,
+    };
     expect(parseCharacter(withField('lights', [light])).ok).toBe(false);
   });
 
   it('rejects a talent that tries to modify a stat', () => {
     // PRD.md principle 1 — a talent is text on a sheet, never an effect.
-    const talent = { text: 'A talent', source: null, rolled: null, grants: { str: 2 } };
+    const talent = {
+      id: 'r_talent',
+      text: 'A talent',
+      source: null,
+      rolled: null,
+      grants: { str: 2 },
+    };
     expect(parseCharacter(withField('talents', [talent])).ok).toBe(false);
   });
 });
 
 describe('problems are written to be pasted back', () => {
   it('gives an exact path into a nested row', () => {
-    const items = [
-      { ref: 'core:item:torch', qty: 1, equipped: false },
-      { ref: 'core:item:rope', qty: 'two', equipped: false },
-    ];
+    const items = [item(), item({ ref: 'core:item:rope', qty: 'two' })];
     expect(pathsOf(withField('items', items))).toEqual(['items[1].qty']);
   });
 

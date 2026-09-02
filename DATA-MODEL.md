@@ -306,11 +306,11 @@ The character is local and never sent whole. Export writes this file.
 ```json
 {
   "format": "lantern-character",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "c_9f3a2b",
   "name": "Vess of the Low Road",
-  "ancestry": "core:ancestry:human",
-  "class": "core:class:thief",
+  "ancestry": { "ref": "core:ancestry:human", "name": "" },
+  "class": { "ref": "core:class:thief", "name": "" },
   "alignment": "neutral",
   "level": 3,
   "xp": 6,
@@ -318,15 +318,18 @@ The character is local and never sent whole. Export writes this file.
   "hp": { "current": 11, "max": 17 },
   "luck": 1,
   "gold": { "gp": 22, "sp": 0, "cp": 0 },
-  "items": [ { "ref": "core:item:shortsword", "qty": 1, "equipped": true } ],
-  "spells": [ { "ref": "core:spell:magic-missile" } ],
-  "talents": [
-    { "text": "Your torch burns a quarter longer than anyone else's", "source": "core:table:thief-talents", "rolled": 5 }
+  "items": [
+    { "id": "r_7c1e4a", "ref": "core:item:shortsword", "name": "", "slots": 0, "qty": 1, "equipped": true },
+    { "id": "r_18bd90", "ref": null, "name": "Silvered dagger", "slots": 1, "qty": 1, "equipped": false }
   ],
-  "lights": [ { "ref": "core:item:torch", "litAt": null, "minutes": 60 } ],
+  "spells": [ { "id": "r_2b4801", "ref": "core:spell:magic-missile", "name": "" } ],
+  "talents": [
+    { "id": "r_91af22", "text": "Your torch burns a quarter longer than anyone else's", "source": "core:table:thief-talents", "rolled": 5 }
+  ],
+  "lights": [ { "id": "r_3d0255", "ref": "core:item:torch", "name": "", "litAt": null, "minutes": 60 } ],
   "conditions": ["blessed"],
-  "journal": [ { "at": 1735689600000, "text": "The innkeeper lied about the well." } ],
-  "quests": [ { "text": "Find out what is down the well", "done": false } ],
+  "journal": [ { "id": "r_5e7713", "at": 1735689600000, "text": "The innkeeper lied about the well." } ],
+  "quests": [ { "id": "r_a4c9f0", "text": "Find out what is down the well", "done": false } ],
   "packsUsed": ["core", "frostbound"]
 }
 ```
@@ -334,7 +337,11 @@ The character is local and never sent whole. Export writes this file.
 | Field | Shape | Notes |
 |---|---|---|
 | `id` | `[A-Za-z0-9_-]`, 1-32 | Generated locally. A storage key and a React key. |
-| `ancestry`, `class`, `alignment` | ref or `null` | Null before creation fills them in. A half-built character still loads. |
+| every row `id` | `[A-Za-z0-9_-]`, 1-32 | Generated locally when the row is added. Two torches are two rows with the same `ref`, so `ref` is not a key and an index is not one either. |
+| `ancestry`, `class` | `{ ref, name }` | `ref` names pack content; `name` is the player's own words. `{ ref: null, name: "" }` is unchosen. |
+| `alignment` | enum or `null` | Null before creation fills it in. A half-built character still loads. |
+| `items[]`, `spells[]`, `lights[]` | `{ id, ref, name, … }` | Same pair. A sheet built with no packs loaded has a `name` and no `ref` — PRD.md principle 6. |
+| `items[].slots` | 0-99 | What **one** of it costs to carry, when no loaded pack answers for the row. A pack's own `slots` wins; this is the fallback. |
 | `level` | 0-10 | Zero is a real state, not an empty one. |
 | `hp.current` | may be negative | A dying character is a state the sheet has to hold. |
 | `conditions` | strings | The only private field the public projection carries (`DESIGN.md` §2). |
@@ -361,6 +368,11 @@ render those items as orphaned rather than losing them.
 
 Talents store the **text** and the **source**, because that text may come from a pack
 that is later turned off. The sheet must survive that.
+
+**`name` is a fallback, never a cache.** Nothing in the app copies a pack's label onto a
+sheet: a row either references pack content or carries the words a player typed. That is
+what keeps "the sheet holds no pack content" true while still letting somebody open the
+app with no packs at all and write *Shortsword* in a box.
 
 ---
 
@@ -403,9 +415,15 @@ the stored version to the current one.
   build cannot know what a later one added; downgrading it would be the data loss
   PRD.md principle 4 forbids.
 
-The map is empty at `formatVersion: 1` — nothing has been superseded yet. The chain that
-walks it is tested against injected migrations, so the first real migration is written
-against machinery that already works.
+**1 → 2** is the only step so far. Version 1 could name a thing only when a loaded pack
+defined it, which made a character built with no packs unrepresentable; version 2 gives
+every content row a `{ ref, name }` pair, an `id`, and — on items — a `slots` fallback.
+The migration wraps a v1 `ancestry` and `class` ref, stamps an id on every row, and fills
+the new fields with their empty values. Nothing is dropped, and a row already carrying a
+key this build does not know keeps it: the parse that follows is what judges it.
+
+The chain is also tested against injected migrations, with versions that do not exist, so
+a future step is proven against machinery that already works.
 
 ### Writing
 
