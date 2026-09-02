@@ -351,7 +351,10 @@ an `xpToNext` is reported, not silently stripped and re-saved.
 above verbatim. If the two ever disagree, the tests fail.
 
 **Derived values are never stored.** AC, slot count, modifiers, XP-to-next and spell DC
-are computed. Storing them guarantees they will disagree with reality.
+are computed. Storing them guarantees they will disagree with reality. They live in
+`src/model/derived.ts`, which takes the item and class facts it needs as an argument so a
+sheet can still be read with a pack turned off — an unresolved reference is reported in
+the result and costs nothing.
 
 `packsUsed` lets the app warn when a character needs a pack that is not loaded, and
 render those items as orphaned rather than losing them.

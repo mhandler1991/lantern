@@ -294,3 +294,33 @@ export const HARNESS_RECONCILE_MS = 2_000;
 
 /** The log is a ring buffer. A page left open overnight must not exhaust the tab. */
 export const MAX_HARNESS_LOG_LINES = 500;
+
+// ---------------------------------------------------------------------------
+// Derived values. CLAUDE.md §4 — computed on read, never stored.
+// ---------------------------------------------------------------------------
+
+/**
+ * A modifier is `(score − BASELINE) / PER_POINTS`, rounded down. Both halves are named
+ * because the shape of that formula is a product decision about the system being
+ * played, not an arithmetic detail: a pack for a different game would move both.
+ */
+export const ABILITY_SCORE_BASELINE = 10;
+export const ABILITY_POINTS_PER_MODIFIER = 2;
+
+/** AC with nothing worn, before dexterity. Armour entries in a pack replace it. */
+export const UNARMORED_AC = 10;
+
+/** Carry capacity is strength, or this, whichever is larger. */
+export const MIN_CARRY_SLOTS = 10;
+
+/** Coins are weightless until there are enough of them; this many fill one slot. */
+export const COINS_PER_SLOT = 100;
+
+/**
+ * XP needed to advance is `level × this`, and resets on each level — which is why a
+ * sheet can hold `level: 3, xp: 6` (DATA-MODEL.md §11) rather than a running total.
+ */
+export const XP_PER_LEVEL = 10;
+
+/** A spellcasting check is against this plus the spell's tier. */
+export const SPELL_DC_BASE = 10;
