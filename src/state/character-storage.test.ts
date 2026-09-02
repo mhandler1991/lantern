@@ -3,7 +3,8 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { CHARACTER_FORMAT, CHARACTER_FORMAT_VERSION, MAX_CHARACTER_BYTES } from '../constants';
-import type { CharacterMigration, StoredDocument } from './character-storage';
+import { parseCharacter } from '../model/character';
+import type { CharacterMigration, MigrationResult, StoredDocument } from './character-storage';
 import {
   CHARACTER_KEY,
   REJECTED_CHARACTER_KEY,
@@ -268,4 +269,122 @@ describe('formatVersion', () => {
       expect(result.ok).toBe(false);
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// The one real migration
+// ---------------------------------------------------------------------------
+
+/** A character as version 1 stored it: bare refs, no row ids, no free-text names. */
+const VESS_V1: StoredDocument = {
+  format: CHARACTER_FORMAT,
+  formatVersion: 1,
+  id: 'c_9f3a2b',
+  name: 'Vess of the Low Road',
+  ancestry: 'core:ancestry:human',
+  class: 'core:class:thief',
+  alignment: 'neutral',
+  level: 3,
+  xp: 6,
+  stats: { str: 13, dex: 16, con: 11, int: 9, wis: 12, cha: 6 },
+  hp: { current: 11, max: 17 },
+  luck: 1,
+  gold: { gp: 22, sp: 0, cp: 0 },
+  items: [{ ref: 'core:item:shortsword', qty: 1, equipped: true }],
+  spells: [{ ref: 'core:spell:magic-missile' }],
+  talents: [{ text: 'A talent', source: null, rolled: null }],
+  lights: [{ ref: 'core:item:torch', litAt: null, minutes: 60 }],
+  conditions: ['blessed'],
+  journal: [{ at: 1735689600000, text: 'The innkeeper lied about the well.' }],
+  quests: [{ text: 'Find out what is down the well', done: false }],
+  packsUsed: ['core', 'frostbound'],
+};
+
+/** The registered chain, not an injected one — this is the step that actually ships. */
+function migrateVessV1(): MigrationResult {
+  return migrateCharacterDocument(VESS_V1);
+}
+
+describe('formatVersion 1 to 2', () => {
+  it('brings a version 1 character all the way to one that parses', () => {
+    const result = migrateVessV1();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.from).toBe(1);
+    const parsed = parseCharacter(result.document);
+    expect(parsed.ok).toBe(true);
+  });
+
+  it('wraps the refs that became a name-and-reference pair', () => {
+    const result = migrateVessV1();
+    if (!result.ok) throw new Error('expected the migration to succeed');
+
+    expect(result.document.ancestry).toEqual({ ref: 'core:ancestry:human', name: '' });
+    expect(result.document.class).toEqual({ ref: 'core:class:thief', name: '' });
+  });
+
+  it('gives every row an id that would serve as a key', () => {
+    const result = migrateVessV1();
+    if (!result.ok) throw new Error('expected the migration to succeed');
+
+    const parsed = parseCharacter(result.document);
+    if (!parsed.ok) throw new Error('expected the migrated character to parse');
+
+    const ids = [
+      ...parsed.character.items,
+      ...parsed.character.spells,
+      ...parsed.character.talents,
+      ...parsed.character.lights,
+      ...parsed.character.journal,
+      ...parsed.character.quests,
+    ].map((row) => row.id);
+
+    expect(ids).toHaveLength(6);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('costs a migrated item nothing of its own — the pack still answers for it', () => {
+    const result = migrateVessV1();
+    if (!result.ok) throw new Error('expected the migration to succeed');
+
+    const parsed = parseCharacter(result.document);
+    if (!parsed.ok) throw new Error('expected the migrated character to parse');
+
+    expect(parsed.character.items[0]?.slots).toBe(0);
+    expect(parsed.character.items[0]?.ref).toBe('core:item:shortsword');
+    expect(parsed.character.items[0]?.name).toBe('');
+  });
+
+  it('loses nothing a version 1 sheet was carrying', () => {
+    const result = migrateVessV1();
+    if (!result.ok) throw new Error('expected the migration to succeed');
+
+    expect(result.document.name).toBe(VESS_V1.name);
+    expect(result.document.conditions).toEqual(['blessed']);
+    expect(result.document.packsUsed).toEqual(['core', 'frostbound']);
+  });
+
+  it('never overwrites a key a stored row already carried', () => {
+    // A row from a build that added something this one does not know about. The
+    // migration leaves it, and the strict parse is what reports it.
+    const withExtra = { ...VESS_V1, items: [{ ref: 'core:item:torch', qty: 1, equipped: false, name: 'Mine' }] };
+    const result = migrateCharacterDocument(withExtra);
+    if (!result.ok) throw new Error('expected the migration to succeed');
+
+    const items = result.document.items as ReadonlyArray<Record<string, unknown>>;
+    expect(items[0]?.name).toBe('Mine');
+  });
+
+  it('reads back through storage as a loaded character, not a rejected one', () => {
+    localStorage.setItem(CHARACTER_KEY, JSON.stringify(VESS_V1));
+
+    const load = loadCharacter();
+
+    expect(load.kind).toBe('loaded');
+    if (load.kind !== 'loaded') return;
+    expect(load.migratedFrom).toBe(1);
+    expect(load.character.name).toBe('Vess of the Low Road');
+  });
 });

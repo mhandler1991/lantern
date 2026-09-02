@@ -21,7 +21,7 @@ import type { Character } from '../model/character';
 /** Nothing rolled, nothing carried, nothing owed. */
 const NONE = 0;
 
-/** Eight bytes of entropy as hex, behind a `c_`: 18 characters, well inside the id cap. */
+/** Eight bytes of entropy as hex, behind a prefix: 18 characters, inside every id cap. */
 const ID_BYTES = 8;
 const HEX = 16;
 const BYTE_HEX_DIGITS = 2;
@@ -45,13 +45,27 @@ function randomBytes(count: number): Uint8Array {
   return bytes;
 }
 
-/** `c_1f3a…`, matching `CHARACTER_ID_PATTERN`. Generated locally and never negotiated. */
-export function newCharacterId(): string {
+/** `c_1f3a…` or `r_1f3a…`. The two patterns admit the same shape; the prefix is for eyes. */
+function localId(prefix: string): string {
   const hex = Array.from(randomBytes(ID_BYTES), (byte) =>
     byte.toString(HEX).padStart(BYTE_HEX_DIGITS, '0'),
   ).join('');
 
-  return `c_${hex}`;
+  return `${prefix}_${hex}`;
+}
+
+/** Matches `CHARACTER_ID_PATTERN`. Generated locally and never negotiated. */
+export function newCharacterId(): string {
+  return localId('c');
+}
+
+/**
+ * One row on a sheet — an item, a spell, a talent. Matches `ROW_ID_PATTERN`. It is a
+ * React key that has to survive the row being edited, so it is generated once when the
+ * row is added and never derived from the row's contents.
+ */
+export function newRowId(): string {
+  return localId('r');
 }
 
 /** Pure: the same id gives the same character. */
@@ -63,8 +77,9 @@ export function createCharacter(id: string, name = ''): Character {
     id,
     name,
 
-    ancestry: null,
-    class: null,
+    // `{ ref: null, name: '' }` is unchosen — a real state, not a missing one.
+    ancestry: { ref: null, name: '' },
+    class: { ref: null, name: '' },
     alignment: null,
 
     level: MIN_CHARACTER_LEVEL,

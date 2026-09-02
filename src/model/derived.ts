@@ -16,6 +16,12 @@
  * resolver (which does not exist until Phase 2, and would drag the model into pack load
  * order), the caller passes a lookup. `pack.ts` will satisfy `ItemLookup` as it stands.
  *
+ * One rule decides every lookup below: **a loaded pack's answer wins, and the row's own
+ * value is the fallback.** A row with no `ref` at all is a thing the player wrote down
+ * with no pack loaded (PRD.md principle 6) — it is answered from the row and is not
+ * *unresolved*. Only a `ref` that no loaded pack defines is unresolved, and that one is
+ * reported.
+ *
  * 🚫 Nothing here adjudicates. These are arithmetic over numbers a pack supplied; no
  * function reads a talent, and none of them modify a stat. CLAUDE.md §4.
  */
@@ -122,6 +128,10 @@ export function computeArmorClass(character: Character, lookup: ItemLookup): Arm
   for (const item of character.items) {
     if (!item.equipped) continue;
 
+    // A free-text row carries no armour facts, so it contributes nothing and is not a
+    // broken reference. Only a ref no pack answers for is reported.
+    if (item.ref === null) continue;
+
     const facts = lookup(item.ref);
     if (facts === null) {
       unresolved.add(item.ref);
@@ -160,7 +170,7 @@ export type Carry = {
   readonly coinSlots: number;
   /** Strictly over capacity. Filling the last slot exactly is not encumbrance. */
   readonly isEncumbered: boolean;
-  /** Carried items no loaded pack defines. They were counted as costing nothing. */
+  /** Carried items no loaded pack defines. They were counted at the row's own `slots`. */
   readonly unresolved: readonly Ref[];
 };
 
@@ -170,20 +180,21 @@ export type Carry = {
  * the same stackable therefore cost two slots — the arithmetic follows the inventory as
  * the player arranged it rather than silently merging rows behind them.
  *
- * An unresolved item costs nothing and is reported. Guessing a cost would quietly change
- * a player's encumbrance because a pack was turned off.
+ * The cost of one of a thing comes from the loaded pack when there is one, and from the
+ * row's own `slots` otherwise — which is both how a sheet built with no packs at all
+ * still counts its gear, and what an orphaned row falls back to when its pack is turned
+ * off. A row whose `ref` no pack answers for is still reported, so a player can see why
+ * a number moved.
  */
 export function computeCarry(character: Character, lookup: ItemLookup): Carry {
   const unresolved = new Set<Ref>();
 
   let itemSlots = NONE;
   for (const item of character.items) {
-    const facts = lookup(item.ref);
-    if (facts === null) {
-      unresolved.add(item.ref);
-      continue;
-    }
-    itemSlots += Math.ceil(facts.slots * item.qty);
+    const facts = item.ref === null ? null : lookup(item.ref);
+    if (facts === null && item.ref !== null) unresolved.add(item.ref);
+
+    itemSlots += Math.ceil((facts?.slots ?? item.slots) * item.qty);
   }
 
   const coins = character.gold.gp + character.gold.sp + character.gold.cp;

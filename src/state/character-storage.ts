@@ -25,6 +25,7 @@ import {
 } from '../constants';
 import type { Character, CharacterProblem } from '../model/character';
 import { parseCharacter } from '../model/character';
+import { newRowId } from './new-character';
 import type { StorageDriver, StorageFailure } from './storage';
 import { defaultStorageDriver, describeError, readText, removeKey, writeText } from './storage';
 
@@ -41,6 +42,13 @@ export const REJECTED_CHARACTER_KEY = `${STORAGE_PREFIX}character.rejected`;
 /** The first version, so `formatVersion: 0` is a broken file rather than an old one. */
 const FIRST_FORMAT_VERSION = 1;
 
+/** A migration's endpoints are fixed labels: 1 → 2 stays 1 → 2 after the format moves on. */
+const FORMAT_VERSION_1 = 1;
+const FORMAT_VERSION_2 = 2;
+
+/** Nothing carried. A floor, not a business rule. */
+const NONE = 0;
+
 /** One step forward. Applied to a document already known to be at `from`. */
 export type CharacterMigration = (document: StoredDocument) => StoredDocument;
 
@@ -48,12 +56,57 @@ export type CharacterMigration = (document: StoredDocument) => StoredDocument;
 export type StoredDocument = Readonly<Record<string, unknown>>;
 
 /**
- * Keyed by the version being migrated **from**; each entry produces the next one up.
- * Empty at `formatVersion: 1` because nothing has been superseded yet — the chain that
- * walks it is what issue #15 owed, and it is tested against injected migrations rather
- * than left to be written for the first time on the day a format actually changes.
+ * A v1 `ancestry` or `class` was a bare ref or null. A v2 one is a `ContentRef`, so that
+ * a character built with no packs has somewhere to put the words the player typed.
  */
-export const CHARACTER_MIGRATIONS: ReadonlyMap<number, CharacterMigration> = new Map();
+function toContentRef(value: unknown): unknown {
+  if (value === null) return { ref: null, name: '' };
+  if (typeof value === 'string') return { ref: value, name: '' };
+
+  // Anything else was already wrong in v1. Left as it is, so the v2 parse reports it
+  // against the shape it actually has rather than one this function invented.
+  return value;
+}
+
+/**
+ * Give every row in a list an id, and any defaults v2 added. `defaults` sit *under* the
+ * row so a key the stored row already carries is never overwritten — a value this build
+ * does not understand is the player's, and the parse that follows is what judges it.
+ */
+function withRowIds(value: unknown, defaults: Readonly<Record<string, unknown>> = {}): unknown {
+  if (!Array.isArray(value)) return value;
+
+  return value.map((row: unknown) => (isDocument(row) ? { ...defaults, ...row, id: newRowId() } : row));
+}
+
+/**
+ * 1 → 2. Rows gain an `id` and a free-text `name`; items gain their own `slots`, left at
+ * zero because every v1 row referenced a pack and the pack's answer is the one that wins
+ * (`model/derived.ts`). Nothing is dropped, so the migration cannot lose player data.
+ */
+function migrateCharacter1To2(document: StoredDocument): StoredDocument {
+  return {
+    ...document,
+    formatVersion: FORMAT_VERSION_2,
+    ancestry: toContentRef(document.ancestry),
+    class: toContentRef(document.class),
+    items: withRowIds(document.items, { name: '', slots: NONE }),
+    spells: withRowIds(document.spells, { name: '' }),
+    lights: withRowIds(document.lights, { name: '' }),
+    talents: withRowIds(document.talents),
+    journal: withRowIds(document.journal),
+    quests: withRowIds(document.quests),
+  };
+}
+
+/**
+ * Keyed by the version being migrated **from**; each entry produces the next one up.
+ * The chain that walks this map is tested against injected migrations as well, so a
+ * future step is proven before it is written rather than on the day it ships.
+ */
+export const CHARACTER_MIGRATIONS: ReadonlyMap<number, CharacterMigration> = new Map([
+  [FORMAT_VERSION_1, migrateCharacter1To2],
+]);
 
 export type MigrationResult =
   | {

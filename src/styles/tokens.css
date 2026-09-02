@@ -157,6 +157,16 @@
   /* Prose measure. A column wider than this stops being readable. */
   --measure: 68ch;
 
+  /* Layout measures, named because a component may not write a length of its own.
+   * The sheet is three columns of paper on a table; a column narrower than
+   * `--measure-column` stops holding a row of fields and the grid drops one. */
+  --measure-sheet: 84rem;
+  --measure-column: 21rem;
+
+  /* A box holding at most a three-digit score, and one holding a short label. */
+  --width-field-number: 4.5rem;
+  --width-field-short: 9rem;
+
   /* ---------------------------------------------------------------------
    * Space — a 4px base, doubling with halves where it needs them
    * ------------------------------------------------------------------ */

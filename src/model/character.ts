@@ -30,12 +30,14 @@ import {
   MAX_DIE_SIDES,
   MAX_HP,
   MAX_ITEM_QUANTITY,
+  MAX_ITEM_SLOTS,
   MAX_ITEMS,
   MAX_JOURNAL_ENTRIES,
   MAX_JOURNAL_ENTRY_LENGTH,
   MAX_LIGHT_MINUTES,
   MAX_LIGHTS,
   MAX_LUCK,
+  MAX_NAME_LENGTH,
   MAX_PACKS_LOADED,
   MAX_QUEST_LENGTH,
   MAX_QUESTS,
@@ -49,6 +51,7 @@ import {
   MIN_STAT,
   PACK_ID_PATTERN,
   REF_PATTERN,
+  ROW_ID_PATTERN,
 } from '../constants';
 
 /**
@@ -80,6 +83,32 @@ export type Ref = z.infer<typeof Ref>;
 export const PackId = z.string().regex(PACK_ID_PATTERN);
 export type PackId = z.infer<typeof PackId>;
 
+/**
+ * A row's identity, generated locally. Two torches are two rows with the same `ref`, so
+ * `ref` is not a key and an array index is not one either (CLAUDE.md §6) — a row that is
+ * keyed by its own text remounts its field on every keystroke. This is that key, and
+ * from Phase 6 it is also how a DM request names the row it is about.
+ */
+export const RowId = z.string().regex(ROW_ID_PATTERN);
+export type RowId = z.infer<typeof RowId>;
+
+/**
+ * What a sheet points at, and what to call it when nothing points back.
+ *
+ * `ref` names pack content. `name` is **the player's own words** — the sheet must be
+ * usable with no packs loaded at all (PRD.md principle 6), and a character built that
+ * way has nothing to reference. It is a fallback, not a cache: nothing in the app copies
+ * a pack's label into it, so turning a pack off still costs the sheet nothing it had.
+ *
+ * `{ ref: null, name: '' }` is a real, unchosen state — the same reading of zero that
+ * lets a level-0 character exist.
+ */
+export const ContentRef = z.strictObject({
+  ref: Ref.nullable(),
+  name: z.string().max(MAX_NAME_LENGTH),
+});
+export type ContentRef = z.infer<typeof ContentRef>;
+
 // ---------------------------------------------------------------------------
 // The parts of a sheet
 // ---------------------------------------------------------------------------
@@ -108,16 +137,30 @@ export const Gold = z.strictObject({
 });
 export type Gold = z.infer<typeof Gold>;
 
-/** One inventory row. `qty` stacks; slot cost is the item's, and is computed. */
+/**
+ * One inventory row. `qty` stacks, and the total cost of the row is computed, never
+ * stored (`model/derived.ts`).
+ *
+ * `slots` is what **one** of these costs to carry, and it is the fallback half of the
+ * rule above: a loaded pack's answer wins, and this is what the player wrote down when
+ * no pack answers. A row that came from a pack leaves it at zero and never reads it.
+ */
 export const CarriedItem = z.strictObject({
-  ref: Ref,
+  id: RowId,
+  ref: Ref.nullable(),
+  name: z.string().max(MAX_NAME_LENGTH),
+  slots: z.int().min(NONE).max(MAX_ITEM_SLOTS),
   qty: z.int().min(1).max(MAX_ITEM_QUANTITY),
   equipped: z.boolean(),
 });
 export type CarriedItem = z.infer<typeof CarriedItem>;
 
-/** Knowing a spell is a reference and nothing more. Tier and range live in the pack. */
-export const KnownSpell = z.strictObject({ ref: Ref });
+/** Knowing a spell is a reference and a name. Tier, range and duration live in the pack. */
+export const KnownSpell = z.strictObject({
+  id: RowId,
+  ref: Ref.nullable(),
+  name: z.string().max(MAX_NAME_LENGTH),
+});
 export type KnownSpell = z.infer<typeof KnownSpell>;
 
 /**
@@ -127,6 +170,7 @@ export type KnownSpell = z.infer<typeof KnownSpell>;
  * can be re-offered; `rolled` is the face that produced it, or null when it was chosen.
  */
 export const Talent = z.strictObject({
+  id: RowId,
   text: z.string().max(MAX_TEXT_LENGTH),
   source: Ref.nullable(),
   rolled: z.int().min(1).max(MAX_DIE_SIDES).nullable(),
@@ -139,7 +183,9 @@ export type Talent = z.infer<typeof Talent>;
  * remainder is a derived value and would drift the first time a tab was backgrounded.
  */
 export const Light = z.strictObject({
-  ref: Ref,
+  id: RowId,
+  ref: Ref.nullable(),
+  name: z.string().max(MAX_NAME_LENGTH),
   litAt: z.int().min(NONE).nullable(),
   minutes: z.int().min(1).max(MAX_LIGHT_MINUTES),
 });
@@ -150,12 +196,14 @@ export const Condition = z.string().min(1).max(MAX_CONDITION_LENGTH);
 export type Condition = z.infer<typeof Condition>;
 
 export const JournalEntry = z.strictObject({
+  id: RowId,
   at: z.int().min(NONE),
   text: z.string().max(MAX_JOURNAL_ENTRY_LENGTH),
 });
 export type JournalEntry = z.infer<typeof JournalEntry>;
 
 export const Quest = z.strictObject({
+  id: RowId,
   text: z.string().max(MAX_QUEST_LENGTH),
   done: z.boolean(),
 });
@@ -166,9 +214,11 @@ export type Quest = z.infer<typeof Quest>;
 // ---------------------------------------------------------------------------
 
 /**
- * `ancestry`, `class` and `alignment` are nullable because a character exists before it
- * has any of them. Creation writes a real character and fills it in; the sheet must
- * render a half-built one rather than refuse it (PRD.md principle 4).
+ * A character exists before it has an ancestry, a class or an alignment. `alignment` is
+ * a closed enum and so is nullable; `ancestry` and `class` are `ContentRef`s and carry
+ * their own unchosen state — `{ ref: null, name: '' }` — which is one fewer null to
+ * unwrap at every use. The sheet must render a half-built character rather than refuse
+ * it (PRD.md principle 4).
  */
 export const Character = z.strictObject({
   format: z.literal(CHARACTER_FORMAT),
@@ -177,8 +227,8 @@ export const Character = z.strictObject({
   id: z.string().regex(CHARACTER_ID_PATTERN),
   name: z.string().max(MAX_CHARACTER_NAME_LENGTH),
 
-  ancestry: Ref.nullable(),
-  class: Ref.nullable(),
+  ancestry: ContentRef,
+  class: ContentRef,
   alignment: Alignment.nullable(),
 
   level: z.int().min(MIN_CHARACTER_LEVEL).max(MAX_CHARACTER_LEVEL),

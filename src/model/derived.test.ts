@@ -39,11 +39,11 @@ import {
 
 const BASE: Character = {
   format: 'lantern-character',
-  formatVersion: 1,
+  formatVersion: 2,
   id: 'c_test',
   name: 'Test',
-  ancestry: null,
-  class: null,
+  ancestry: { ref: null, name: '' },
+  class: { ref: null, name: '' },
   alignment: null,
   level: 1,
   xp: 0,
@@ -65,8 +65,19 @@ function character(overrides: Partial<Character>): Character {
   return { ...BASE, ...overrides };
 }
 
+/**
+ * One inventory row. `slots` is the row's own cost, and it stays at zero unless a test
+ * is about the free-text case: a row that references a pack is costed by the pack.
+ */
+function carried(
+  ref: string | null,
+  over: Partial<Character['items'][number]> = {},
+): Character['items'][number] {
+  return { id: `r_${ref ?? 'free'}_${over.qty ?? 1}`, ref, name: '', slots: 0, qty: 1, equipped: false, ...over };
+}
+
 function equipped(ref: string): Character['items'][number] {
-  return { ref, qty: 1, equipped: true };
+  return carried(ref, { equipped: true });
 }
 
 function armor(over: Partial<ArmorFacts>): ItemFacts {
@@ -218,7 +229,7 @@ describe('armour class', () => {
 
   it('counts armour only while it is equipped', () => {
     const result = computeArmorClass(
-      character({ items: [{ ref: 'core:item:plate', qty: 1, equipped: false }] }),
+      character({ items: [carried('core:item:plate')] }),
       lookup({ 'core:item:plate': armor({ type: 'heavy', ac: 15, addDex: false }) }),
     );
 
@@ -276,7 +287,7 @@ describe('carry slots', () => {
 
   it('multiplies an item cost by the quantity in the row', () => {
     const result = computeCarry(
-      character({ items: [{ ref: 'core:item:arrow-bundle', qty: 3, equipped: false }] }),
+      character({ items: [carried('core:item:arrow-bundle', { qty: 3 })] }),
       lookup({ 'core:item:arrow-bundle': { slots: 2, armor: null } }),
     );
 
@@ -287,15 +298,15 @@ describe('carry slots', () => {
     const rations: ItemFacts = { slots: 1 / 3, armor: null };
 
     const one = computeCarry(
-      character({ items: [{ ref: 'core:item:rations', qty: 1, equipped: false }] }),
+      character({ items: [carried('core:item:rations')] }),
       lookup({ 'core:item:rations': rations }),
     );
     const three = computeCarry(
-      character({ items: [{ ref: 'core:item:rations', qty: 3, equipped: false }] }),
+      character({ items: [carried('core:item:rations', { qty: 3 })] }),
       lookup({ 'core:item:rations': rations }),
     );
     const four = computeCarry(
-      character({ items: [{ ref: 'core:item:rations', qty: 4, equipped: false }] }),
+      character({ items: [carried('core:item:rations', { qty: 4 })] }),
       lookup({ 'core:item:rations': rations }),
     );
 
@@ -306,7 +317,7 @@ describe('carry slots', () => {
 
   it('counts an item a pack declares weightless as nothing', () => {
     const result = computeCarry(
-      character({ items: [{ ref: 'core:item:ring', qty: 5, equipped: false }] }),
+      character({ items: [carried('core:item:ring', { qty: 5 })] }),
       lookup({ 'core:item:ring': { slots: 0, armor: null } }),
     );
 
@@ -341,7 +352,7 @@ describe('carry slots', () => {
     const result = computeCarry(
       character({
         stats: { ...BASE.stats, str: 12 },
-        items: [{ ref: 'core:item:crate', qty: 12, equipped: false }],
+        items: [carried('core:item:crate', { qty: 12 })],
       }),
       lookup({ 'core:item:crate': { slots: 1, armor: null } }),
     );
@@ -355,7 +366,7 @@ describe('carry slots', () => {
     const result = computeCarry(
       character({
         stats: { ...BASE.stats, str: 12 },
-        items: [{ ref: 'core:item:crate', qty: 13, equipped: false }],
+        items: [carried('core:item:crate', { qty: 13 })],
       }),
       lookup({ 'core:item:crate': { slots: 1, armor: null } }),
     );
@@ -368,7 +379,7 @@ describe('carry slots', () => {
       character({
         stats: { ...BASE.stats, str: MIN_CARRY_SLOTS },
         gold: { gp: COINS_PER_SLOT, sp: 0, cp: 0 },
-        items: [{ ref: 'core:item:crate', qty: MIN_CARRY_SLOTS, equipped: false }],
+        items: [carried('core:item:crate', { qty: MIN_CARRY_SLOTS })],
       }),
       lookup({ 'core:item:crate': { slots: 1, armor: null } }),
     );
@@ -379,7 +390,7 @@ describe('carry slots', () => {
 
   it('costs nothing for an item no pack defines, and says which', () => {
     const result = computeCarry(
-      character({ items: [{ ref: 'frostbound:item:sled', qty: 4, equipped: false }] }),
+      character({ items: [carried('frostbound:item:sled', { qty: 4 })] }),
       NOTHING_KNOWN,
     );
 

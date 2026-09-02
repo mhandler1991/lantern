@@ -180,7 +180,14 @@ export const MAX_CHARACTER_LEVEL = 10;
 // ---------------------------------------------------------------------------
 
 export const CHARACTER_FORMAT = 'lantern-character';
-export const CHARACTER_FORMAT_VERSION = 1;
+
+/**
+ * 2 — every row that points at pack content also carries the player's own words, and
+ * every row carries a local `id`. Version 1 could only name a thing a loaded pack
+ * defined, which made a sheet built with no packs unrepresentable and contradicted
+ * PRD.md principle 6. `state/character-storage.ts` migrates 1 forward.
+ */
+export const CHARACTER_FORMAT_VERSION = 2;
 
 /** An exported character, as JSON. Import refuses anything larger. */
 export const MAX_CHARACTER_BYTES = 512 * 1024;
@@ -194,6 +201,16 @@ export const MAX_CHARACTER_NAME_LENGTH = 60;
  */
 export const MAX_CHARACTER_ID_LENGTH = 32;
 export const CHARACTER_ID_PATTERN = new RegExp(`^[A-Za-z0-9_-]{1,${MAX_CHARACTER_ID_LENGTH}}$`);
+
+/**
+ * Every row on a sheet — an item, a spell, a talent — carries one of these. It is a
+ * React key that survives the row being edited (a key derived from the row's own text
+ * changes as it is typed, which remounts the field and loses the caret), and from
+ * Phase 6 it is how a DM request names the row it is about. Same shape and same bound
+ * as a character id, and imported with the same suspicion.
+ */
+export const MAX_ROW_ID_LENGTH = 32;
+export const ROW_ID_PATTERN = new RegExp(`^[A-Za-z0-9_-]{1,${MAX_ROW_ID_LENGTH}}$`);
 
 /**
  * Level 0 is a real state, not an empty one — a character exists before it has a class.
@@ -233,6 +250,17 @@ export const MAX_QUEST_LENGTH = 200;
 
 /** Stacked in one inventory row. Arrows and rations, not a merchant's ledger. */
 export const MAX_ITEM_QUANTITY = 999;
+
+/**
+ * What one of a thing costs to carry, when no loaded pack answers for it and the player
+ * says so themselves. A bound on what may be typed into a box, not a rule about gear —
+ * a pack's own `slots` is unaffected by it.
+ */
+export const MAX_ITEM_SLOTS = 99;
+
+/** What a row starts at when it is added by hand. The player changes it. */
+export const DEFAULT_ITEM_SLOTS = 1;
+export const DEFAULT_ITEM_QUANTITY = 1;
 
 /**
  * A light source burns in real time (DESIGN.md §6). Packs carry their own `minutes`;
