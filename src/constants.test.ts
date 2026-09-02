@@ -20,6 +20,8 @@ import {
   PACK_ID_PATTERN,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
+  TRYSTERO_ACTION_NAMESPACE,
+  TRYSTERO_ACTION_NAMESPACE_MAX_BYTES,
 } from './constants';
 
 describe('pack id pattern', () => {
@@ -98,5 +100,16 @@ describe('a blank sheet', () => {
   it('starts at a score the schema will accept', () => {
     expect(DEFAULT_STAT_SCORE).toBeGreaterThanOrEqual(MIN_STAT);
     expect(DEFAULT_STAT_SCORE).toBeLessThanOrEqual(MAX_STAT);
+  });
+});
+
+describe('the Trystero action namespace', () => {
+  it('fits the byte field Trystero encodes it into', () => {
+    // Trystero throws on join if the name overflows, which reads as "the room does not
+    // work" rather than "the name is too long". The limit shrank across versions
+    // (DESIGN.md §8), so it is asserted rather than assumed.
+    const bytes = new TextEncoder().encode(TRYSTERO_ACTION_NAMESPACE).byteLength;
+    expect(bytes).toBeGreaterThan(0);
+    expect(bytes).toBeLessThanOrEqual(TRYSTERO_ACTION_NAMESPACE_MAX_BYTES);
   });
 });

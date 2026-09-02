@@ -26,6 +26,12 @@
  * transport is genuinely fine and the bug is somewhere else entirely.
  */
 
+import { PEER_ID_DISPLAY_LENGTH, shortPeerId } from './transport';
+
+// Peer ids are shortened the same way everywhere they are printed, so a line from the
+// harness and a line from the transport name the same peer identically.
+export { PEER_ID_DISPLAY_LENGTH, shortPeerId };
+
 /** Where a log line came from. The three views above, plus the page itself. */
 export type LogSource = 'relay' | 'transport' | 'layer' | 'harness';
 
@@ -78,13 +84,6 @@ const SOURCE_COLUMN_WIDTH = ALL_LOG_SOURCES.reduce((widest, source) => {
 function missingFrom(left: readonly string[], right: readonly string[]): string[] {
   const present = new Set(right);
   return left.filter((id) => !present.has(id));
-}
-
-/** A peer id is 64 hex characters. Whole ids make the log unreadable; the head is enough. */
-export const PEER_ID_DISPLAY_LENGTH = 8;
-
-export function shortPeerId(peerId: string): string {
-  return peerId.slice(0, PEER_ID_DISPLAY_LENGTH);
 }
 
 function listPeers(peerIds: readonly string[]): string {

@@ -63,8 +63,12 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'error',
 
       // §9 — no console.log in a commit. Warnings and errors are how §4's
-      // "warn, do not block" degrades in the open, so both stay allowed.
-      'no-console': ['error', { allow: ['warn', 'error'] }],
+      // "warn, do not block" degrades in the open, so both stay allowed. `info` joins
+      // them for net/: peer bugs are diagnosed from the console, often on somebody
+      // else's machine after the fact, so every peer event has to be printed and
+      // `warn` would cry wolf. `log` stays banned, which is what keeps a stray
+      // debugging print out of a commit.
+      'no-console': ['error', { allow: ['info', 'warn', 'error'] }],
 
       // §2.6 — the other half of the XSS boundary. react/no-danger only sees the
       // JSX attribute; direct DOM assignment is the same hole and no bundled rule
