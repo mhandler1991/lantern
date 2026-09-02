@@ -201,6 +201,17 @@ export const CHARACTER_ID_PATTERN = new RegExp(`^[A-Za-z0-9_-]{1,${MAX_CHARACTER
  * is exactly the failure PRD.md principle 4 forbids.
  */
 export const MIN_CHARACTER_LEVEL = 0;
+
+/**
+ * What a blank sheet's six scores are before creation rolls or assigns them. It is a
+ * placeholder, not a rule: it is `ABILITY_SCORE_BASELINE`, so a half-built character
+ * shows a modifier of zero everywhere rather than a bonus nobody earned. Written as a
+ * literal because that constant is declared further down this file and a forward
+ * reference between two module-level `const`s throws on load; `constants.test.ts`
+ * asserts the two agree.
+ */
+export const DEFAULT_STAT_SCORE = 10;
+
 export const MIN_STAT = 1;
 export const MAX_STAT = 30;
 export const MAX_HP = 999;
