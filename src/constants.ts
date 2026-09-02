@@ -140,6 +140,16 @@ export const ENTRY_ID_PATTERN = new RegExp(
 /** A cross-pack reference: `core:class:wizard`. Three bare ids and two colons. */
 export const MAX_REF_LENGTH = ENTRY_ID_MAX_LENGTH * 3 + 2;
 
+const ID_SEGMENT = `[a-z0-9-]{${ENTRY_ID_MIN_LENGTH},${ENTRY_ID_MAX_LENGTH}}`;
+
+/**
+ * The full form of a reference — `pack:kind:id`. Built from the same segment the bare
+ * ids use, so a reference cannot admit a character an id would reject. A character
+ * sheet stores references and nothing else about pack content, which is what lets a
+ * pack be turned off without the sheet losing anything. DATA-MODEL.md §1.
+ */
+export const REF_PATTERN = new RegExp(`^${ID_SEGMENT}:${ID_SEGMENT}:${ID_SEGMENT}$`);
+
 /** Free text is allowed in exactly three places: `name`, `text`, `description`. */
 export const MAX_NAME_LENGTH = 60;
 export const MAX_TEXT_LENGTH = 1_000;
@@ -176,6 +186,21 @@ export const CHARACTER_FORMAT_VERSION = 1;
 export const MAX_CHARACTER_BYTES = 512 * 1024;
 
 export const MAX_CHARACTER_NAME_LENGTH = 60;
+
+/**
+ * A character id is generated locally and never leaves the machine except inside an
+ * export file. It is bounded and pattern-checked anyway: it is used as a storage key
+ * and as a React key, and an imported file is not ours.
+ */
+export const MAX_CHARACTER_ID_LENGTH = 32;
+export const CHARACTER_ID_PATTERN = new RegExp(`^[A-Za-z0-9_-]{1,${MAX_CHARACTER_ID_LENGTH}}$`);
+
+/**
+ * Level 0 is a real state, not an empty one — a character exists before it has a class.
+ * The schema must be able to hold one, because refusing to load a half-built character
+ * is exactly the failure PRD.md principle 4 forbids.
+ */
+export const MIN_CHARACTER_LEVEL = 0;
 export const MIN_STAT = 1;
 export const MAX_STAT = 30;
 export const MAX_HP = 999;
@@ -193,12 +218,19 @@ export const MAX_CONDITION_LENGTH = 40;
 export const MAX_JOURNAL_ENTRIES = 500;
 export const MAX_JOURNAL_ENTRY_LENGTH = 4_000;
 export const MAX_QUESTS = 100;
+export const MAX_QUEST_LENGTH = 200;
+
+/** Stacked in one inventory row. Arrows and rations, not a merchant's ledger. */
+export const MAX_ITEM_QUANTITY = 999;
 
 /**
  * A light source burns in real time (DESIGN.md §6). Packs carry their own `minutes`;
  * this is only the fallback when an entry omits it.
  */
 export const DEFAULT_LIGHT_MINUTES = 60;
+
+/** A light that burns longer than a session is not a light source, it is a sun. */
+export const MAX_LIGHT_MINUTES = 24 * 60;
 
 /** How often the torch bar re-reads the clock. Burn-down is computed from timestamps,
  *  never accumulated by tick, so a backgrounded tab cannot drift. */
