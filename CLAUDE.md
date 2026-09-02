@@ -96,7 +96,8 @@ src/
 ├── main.tsx
 ├── constants.ts          # every business-rule number
 ├── model/                # pure. no React, no DOM.
-│   ├── character.ts      # types + derived values
+│   ├── character.ts      # types + the schema boundary
+│   ├── derived.ts        # AC, slots, modifiers, XP, spell DC — computed on read
 │   ├── pack.ts           # types + resolution (define/extend/override)
 │   ├── dice.ts           # rolling, rejection sampling
 │   └── tables.ts         # table lookup
@@ -173,7 +174,8 @@ changing anything visual.
 
 Silent wrong answers live in `model/` and `net/`:
 
-- `character.ts` — AC, slots, XP thresholds, modifiers, encumbrance
+- `character.ts` — the schema: what must load, and what must be refused
+- `derived.ts` — AC, slots, XP thresholds, modifiers, encumbrance, spell DC
 - `dice.ts` — rejection sampling, uniformity over a large sample, ranges per die
 - `pack.ts` — define / extend / override resolution, load order, orphans
 - `tables.ts` — range lookup, boundaries, gaps and overlaps
