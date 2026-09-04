@@ -13,16 +13,31 @@
  */
 
 import type { ReactElement } from 'react';
+import { useMemo } from 'react';
 import '../styles/app.css';
 import { formatProblems } from '../model/character';
+import type { ItemLookup } from '../model/derived';
+import { toPublicCharacter } from '../net/projection';
 import { usePersistentCharacter } from '../state/use-persistent-character';
+import { usePresence } from '../state/use-presence';
 import { useRoom } from '../state/use-room';
 import { Lobby } from './Lobby';
 import { CharacterSheet } from './sheet/CharacterSheet';
 
+/** No pack is loaded until Phase 2, so no reference resolves — the same state as the sheet. */
+const NO_PACKS: ItemLookup = () => null;
+
 export function App(): ReactElement {
   const { character, setCharacter, load, lastSave } = usePersistentCharacter();
   const room = useRoom();
+
+  /**
+   * What peers may see, derived on read and never stored (DESIGN.md §2). Memoised
+   * because it is the presence hook's input and a new object every render would rebuild
+   * the roster every render.
+   */
+  const projection = useMemo(() => toPublicCharacter(character, NO_PACKS), [character]);
+  const presence = usePresence(projection);
 
   return (
     <div className="app">
@@ -68,7 +83,7 @@ export function App(): ReactElement {
 
       <main>
         <div className="lobby">
-          <Lobby room={room} />
+          <Lobby room={room} presence={presence} />
         </div>
         <CharacterSheet character={character} setCharacter={setCharacter} />
       </main>

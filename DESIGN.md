@@ -86,7 +86,7 @@ everyone else asks.
 
 | Type | Direction | Purpose |
 |---|---|---|
-| `hello` | broadcast | Identity: name, projection, joinedAt |
+| `hello` | to one peer, on connection | Identity: name, projection, joinedAt |
 | `state` | broadcast | Updated public projection |
 | `roll` | broadcast | A roll and its result |
 | `request` | to one peer | "May I", or "take 6 damage" |
@@ -135,7 +135,27 @@ catches is ours, and this is the last machine on which it can still be debugged.
 ### Host
 
 Longest present, ties broken by peer id. Every client computes it from data it already
-has, so all clients agree with no election and host migration is automatic.
+has, so all clients agree with no election and host migration is automatic — a host that
+leaves is replaced by the roster losing a row, and nothing is announced or handed over.
+
+`net/presence.ts` is that rule, and three things in it are what make "all clients agree"
+true rather than hopeful:
+
+- **Only a peer that has said `hello` is a candidate.** `joinedAt` arrives there and
+  nowhere else. A connected peer whose `hello` has not landed is *present* — it is in
+  the roster and it is drawn — but seating it would mean seating a different host on
+  every client for as long as one hello was in flight, because whether we have heard
+  from it yet is a fact about our machine and not about the room.
+- **The tie-break compares code units, not locales.** `localeCompare` orders strings
+  differently under different locales and ICU builds, which is exactly how two browsers
+  at one table would disagree about which of two peers is first.
+- **Nothing is timed out locally.** A peer leaves when the transport says it left. An
+  idle-eviction timer fires at a different moment on every client and splits the roster.
+
+`hello` is sent to each peer as it connects rather than broadcast on join: at the moment
+we join the peer list is empty, so a broadcast reaches nobody. `onPeerJoin` fires on both
+sides of every new connection, so one directed `hello` per join tells exactly the peer
+that needs telling, exactly once.
 
 A peer can lie about `joinedAt` to claim the chair. It is a cosmetic role with no
 authority over anyone's dice, so this is not worth a consensus protocol.
