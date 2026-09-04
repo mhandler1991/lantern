@@ -59,7 +59,23 @@ the event is received (`ReceivedEvent`), so a peer has no field in which to clai
 someone else. §3's identity rule is a property of the schema rather than a step someone
 has to remember.
 
-Roughly 200 bytes. Broadcast debounced on change.
+Roughly 200 bytes. Broadcast debounced on change — `state`, over
+`BROADCAST_DEBOUNCE_MS`, from `state/use-presence.ts`.
+
+Two rules about *when*, both in the hook:
+
+- **Compared before it is scheduled.** The sheet re-renders on every keystroke and
+  almost none of those keystrokes touch one of the nine fields, so a change is a change
+  to the projection (`samePublicCharacter`) rather than a change to the sheet. Without
+  it, typing a journal entry would broadcast the party view's worth of bytes per letter.
+- **Trailing, and dropped on the way out.** The value worth sending is the one the
+  player stopped on, not the first frame of a drag. A broadcast still pending when the
+  room closes is discarded rather than flushed — the opposite of a pending save, because
+  an unwritten save is data the player loses and an unsent projection is a message to a
+  table we are walking away from.
+
+The projection also travels in `hello`, to each peer as it arrives, so a peer that joins
+after a change is told the current sheet and needs no broadcast of its own.
 
 **Everything else stays local**: gold, journal, quests, gear, spells known, notes,
 history. Not encrypted-and-sent. **Not sent.**

@@ -9,9 +9,9 @@
 import type { ReactElement } from 'react';
 import { StrictMode, act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PROTOCOL_VERSION } from '../constants';
-import type { HelloEvent, PublicCharacter } from '../net/protocol';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BROADCAST_DEBOUNCE_MS, PROTOCOL_VERSION } from '../constants';
+import type { HelloEvent, PublicCharacter, StateEvent } from '../net/protocol';
 import type {
   JsonValue,
   PeerId,
@@ -94,8 +94,8 @@ function current(): FakeRoom {
 
 let latest: Presence | null = null;
 
-function Probe(): ReactElement {
-  latest = usePresence(us, joinRoom);
+function Probe({ character = us }: { character?: PublicCharacter }): ReactElement {
+  latest = usePresence(character, joinRoom);
   return <span>{latest.status}</span>;
 }
 
@@ -116,6 +116,32 @@ async function mount(strict = false): Promise<Mounted> {
   });
 
   return {
+    unmount: async () => {
+      await act(async () => {
+        root.unmount();
+      });
+    },
+  };
+}
+
+/** The same mount, plus the one thing the broadcast tests need: a changed sheet. */
+type Editable = Mounted & { readonly edit: (character: PublicCharacter) => Promise<void> };
+
+async function mountEditable(): Promise<Editable> {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  const render = async (character: PublicCharacter): Promise<void> => {
+    await act(async () => {
+      root.render(<Probe character={character} />);
+    });
+  };
+
+  await render(us);
+
+  return {
+    edit: render,
     unmount: async () => {
       await act(async () => {
         root.unmount();
@@ -330,5 +356,179 @@ describe('usePresence', () => {
 
     expect(open()).toHaveLength(0);
     for (const room of rooms) expect(room.leaves).toBe(1);
+  });
+});
+
+describe('usePresence — the public projection, broadcast', () => {
+  // Real timers everywhere else in this file; the debounce is the one thing here that
+  // is about *when*, and a quarter second of real waiting per test buys nothing.
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Let the debounce window pass, and whatever it scheduled run. */
+  async function settle(ms: number = BROADCAST_DEBOUNCE_MS): Promise<void> {
+    await act(async () => {
+      vi.advanceTimersByTime(ms);
+    });
+  }
+
+  /** Every `state` event this room has been given, in order. */
+  function broadcasts(): StateEvent[] {
+    return current()
+      .sent.filter((message) => (message.payload as StateEvent).t === 'state')
+      .map((message) => message.payload as StateEvent);
+  }
+
+  it('sends nothing while no field a peer can see has changed', async () => {
+    const mounted = await mountEditable();
+    await act(async () => {
+      hook().join('ABCDEF');
+    });
+
+    // A fresh object every render — what a memo miss or an unrelated edit produces —
+    // saying exactly what the last one said.
+    await mounted.edit({ ...us, conditions: [...us.conditions] });
+    await mounted.edit({ ...us, hp: { ...us.hp } });
+    await settle();
+
+    expect(current().sent).toEqual([]);
+
+    await mounted.unmount();
+  });
+
+  it('broadcasts the projection after the debounce, and not before it', async () => {
+    const mounted = await mountEditable();
+    await act(async () => {
+      hook().join('ABCDEF');
+    });
+
+    await mounted.edit({ ...us, hp: { current: 2, max: 5 } });
+
+    // The value the player stopped on is the one worth sending, so nothing goes out
+    // while the window is still open.
+    await settle(BROADCAST_DEBOUNCE_MS - 1);
+    expect(broadcasts()).toEqual([]);
+
+    await settle(1);
+
+    expect(broadcasts()).toHaveLength(1);
+    expect(current().sent[0]?.to).toBe('everyone');
+    expect(broadcasts()[0]).toEqual({
+      v: PROTOCOL_VERSION,
+      t: 'state',
+      character: { ...us, hp: { current: 2, max: 5 } },
+    });
+
+    await mounted.unmount();
+  });
+
+  it('coalesces a run of changes into one event carrying where the player ended up', async () => {
+    const mounted = await mountEditable();
+    await act(async () => {
+      hook().join('ABCDEF');
+    });
+
+    // Six damage arriving as six renders, the way a keystroke-by-keystroke edit does.
+    for (let hp = 5; hp > 1; hp -= 1) {
+      await mounted.edit({ ...us, hp: { current: hp - 1, max: 5 } });
+      await settle(BROADCAST_DEBOUNCE_MS - 1);
+    }
+    await settle();
+
+    expect(broadcasts()).toHaveLength(1);
+    expect(broadcasts()[0]?.character.hp).toEqual({ current: 1, max: 5 });
+
+    await mounted.unmount();
+  });
+
+  it('broadcasts each further change, once per change', async () => {
+    const mounted = await mountEditable();
+    await act(async () => {
+      hook().join('ABCDEF');
+    });
+
+    await mounted.edit({ ...us, conditions: ['bleeding'] });
+    await settle();
+    await mounted.edit({ ...us, conditions: [] });
+    await settle();
+
+    expect(broadcasts().map((event) => event.character.conditions)).toEqual([['bleeding'], []]);
+
+    await mounted.unmount();
+  });
+
+  it('puts nothing on any wire while there is no room', async () => {
+    const mounted = await mountEditable();
+
+    await mounted.edit({ ...us, luck: 2 });
+    await settle();
+
+    expect(rooms).toEqual([]);
+
+    await mounted.unmount();
+  });
+
+  it('drops a pending broadcast when the room is left rather than sending it after', async () => {
+    const mounted = await mountEditable();
+    await act(async () => {
+      hook().join('ABCDEF');
+    });
+
+    const room = current();
+    await mounted.edit({ ...us, luck: 2 });
+
+    await act(async () => {
+      hook().leave();
+    });
+    await settle();
+
+    // An unsent projection is a message to a table we walked away from, not data the
+    // player loses. Nothing is flushed on the way out.
+    expect(room.sent).toEqual([]);
+    expect(room.leaves).toBe(1);
+
+    await mounted.unmount();
+  });
+
+  it('drops a pending broadcast on unmount', async () => {
+    const mounted = await mountEditable();
+    await act(async () => {
+      hook().join('ABCDEF');
+    });
+
+    const room = current();
+    await mounted.edit({ ...us, luck: 2 });
+    await mounted.unmount();
+    await settle();
+
+    expect(room.sent).toEqual([]);
+  });
+
+  it('introduces a peer that arrives later to the sheet as it stands now', async () => {
+    const mounted = await mountEditable();
+    await act(async () => {
+      hook().join('ABCDEF');
+    });
+
+    const edited: PublicCharacter = { ...us, level: 2, hp: { current: 9, max: 9 } };
+    await mounted.edit(edited);
+    await settle();
+
+    await fire((handlers) => handlers.onPeerJoin?.('ash00000'));
+    await settle();
+
+    // The introduction already carries the current projection, so nothing follows it:
+    // a `state` broadcast for a peer that has just been told would be the same 200
+    // bytes twice.
+    const introduction = current().sent.find((message) => message.to === 'ash00000');
+    expect((introduction?.payload as HelloEvent).character).toEqual(edited);
+    expect(broadcasts()).toHaveLength(1);
+
+    await mounted.unmount();
   });
 });
