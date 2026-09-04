@@ -80,6 +80,23 @@ after a change is told the current sheet and needs no broadcast of its own.
 **Everything else stays local**: gold, journal, quests, gear, spells known, notes,
 history. Not encrypted-and-sent. **Not sent.**
 
+### The party view
+
+`ui/PartyView.tsx` draws exactly the nine fields above, one block per seat: marching
+number, name, host and "you" tags, a light mark, level·ancestry·class, an HP bar with the
+numbers beside it, AC, luck, and conditions as chips. It is what the projection is *for*,
+and it is the boundary made visible — a player reading it is reading everything anyone at
+the table can see about them, which is why the panel says so in as many words.
+
+**It has no handlers at all.** No button, no input, no `onChange` anywhere in the file.
+That is "one writer per character" as a property of the component rather than a rule to
+remember: there is nothing in it that could write. Phase 6's request queue sits beside it
+and still writes nothing — it asks the owning client to.
+
+**Marching order is seat order until the DM sets one** (Phase 6). Arbitrary as a line of
+people, but derived identically on every client, so nobody argues about who is in front.
+`marchingOrder` in `ui/party.ts` is the single place a DM-set order lands.
+
 This is the single most important design decision in the app. It solves bandwidth and
 privacy together, and it is the reason the whole thing works without a database.
 
