@@ -119,6 +119,17 @@ the lie. A peer can lie about its numbers; it must not be able to act as someone
 onMessage: ({ from, data }) => receiveEvent(from, data)   // the only `from` there is
 ```
 
+A payload that carries one anyway is refused whole rather than read with the claim
+ignored, and the refusal *names* it (`identityClaimsIn`): a spoof and a stale build are
+both "unrecognized key" to Zod, and they are not the same thing to whoever is reading
+the log. `net/spoofing.test.ts` proves the path end to end — a peer sending any event
+under any name for a sender lands on its own row and no one else's.
+
+A peer id is not a credential. Trystero generates its own with `genId(20)`, but the id
+we are *told* about arrives in a signalling payload the remote peer wrote, so a peer
+picks the string it is known by. What it cannot pick is which connection its message
+arrives on, and that is what attribution is.
+
 **Validate on the way out and on the way in.** Outbound catches our own bugs before they
 reach a peer. Inbound is the wall. Both run even when there is one player.
 
@@ -172,7 +183,9 @@ assignment is the guard §8 asks for: an upgrade that moves a signature fails
 Three things the boundary is responsible for:
 
 - **Identity.** An inbound message arrives as `{ from, data }` where `from` is the peer
-  id the transport reports. `data` stays `unknown` until `net/protocol.ts` parses it.
+  id the transport reports. `data` stays `unknown` until `net/protocol.ts` parses it. An
+  id the library reports that we cannot use — missing, empty, past `MAX_PEER_ID_LENGTH`
+  — drops the message as `unattributable` rather than attributing it to a guess.
 - **Errors as values.** Join, send and leave return a `Result`. Sending to a peer that
   has gone is `unknown-peer` — Trystero's own `send` only prints a console warning and
   resolves, which would read to the caller as delivery.

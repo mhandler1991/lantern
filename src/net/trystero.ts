@@ -27,6 +27,7 @@ import {
   checkEventSize,
   describeError,
   failure,
+  isPeerId,
   ok,
   shortPeerId,
   type JsonValue,
@@ -188,12 +189,39 @@ export function joinTrysteroRoom(
   }
 
   /**
+   * Is this something the library gave us an id for? Trystero types `peerId` as a
+   * `string` and always has one, so this is a contract check rather than a suspicion —
+   * but it is the contract the whole identity rule rests on, and an id we cannot use is
+   * a message we cannot attribute. Nothing is guessed and nothing is passed upward:
+   * `''` in the roster would be one nameless row that every later message joined.
+   */
+  function attributable(peerId: unknown, what: string): peerId is PeerId {
+    if (isPeerId(peerId)) return true;
+
+    report({
+      kind: 'unattributable',
+      message: `${what} with no usable peer id — the transport reported ${JSON.stringify(peerId)}`,
+    });
+    return false;
+  }
+
+  /**
    * CLAUDE.md §2.8 — the sender is `peerId`, the id the transport reports, and nothing
    * inside `data` is consulted to decide who sent it. `data` stays `unknown` on the way
    * up: it is untrusted until `net/protocol.ts` parses it (#39).
+   *
+   * The one thing a peer cannot choose is which connection its message arrives on. It
+   * picks the id it announces itself by — Trystero reads that out of a signalling
+   * payload the peer wrote (`topic-strategy.mjs`) — so the id is not a credential and
+   * is not treated as one. It is a name for a connection, and the connection is what
+   * attribution actually is.
    */
   function receive(data: JsonValue, peerId: PeerId): void {
     if (hasLeft) {
+      return;
+    }
+
+    if (!attributable(peerId, 'dropped a message')) {
       return;
     }
 
@@ -215,12 +243,16 @@ export function joinTrysteroRoom(
   }
 
   room.onPeerJoin = (peerId) => {
+    if (!attributable(peerId, 'a peer joined')) return;
+
     peers.add(peerId);
     record('info', `peer joined ${shortPeerId(peerId)} (${peers.size} connected)`);
     handlers.onPeerJoin?.(peerId);
   };
 
   room.onPeerLeave = (peerId) => {
+    if (!attributable(peerId, 'a peer left')) return;
+
     peers.delete(peerId);
     heardFrom.delete(peerId);
     record('info', `peer left ${shortPeerId(peerId)} (${peers.size} connected)`);

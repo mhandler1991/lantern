@@ -9,7 +9,9 @@
  *     event in this file has a sender field. A peer cannot lie about who it is because
  *     the schema gives it nowhere to write the lie; `receiveEvent` pairs the parsed
  *     event with the peer id the transport reported and that is the only `from` there
- *     is. `protocol.test.ts` asserts the absence, so adding one fails a test.
+ *     is. `protocol.test.ts` asserts the absence, so adding one fails a test, and
+ *     `identityClaimsIn` names the attempt in the log rather than filing a peer trying
+ *     to act as someone else under "unrecognized key" (#41).
  *   - **Validate outbound and inbound, both, even single-player** (CLAUDE.md §2.7).
  *     `encodeEvent` runs the same union `parseEvent` does. Outbound it catches our own
  *     bug before a peer sees it; inbound it is the wall.
@@ -44,7 +46,7 @@ import {
 } from '../constants';
 import { Condition, HitPoints, PackId, Ref, RowId } from '../model/character';
 import { formatProblems, problemsFrom, type Problem } from '../model/problems';
-import { checkEventSize, type JsonValue, type PeerId } from './transport';
+import { checkEventSize, isPeerId, type JsonValue, type PeerId } from './transport';
 
 /** Zero is the floor of a count and the first index, not a rule of the game. */
 const NONE = 0;
@@ -379,6 +381,60 @@ export type ReceiveEventResult =
  */
 const Versioned = z.object({ v: z.number() });
 
+/**
+ * Key names a payload would have to use to name a sender. None of them is a field of
+ * any event — the schemas are strict, so a payload carrying one is refused either way
+ * (CLAUDE.md §2.8, DESIGN.md §3: there was never anywhere to write the lie).
+ *
+ * The list exists so the refusal can *say so*. A spoof attempt and a typo are both
+ * "unrecognized key" to Zod, and they are not the same thing to the person reading the
+ * log: one is a peer running an old build, the other is a peer trying to act as someone
+ * else. Naming it costs one pass over a fixed list of seven strings.
+ */
+const SENDER_KEYS: readonly string[] = [
+  'from',
+  'sender',
+  'senderId',
+  'peer',
+  'peerId',
+  'author',
+  'by',
+];
+
+/**
+ * Inside `character`, `id` is a sender claim as well. DESIGN.md §2 — there is no `id`
+ * on the wire; the party member's id is the peer id the transport reported, added on
+ * receipt. A projection that arrives carrying one is claiming to be a seat.
+ */
+const CHARACTER_SENDER_KEYS: readonly string[] = ['id', ...SENDER_KEYS];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function claimsIn(record: Record<string, unknown>, keys: readonly string[], prefix: string): string[] {
+  return keys.filter((key) => Object.hasOwn(record, key)).map((key) => `${prefix}${key}`);
+}
+
+/**
+ * Every place this payload tried to name its own sender. Empty for everything honest,
+ * which is every event this app produces.
+ *
+ * 📌 Detection only. Nothing is stripped and nothing is rewritten: a payload that claims
+ * a sender is refused whole, because a peer that edits the envelope is not a peer whose
+ * remaining fields have earned a second look.
+ */
+export function identityClaimsIn(input: unknown): readonly string[] {
+  if (!isRecord(input)) return [];
+
+  const claims = claimsIn(input, SENDER_KEYS, '');
+  const character = input['character'];
+
+  return isRecord(character)
+    ? [...claims, ...claimsIn(character, CHARACTER_SENDER_KEYS, 'character.')]
+    : claims;
+}
+
 function malformed(problems: readonly Problem[]): ProtocolRejection {
   return {
     kind: 'malformed',
@@ -395,7 +451,10 @@ function malformed(problems: readonly Problem[]): ProtocolRejection {
  *   2. **Version.** Checked ahead of the union so the rejection can name both versions.
  *      DESIGN.md §3 — there is no negotiation, and a mismatch is never a near miss to
  *      be patched up.
- *   3. **Shape.** The union, strict throughout, with every problem reported.
+ *   3. **Identity.** A payload naming its own sender is refused before its shape is
+ *      considered, so the rejection says what it was rather than "unrecognized key".
+ *      CLAUDE.md §2.8 — nothing a payload says about who sent it is ever read.
+ *   4. **Shape.** The union, strict throughout, with every problem reported.
  *
  * Never throws. A payload that fails is a value describing the failure (CLAUDE.md §2.5).
  */
@@ -421,6 +480,21 @@ export function parseEvent(input: unknown): ParseEventResult {
           `this peer speaks Lantern protocol ${theirs} and you speak ${PROTOCOL_VERSION}. ` +
           'There is no translation between them — both tabs need the same version of Lantern.',
       },
+    };
+  }
+
+  const claims = identityClaimsIn(input);
+  if (claims.length > 0) {
+    return {
+      ok: false,
+      rejection: malformed(
+        claims.map((claim) => ({
+          path: claim,
+          message:
+            'a payload may not name its own sender — identity comes from the transport, ' +
+            'so this event is refused rather than believed',
+        })),
+      ),
     };
   }
 
@@ -453,8 +527,29 @@ export function encodeEvent(event: ProtocolEvent): EncodeEventResult {
 /**
  * What `TransportHandlers.onMessage` hands upward, turned into an event and an author.
  * `from` is the transport's word and the payload has no say in it.
+ *
+ * This is the only function in the app that decides who sent something, and it takes
+ * that from its first argument — the transport's — every time. There is no branch in
+ * which a value out of `data` becomes a `from`, and the checks in `parseEvent` mean
+ * there is nothing in `data` that could be mistaken for one.
+ *
+ * An unusable `from` is a refusal rather than an attribution to whatever was passed. It
+ * cannot happen through the transport, which checks first, and that is the point: a
+ * later caller that forgets loses the message instead of inventing a peer.
  */
 export function receiveEvent(from: PeerId, data: unknown): ReceiveEventResult {
+  if (!isPeerId(from)) {
+    return {
+      ok: false,
+      rejection: malformed([
+        {
+          path: '(sender)',
+          message: `the transport reported no usable peer id (${JSON.stringify(from)}), so this event cannot be attributed to anyone`,
+        },
+      ]),
+    };
+  }
+
   const parsed = parseEvent(data);
   if (!parsed.ok) return { ok: false, rejection: parsed.rejection };
 
