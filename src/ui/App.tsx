@@ -7,17 +7,22 @@
  * and the sheet still works, and a save that failed is shown rather than swallowed. None
  * of them can stop a player using the sheet, which is the whole point of the principle.
  *
- * There is no room, no packs and no dice yet, and the sheet does not need any of them.
+ * The lobby sits above the sheet rather than in front of it: a room is optional, and
+ * PRD.md principle 6 says the app has to work alone with no room and no packs at all.
+ * There are no packs and no dice yet, and the sheet does not need either.
  */
 
 import type { ReactElement } from 'react';
 import '../styles/app.css';
 import { formatProblems } from '../model/character';
 import { usePersistentCharacter } from '../state/use-persistent-character';
+import { useRoom } from '../state/use-room';
+import { Lobby } from './Lobby';
 import { CharacterSheet } from './sheet/CharacterSheet';
 
 export function App(): ReactElement {
   const { character, setCharacter, load, lastSave } = usePersistentCharacter();
+  const room = useRoom();
 
   return (
     <div className="app">
@@ -62,6 +67,9 @@ export function App(): ReactElement {
       </div>
 
       <main>
+        <div className="lobby">
+          <Lobby room={room} />
+        </div>
         <CharacterSheet character={character} setCharacter={setCharacter} />
       </main>
     </div>

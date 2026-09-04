@@ -56,6 +56,14 @@ export function Warning({ children }: { readonly children: ReactNode }): ReactEl
   );
 }
 
+/**
+ * `maxLength` is optional for one reason only: a field whose `onChange` normalises what
+ * was typed is already bounded, and a raw cap on top of it truncates the wrong thing —
+ * a room code pasted as `ABC-DEF` loses its last character to a `maxLength` of six
+ * before normalising ever sees the hyphen. Everywhere else, pass the bound.
+ *
+ * `readOnly` is for a value the app produced and the player only needs to copy.
+ */
 export function TextField({
   label,
   value,
@@ -63,13 +71,15 @@ export function TextField({
   onChange,
   placeholder,
   hideLabel = false,
+  readOnly = false,
 }: {
   readonly label: string;
   readonly value: string;
-  readonly maxLength: number;
+  readonly maxLength?: number;
   readonly onChange: (value: string) => void;
   readonly placeholder?: string;
   readonly hideLabel?: boolean;
+  readonly readOnly?: boolean;
 }): ReactElement {
   const id = useId();
 
@@ -85,6 +95,7 @@ export function TextField({
         value={value}
         maxLength={maxLength}
         placeholder={placeholder}
+        readOnly={readOnly}
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
