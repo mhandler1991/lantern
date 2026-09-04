@@ -15,15 +15,22 @@
  * exactly the peer that needs telling, exactly once, and the peers already in the room
  * learn about us from their own side of the same event.
  *
- * 📌 The projection is passed in and re-broadcast on change by #44. This hook sends it
- * once per peer, in `hello`, because the host election needs the `joinedAt` that travels
- * with it (DESIGN.md §3).
+ * **The projection goes out twice, for two different reasons.** `hello` carries it to
+ * each peer as that peer arrives, because the host election needs the `joinedAt` that
+ * travels with it. `state` broadcasts it afterwards whenever it changes — that is the
+ * whole of how a party view stays current (DESIGN.md §2).
+ *
+ * The broadcast is debounced over `BROADCAST_DEBOUNCE_MS` and compared before it is
+ * scheduled, because the sheet re-renders on every keystroke and almost none of those
+ * keystrokes change any of the nine public fields. Trailing rather than leading: the
+ * value worth sending is the one the player stopped on, not the first frame of a drag.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PROTOCOL_VERSION } from '../constants';
+import { BROADCAST_DEBOUNCE_MS, PROTOCOL_VERSION } from '../constants';
 import type { PresenceMember, PresenceState } from '../net/presence';
 import { beginPresence, electHost, peerArrived, peerDeparted, presenceMembers, receivePresence } from '../net/presence';
+import { samePublicCharacter, stateEvent } from '../net/projection';
 import type { HelloEvent, ProtocolRejection, PublicCharacter } from '../net/protocol';
 import { describeRejection, encodeEvent, receiveEvent } from '../net/protocol';
 import type {
@@ -103,6 +110,30 @@ export function usePresence(
     characterRef.current = character;
   }, [character]);
 
+  /**
+   * The room we are in, for the broadcast effect to reach. It is a ref rather than
+   * state because a transport arriving is not something to re-render for — the status
+   * beside it already is — and because the debounce timer has to read whichever room is
+   * live when it *fires*, not whichever one was live when it was scheduled.
+   */
+  const transportRef = useRef<Transport | null>(null);
+
+  /**
+   * The projection the table has already been told about, and null when we are in no
+   * room. It starts at whatever `hello` will carry, so joining a room and touching
+   * nothing broadcasts nothing: every peer already has this exact projection from its
+   * own introduction.
+   */
+  const broadcastRef = useRef<PublicCharacter | null>(null);
+
+  /** One sink for everything this hook has to say. See the note on `log`. */
+  const record = useCallback(
+    (level: 'info' | 'warn' | 'error', message: string): void => {
+      log({ at: Date.now(), level, message });
+    },
+    [log],
+  );
+
   const join = useCallback((roomId: string, password?: string) => {
     setError(null);
     setRejection(null);
@@ -131,10 +162,6 @@ export function usePresence(
 
     let transport: Transport | null = null;
     let isLive = true;
-
-    function record(level: 'info' | 'warn' | 'error', message: string): void {
-      log({ at: Date.now(), level, message });
-    }
 
     /** Introduce ourselves to one peer. Failures are reported, never swallowed. */
     function announceTo(peerId: PeerId): void {
@@ -216,14 +243,70 @@ export function usePresence(
     }
 
     transport = joined.value;
+    transportRef.current = transport;
+    // The baseline the broadcast compares against: what every peer will be handed in
+    // its own `hello`. Set here rather than at the first change, so a room joined and
+    // left untouched puts one event on the wire per peer and no broadcasts at all.
+    broadcastRef.current = characterRef.current;
     setPresence(beginPresence(transport.selfId, joinedAt));
     setStatus('joined');
 
     return () => {
       isLive = false;
+      // Only if it is still ours. StrictMode tears the first room down after the second
+      // is up, and clearing unconditionally would leave the live room unreachable.
+      if (transportRef.current === transport) {
+        transportRef.current = null;
+        broadcastRef.current = null;
+      }
       void joined.value.leave();
     };
-  }, [session, joinRoom, log]);
+  }, [session, joinRoom, log, record]);
+
+  /**
+   * The projection, re-broadcast on change (DESIGN.md §2).
+   *
+   * Nothing is scheduled unless one of the nine fields actually differs from what the
+   * table was last told, so the common case — a journal entry being typed, a note being
+   * edited — costs a comparison and no bytes. When something does differ, the timer is
+   * restarted by every further change, so a run of edits coalesces into one event
+   * carrying where the player ended up.
+   *
+   * A pending broadcast is dropped rather than flushed when the room closes. That is
+   * the opposite of `usePersistentCharacter`, and deliberately: an unwritten save is
+   * data the player loses, while an unsent projection is a message to a table we are
+   * walking away from. There is no retry queue either — a send that fails is reported,
+   * and the next real change carries the truth to whoever is still listening.
+   */
+  useEffect(() => {
+    const sent = broadcastRef.current;
+    if (transportRef.current === null || sent === null) return;
+    if (samePublicCharacter(character, sent)) return;
+
+    const timer = setTimeout(() => {
+      // Read again rather than closing over it: the room may have been left in the
+      // quarter second this was waiting, and a broadcast into a closed room is at best
+      // an error to report.
+      const live = transportRef.current;
+      if (live === null) return;
+
+      // CLAUDE.md §2.7 — the same wall the inbound path uses, on the way out, with an
+      // empty table. What it catches is our own bug, on the machine that can debug it.
+      const encoded = encodeEvent(stateEvent(character));
+      if (!encoded.ok) {
+        record('error', `refused to send our own state: ${describeRejection(encoded.rejection)}`);
+        setRejection(encoded.rejection);
+        return;
+      }
+
+      broadcastRef.current = character;
+      void live.broadcast(encoded.payload).then((result) => {
+        if (!result.ok) setError(result.error);
+      });
+    }, BROADCAST_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [character, record]);
 
   /**
    * Our own row is composed on read from the projection this render was given, so the
