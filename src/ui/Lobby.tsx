@@ -16,28 +16,24 @@
  * **It does not name a host.** The chair is derived from who has been present longest
  * (`net/presence.ts`), so the panel reports it and offers nothing to click: there is
  * nothing to hand over and nobody to ask.
+ *
+ * The party view below the room controls is `ui/PartyView.tsx`. It lives inside this panel
+ * because the table and the room are one thing while a room is all there is to do with
+ * a table; when the DM's own view arrives in Phase 6 it is the party view that moves,
+ * and this panel goes back to being a code and a link.
  */
 
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { MAX_ROOM_PASSWORD_LENGTH, ROOM_CODE_LENGTH } from '../constants';
 import { describeRejection } from '../net/protocol';
-import { shortPeerId } from '../net/transport';
 import type { Presence } from '../state/use-presence';
 import type { Room } from '../state/use-room';
 import { EmptyNote, Panel, TextField, Warning } from './fields';
+import { PartyView } from './PartyView';
 
 /** What the last copy attempt did. Cleared by any edit, never on a timer. */
 type CopyState = 'idle' | 'copied' | 'unavailable';
-
-/**
- * A peer that has connected but whose `hello` has not landed yet is real and is drawn.
- * Its id is all we honestly have, so its id is what is shown.
- */
-function memberName(name: string | undefined, id: string): string {
-  if (name === undefined) return `${shortPeerId(id)}…`;
-  return name.trim() === '' ? 'An unnamed character' : name;
-}
 
 export function Lobby({
   room,
@@ -208,17 +204,7 @@ export function Lobby({
       {isJoined && (
         <>
           <p className="subhead">At the table</p>
-          <ul className="party">
-            {presence.members.map((member) => (
-              <li key={member.id} className="party__member">
-                <span className="party__name">
-                  {memberName(member.character?.name, member.id)}
-                </span>
-                {member.id === presence.hostId && <span className="party__tag">host</span>}
-                {member.isSelf && <span className="party__tag">you</span>}
-              </li>
-            ))}
-          </ul>
+          <PartyView members={presence.members} hostId={presence.hostId} />
 
           {presence.members.length === 1 && (
             <EmptyNote>
@@ -231,6 +217,19 @@ export function Lobby({
             it can already see, so nobody hands it over and it moves on its own when that
             person leaves. It settles who goes first and nothing else — it has no say over
             anyone&rsquo;s dice.
+          </p>
+
+          <p className="readout">
+            The numbers down the left are the marching order, and for now they follow that
+            same order. Setting one belongs to the DM, and that arrives with the rest of
+            the DM&rsquo;s table in the next phase.
+          </p>
+
+          <p className="readout">
+            What you can see here is everything anyone at this table can see about you:
+            name, ancestry, class, level, HP, AC, luck, conditions, and whether you are
+            carrying a light. Your gold, gear, spells, journal and quests are not sent to
+            anybody.
           </p>
         </>
       )}

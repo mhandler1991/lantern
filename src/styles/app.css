@@ -438,10 +438,16 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
- * The table
+ * The party view
  *
- * A roster, not a party view (#45): one line per seat, in the order the host is
- * derived in, so the chair is always the top line and nothing has to explain that.
+ * One block per seat, in marching order, each carrying that peer's whole public
+ * projection (#45). Numbered down the left, because the order is the marching order and
+ * a list that is meaningfully ordered should look ordered.
+ *
+ * The HP track is the only bar in the app, and it is deliberately plain: a hairline box
+ * with a fill, no gradient and no animation on width. A bar that eases into place is a
+ * bar that is wrong for a moment, and this one is somebody's life at a table where the
+ * numbers are being read aloud.
  * ------------------------------------------------------------------------ */
 
 .party {
@@ -452,11 +458,25 @@ body {
 }
 
 .party__member {
+  padding: var(--space-3) var(--space-0);
+  border-bottom: var(--border-hairline) solid var(--rule-page);
+}
+
+.party__line {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-0);
-  border-bottom: var(--border-hairline) solid var(--rule-page);
+  margin: var(--space-0);
+}
+
+/* The marching number. Set in the display face, so it reads as a position in a line
+   rather than as one more statistic in the row below it. */
+.party__position {
+  min-width: var(--space-4);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
 }
 
 .party__name {
@@ -472,4 +492,81 @@ body {
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+/* Who is holding the light is the one thing at a Shadowdark table that everyone needs
+   to know at a glance, so it is the one tag that carries the torch's own colour. */
+.party__tag--light {
+  color: var(--state-caution);
+}
+
+.party__billing,
+.party__pending {
+  margin: var(--space-1) var(--space-0) var(--space-0) var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.party__pending {
+  color: var(--text-muted);
+}
+
+.party__vitals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-2) var(--space-0) var(--space-0) var(--space-5);
+}
+
+.party__hp {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.party__bar {
+  width: var(--width-field-short);
+  height: var(--space-2);
+  border: var(--border-hairline) solid var(--rule-page);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-page-low);
+  overflow: hidden;
+}
+
+.party__bar-fill {
+  height: 100%;
+  background-color: var(--state-good);
+}
+
+.party__hp-count,
+.party__stat {
+  margin: var(--space-0);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+/* Emphasis on a number the peer sent, not a ruling about them (PRD.md principle 1). */
+.party__hp-count--down {
+  color: var(--text-danger);
+  font-weight: var(--weight-bold);
+}
+
+.party__stat-label {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.party__conditions {
+  margin: var(--space-2) var(--space-0) var(--space-0) var(--space-5);
+}
+
+/* A chip on the sheet has a remove button tucked into its right edge; one here has
+   nothing to remove, so the padding is even. */
+.party__conditions .chip {
+  padding-right: var(--space-3);
 }
