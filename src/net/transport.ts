@@ -18,9 +18,18 @@
  *     and never a silent success.
  */
 
-import { MAX_EVENT_BYTES } from '../constants';
+import { MAX_EVENT_BYTES, MAX_PEER_ID_LENGTH } from '../constants';
 
-/** A peer id as the transport reports it: 64 hex characters, generated per session. */
+/**
+ * A peer id as the transport reports it — an opaque per-session string, not a name and
+ * not an account. Trystero's own is `genId(20)`, twenty characters of `[0-9A-Za-z]`
+ * (`@trystero-p2p/core/dist/utils.mjs`), but nothing here depends on that shape: the id
+ * is checked for being usable (`isPeerId`) and never for looking like anything.
+ *
+ * 📌 A peer chooses the id it announces itself by. What it cannot choose is which
+ * *connection* a message arrives on, and that is where attribution comes from — which
+ * is the whole of CLAUDE.md §2.8.
+ */
 export type PeerId = string;
 
 /** What may be sent. The wire is JSON, so the type says so rather than allowing `unknown`. */
@@ -54,6 +63,12 @@ export type TransportErrorKind =
   | 'too-large'
   /** Not serialisable as JSON — a cycle, or something that is not data. */
   | 'malformed'
+  /**
+   * The transport reported no usable peer id for something it delivered. Identity comes
+   * from the transport (CLAUDE.md §2.8), so there is nothing else to fall back on and
+   * the event is dropped rather than attributed to a guess.
+   */
+  | 'unattributable'
   /** The transport itself failed while sending or leaving. */
   | 'transport-failed';
 
@@ -129,8 +144,24 @@ export type Transport = {
   leave: () => Promise<Result>;
 };
 
-/** A peer id is 64 hex characters. Whole ids make a log unreadable; the head is enough. */
+/** Whole peer ids make a log unreadable, and nothing is identified by eye; the head is enough. */
 export const PEER_ID_DISPLAY_LENGTH = 8;
+
+/**
+ * Is this something we can attribute a message to?
+ *
+ * The transport's word is the only identity there is (CLAUDE.md §2.8), so it is worth
+ * one check that the transport actually said something. A missing or empty id is a
+ * library contract we no longer recognise, and attributing a message to `''` would put
+ * a nameless row in the roster that every later message joins. The length bound is
+ * `MAX_PEER_ID_LENGTH` because the id is a string a remote peer chose (see there).
+ *
+ * 🚫 Not a format check. Refusing an id for not looking like Trystero's would break the
+ * table the day Trystero changes its generator, and the shape was never the guarantee.
+ */
+export function isPeerId(value: unknown): value is PeerId {
+  return typeof value === 'string' && value.length > 0 && value.length <= MAX_PEER_ID_LENGTH;
+}
 
 export function shortPeerId(peerId: PeerId): string {
   return peerId.slice(0, PEER_ID_DISPLAY_LENGTH);

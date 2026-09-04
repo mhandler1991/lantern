@@ -39,6 +39,19 @@ export const MAX_EVENT_BYTES = 64 * 1024;
  */
 export const MAX_PACK_CHUNK_BYTES = 16 * 1024;
 
+/**
+ * The longest string this app will accept as a peer id (CLAUDE.md §2.8).
+ *
+ * A peer id is not ours and it is not the library's either: Trystero generates its own
+ * with `genId(20)` — twenty characters of `[0-9A-Za-z]` — but the id we are *told* about
+ * arrives in a signalling payload the remote peer wrote
+ * (`@trystero-p2p/core/dist/topic-strategy.mjs`, `getString(payload, 'peerId')`). So a
+ * peer chooses the string it is known by, and this bounds what we will hold, key a
+ * roster on and print. Generous rather than exact — Trystero may lengthen its ids, and
+ * refusing a legitimate peer costs a player their seat.
+ */
+export const MAX_PEER_ID_LENGTH = 128;
+
 /** A peer that has sent nothing in this long is treated as gone. */
 export const PEER_TIMEOUT_MS = 30_000;
 
