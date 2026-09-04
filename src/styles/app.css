@@ -430,3 +430,46 @@ body {
   background-color: var(--surface-page-low);
   color: var(--text-secondary);
 }
+
+/* The join control sits apart from the fields above it: it is the one thing on this
+   page that changes what the app is doing rather than what it is holding. */
+.lobby__join {
+  margin-top: var(--space-5);
+}
+
+/* ---------------------------------------------------------------------------
+ * The table
+ *
+ * A roster, not a party view (#45): one line per seat, in the order the host is
+ * derived in, so the chair is always the top line and nothing has to explain that.
+ * ------------------------------------------------------------------------ */
+
+.party {
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+  border-top: var(--border-hairline) solid var(--rule-page);
+}
+
+.party__member {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-0);
+  border-bottom: var(--border-hairline) solid var(--rule-page);
+}
+
+.party__name {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+}
+
+.party__tag {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

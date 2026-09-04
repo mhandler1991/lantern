@@ -3,11 +3,6 @@
  *
  * Three things it deliberately does not do.
  *
- * **It does not connect.** A code and a link are all this panel owns; presence and the
- * transport are #43. The panel says so out loud rather than implying a room somebody has
- * joined, because software that looks connected and is not is worse than software that
- * says it is not.
- *
  * **It does not mask the password.** DESIGN.md §2 — the room password is a courtesy lock
  * and not a security boundary. A masked field says "secret" and this one is not: it is
  * read aloud down the same call the room code is, and hiding it would only stop the
@@ -17,21 +12,44 @@
  * **It does not require the clipboard.** Copying needs a secure context (DEPLOY.md §1),
  * and a browser that will not do it is not a reason to withhold the link. The link is
  * always there, selectable, whether the button works or not.
+ *
+ * **It does not name a host.** The chair is derived from who has been present longest
+ * (`net/presence.ts`), so the panel reports it and offers nothing to click: there is
+ * nothing to hand over and nobody to ask.
  */
 
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { MAX_ROOM_PASSWORD_LENGTH, ROOM_CODE_LENGTH } from '../constants';
+import { describeRejection } from '../net/protocol';
+import { shortPeerId } from '../net/transport';
+import type { Presence } from '../state/use-presence';
 import type { Room } from '../state/use-room';
 import { EmptyNote, Panel, TextField, Warning } from './fields';
 
 /** What the last copy attempt did. Cleared by any edit, never on a timer. */
 type CopyState = 'idle' | 'copied' | 'unavailable';
 
-export function Lobby({ room }: { readonly room: Room }): ReactElement {
+/**
+ * A peer that has connected but whose `hello` has not landed yet is real and is drawn.
+ * Its id is all we honestly have, so its id is what is shown.
+ */
+function memberName(name: string | undefined, id: string): string {
+  if (name === undefined) return `${shortPeerId(id)}…`;
+  return name.trim() === '' ? 'An unnamed character' : name;
+}
+
+export function Lobby({
+  room,
+  presence,
+}: {
+  readonly room: Room;
+  readonly presence: Presence;
+}): ReactElement {
   const { code, setCode, password, setPassword, invite, isReady, link, generate, lastGenerated } =
     room;
   const [copy, setCopy] = useState<CopyState>('idle');
+  const isJoined = presence.status === 'joined';
 
   async function copyLink(): Promise<void> {
     if (link === null) return;
@@ -54,11 +72,6 @@ export function Lobby({ room }: { readonly room: Room }): ReactElement {
 
   return (
     <Panel title="Room" aside={isReady ? code : undefined}>
-      <Warning>
-        Lantern does not join rooms yet. The code and the invite link are real; nobody
-        appears in them until presence lands.
-      </Warning>
-
       {invite.kind === 'code' && (
         <p className="readout" role="status">
           You followed an invite, so the code is filled in already.
@@ -76,6 +89,7 @@ export function Lobby({ room }: { readonly room: Room }): ReactElement {
         <TextField
           label="Room code"
           value={code}
+          readOnly={isJoined}
           placeholder={'A'.repeat(ROOM_CODE_LENGTH)}
           onChange={(typed) => {
             setCopy('idle');
@@ -86,6 +100,7 @@ export function Lobby({ room }: { readonly room: Room }): ReactElement {
           <button
             type="button"
             className="button"
+            disabled={isJoined}
             onClick={() => {
               setCopy('idle');
               generate();
@@ -114,6 +129,7 @@ export function Lobby({ room }: { readonly room: Room }): ReactElement {
         <TextField
           label="Password (optional)"
           value={password}
+          readOnly={isJoined}
           maxLength={MAX_ROOM_PASSWORD_LENGTH}
           onChange={(typed) => {
             setCopy('idle');
@@ -126,6 +142,41 @@ export function Lobby({ room }: { readonly room: Room }): ReactElement {
         courtesy lock, not a secret — everyone who joins types the same one, so it travels
         the same way the code does. It is never part of the invite link.
       </p>
+
+      <div className="row-actions lobby__join">
+        {isJoined ? (
+          <button type="button" className="button" onClick={presence.leave}>
+            Leave the room
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="button"
+            disabled={!isReady}
+            onClick={() => presence.join(code, password)}
+          >
+            Join the room
+          </button>
+        )}
+      </div>
+
+      {presence.status === 'failed' && presence.error !== null && (
+        <Warning>
+          That room could not be opened ({presence.error.message}). Your sheet is
+          untouched — try again, or carry on alone.
+        </Warning>
+      )}
+
+      {isJoined && presence.error !== null && (
+        <Warning>The last thing to go wrong on the wire: {presence.error.message}</Warning>
+      )}
+
+      {presence.rejection !== null && (
+        <Warning>
+          A peer sent something Lantern could not read, and it was ignored.{' '}
+          {describeRejection(presence.rejection)}
+        </Warning>
+      )}
 
       {link !== null && (
         <>
@@ -151,6 +202,36 @@ export function Lobby({ room }: { readonly room: Room }): ReactElement {
               https page. Select the link above and copy it by hand.
             </Warning>
           )}
+        </>
+      )}
+
+      {isJoined && (
+        <>
+          <p className="subhead">At the table</p>
+          <ul className="party">
+            {presence.members.map((member) => (
+              <li key={member.id} className="party__member">
+                <span className="party__name">
+                  {memberName(member.character?.name, member.id)}
+                </span>
+                {member.id === presence.hostId && <span className="party__tag">host</span>}
+                {member.isSelf && <span className="party__tag">you</span>}
+              </li>
+            ))}
+          </ul>
+
+          {presence.members.length === 1 && (
+            <EmptyNote>
+              Nobody else has arrived. Send them the link — the room is open and waiting.
+            </EmptyNote>
+          )}
+
+          <p className="readout">
+            The host is whoever has been here longest. Every browser works it out from what
+            it can already see, so nobody hands it over and it moves on its own when that
+            person leaves. It settles who goes first and nothing else — it has no say over
+            anyone&rsquo;s dice.
+          </p>
         </>
       )}
     </Panel>

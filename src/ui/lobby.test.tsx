@@ -276,6 +276,24 @@ describe('the password', () => {
   });
 });
 
+describe('joining', () => {
+  // The button only guards the obvious mistake — joining half a code opens a room
+  // nobody else will ever be in. What happens after the click is `use-presence.test.tsx`,
+  // which substitutes the transport; nothing here opens a real room.
+  it('cannot be done until there is a whole code to join', async () => {
+    await mount();
+    expect(button('Join the room').disabled).toBe(true);
+
+    await type(fieldLabelled('Room code'), CODE);
+    expect(button('Join the room').disabled).toBe(false);
+  });
+
+  it('says nothing about a room until one is joined', async () => {
+    await mount();
+    expect(container.textContent).not.toContain('At the table');
+  });
+});
+
 describe('the sheet', () => {
   it('is still there with no room at all', async () => {
     // PRD.md principle 6 — everything is optional except the sheet.
