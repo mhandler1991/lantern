@@ -25,9 +25,17 @@ import { PROTOCOL_VERSION } from '../constants';
 import type { PresenceMember, PresenceState } from '../net/presence';
 import { beginPresence, electHost, peerArrived, peerDeparted, presenceMembers, receivePresence } from '../net/presence';
 import type { HelloEvent, ProtocolRejection, PublicCharacter } from '../net/protocol';
-import { encodeEvent, receiveEvent } from '../net/protocol';
-import type { PeerId, Result, Transport, TransportError, TransportOptions } from '../net/transport';
-import { joinTrysteroRoom } from '../net/trystero';
+import { describeRejection, encodeEvent, receiveEvent } from '../net/protocol';
+import type {
+  PeerId,
+  Result,
+  Transport,
+  TransportError,
+  TransportLogger,
+  TransportOptions,
+} from '../net/transport';
+import { shortPeerId } from '../net/transport';
+import { consoleTransportLogger, joinTrysteroRoom } from '../net/trystero';
 
 /**
  * Trystero hands back a room synchronously and peers arrive later, so there is no
@@ -65,9 +73,17 @@ type Session = {
 
 const NO_MEMBERS: readonly PresenceMember[] = [];
 
+/**
+ * `log` is the same sink the transport writes to, and it is one sink deliberately: a
+ * peer that is not appearing is diagnosed from a single stream of lines, and a rejection
+ * recorded somewhere else is a rejection nobody finds. Every dropped payload is written
+ * there as well as shown, because the banner is gone the moment the next one arrives and
+ * the console is what is still there afterwards (#40).
+ */
 export function usePresence(
   character: PublicCharacter,
   joinRoom: JoinRoom = joinTrysteroRoom,
+  log: TransportLogger = consoleTransportLogger,
 ): Presence {
   const [session, setSession] = useState<Session | null>(null);
   const [presence, setPresence] = useState<PresenceState | null>(null);
@@ -116,6 +132,10 @@ export function usePresence(
     let transport: Transport | null = null;
     let isLive = true;
 
+    function record(level: 'info' | 'warn' | 'error', message: string): void {
+      log({ at: Date.now(), level, message });
+    }
+
     /** Introduce ourselves to one peer. Failures are reported, never swallowed. */
     function announceTo(peerId: PeerId): void {
       if (transport === null) return;
@@ -131,6 +151,9 @@ export function usePresence(
       // it catches is ours, and this is the last machine it can still be debugged on.
       const encoded = encodeEvent(hello);
       if (!encoded.ok) {
+        // Ours, not theirs — an error rather than a warning, and on the one machine that
+        // can still be debugged.
+        record('error', `refused to send our own hello: ${describeRejection(encoded.rejection)}`);
         setRejection(encoded.rejection);
         return;
       }
@@ -143,6 +166,7 @@ export function usePresence(
     const joined = joinRoom({
       roomId: session.roomId,
       ...(session.password === undefined ? {} : { password: session.password }),
+      log,
       handlers: {
         onPeerJoin: (peerId) => {
           if (!isLive) return;
@@ -164,6 +188,12 @@ export function usePresence(
           // who sent it — the schemas have no such field to consult (CLAUDE.md §2.8).
           const received = receiveEvent(from, data);
           if (!received.ok) {
+            // Dropped, recorded, and shown. PRD.md principle 4 — the roster is untouched
+            // and the room carries on; a peer talking nonsense is not a reason to stop.
+            record(
+              'warn',
+              `dropped a message from ${shortPeerId(from)}: ${describeRejection(received.rejection)}`,
+            );
             setRejection(received.rejection);
             return;
           }
@@ -193,7 +223,7 @@ export function usePresence(
       isLive = false;
       void joined.value.leave();
     };
-  }, [session, joinRoom]);
+  }, [session, joinRoom, log]);
 
   /**
    * Our own row is composed on read from the projection this render was given, so the

@@ -180,7 +180,9 @@ Three things the boundary is responsible for:
   we see it, so inbound this bounds what is parsed and kept, not what is received.
 
 Every peer event is logged, `console.info` by default, because a peer bug is diagnosed
-from a console — usually somebody else's, after the fact.
+from a console — usually somebody else's, after the fact. A payload that fails validation
+is logged there too, as a warning, and shown in the lobby: the banner is gone the moment
+the next one arrives, and the console is what is still there afterwards.
 
 ---
 
