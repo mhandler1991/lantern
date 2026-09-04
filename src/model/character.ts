@@ -18,6 +18,7 @@
  */
 
 import * as z from 'zod';
+import { formatProblems, problemsFrom, type Problem } from './problems';
 import {
   CHARACTER_FORMAT,
   CHARACTER_FORMAT_VERSION,
@@ -257,29 +258,18 @@ export type Character = z.infer<typeof Character>;
 // ---------------------------------------------------------------------------
 
 /**
- * A single thing wrong with a file, as `path — what was expected`. DATA-MODEL.md §9:
- * these are written to be pasted back into an AI along with the file, so the path has
- * to be exact and the message has to say what was expected rather than merely "invalid".
+ * A single thing wrong with a file, as `path — what was expected`. The shape and the
+ * formatting live in `model/problems.ts`, because a payload off the wire reports its
+ * problems the same way and DATA-MODEL.md §9 makes that format a contract.
  */
-export type CharacterProblem = {
-  readonly path: string;
-  readonly message: string;
-};
+export type CharacterProblem = Problem;
+
+export { formatProblems };
 
 /** Errors are values at every boundary. CLAUDE.md §2.5. */
 export type CharacterParseResult =
   | { readonly ok: true; readonly character: Character }
   | { readonly ok: false; readonly problems: readonly CharacterProblem[] };
-
-/** `items[3].qty`, and `(root)` for a problem with the file as a whole. */
-function formatPath(path: ReadonlyArray<PropertyKey>): string {
-  if (path.length === NONE) return '(root)';
-
-  return path.reduce<string>((acc, segment) => {
-    if (typeof segment === 'number') return `${acc}[${segment}]`;
-    return acc === '' ? String(segment) : `${acc}.${String(segment)}`;
-  }, '');
-}
 
 /**
  * Parse anything — a file the user picked, a string from localStorage, a peer's payload.
@@ -290,16 +280,5 @@ export function parseCharacter(input: unknown): CharacterParseResult {
   const result = Character.safeParse(input);
   if (result.success) return { ok: true, character: result.data };
 
-  return {
-    ok: false,
-    problems: result.error.issues.map((issue) => ({
-      path: formatPath(issue.path),
-      message: issue.message,
-    })),
-  };
-}
-
-/** The problems, one per line, ready to paste. DATA-MODEL.md §9. */
-export function formatProblems(problems: readonly CharacterProblem[]): string {
-  return problems.map((problem) => `  ${problem.path} — ${problem.message}`).join('\n');
+  return { ok: false, problems: problemsFrom(result.error) };
 }

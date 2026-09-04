@@ -39,19 +39,25 @@ There is no server. There is nothing to log into and nothing to breach.
 Every peer sees exactly this about every other player, and nothing else:
 
 ```ts
-type PublicCharacter = {
-  id: string;          // the peer id from the transport, never self-reported
+type PublicCharacter = {   // net/protocol.ts — exactly what travels
   name: string;
-  ancestry: string;
+  ancestry: string;        // a word, not a ref: the peer reading it may not have the pack
   className: string;
   level: number;
   hp: { current: number; max: number };
-  ac: number;
+  ac: number;              // derived on the sender's machine, bounded here as a claim
   conditions: string[];
   carryingLight: boolean;
   luck: number;
 };
+
+type PartyMember = { id: string } & PublicCharacter;   // `id` added on receipt
 ```
+
+**There is no `id` on the wire.** It is the peer id the transport reports, added when
+the event is received (`ReceivedEvent`), so a peer has no field in which to claim to be
+someone else. §3's identity rule is a property of the schema rather than a step someone
+has to remember.
 
 Roughly 200 bytes. Broadcast debounced on change.
 
@@ -86,16 +92,31 @@ everyone else asks.
 | `request` | to one peer | "May I", or "take 6 damage" |
 | `response` | to one peer | Allowed / refused |
 | `pack` | to one peer | A content pack, chunked |
-| `scene` | broadcast | DM sets location, torch state, settings |
+| `scene` | broadcast | DM sets location and torch mode |
+
+`net/protocol.ts` is that table, executable: a `z.discriminatedUnion` over `t`, every
+branch a `strictObject` spreading a shared `{ v }` envelope so none can forget the
+version. Three notes on what the schemas deliberately do **not** hold:
+
+- **No `total` on a roll.** It is the dice plus the modifier. A derived value on the
+  wire is a derived value stored, and sending one means either recomputing and ignoring
+  it or trusting a number a peer chose.
+- **No `just-me` visibility.** A secret roll is not broadcast at all, so the wire type
+  cannot express one. §4's rule lives in the type rather than in a reviewer's memory.
+- **No `to` on a request.** The recipient is the peer `sendTo` was given; a second copy
+  inside the payload is a second chance for the two to disagree.
+
+A `pack` travels as `MAX_PACK_CHUNK_BYTES` slices of its JSON, at most
+`MAX_PACK_CHUNKS` of them, reassembled in `seq` order before the pack parser sees it.
 
 ### Rules that are not negotiable
 
-**Identity comes from the transport, never the payload.** On receipt, overwrite the
-sender field with the peer id the transport reports. A peer can lie about its numbers;
-it must not be able to act as someone else.
+**Identity comes from the transport, never the payload.** No event carries a sender
+field at all — there is nothing to overwrite, because there was never anywhere to write
+the lie. A peer can lie about its numbers; it must not be able to act as someone else.
 
 ```ts
-onMessage: (data, { peerId }) => handle({ ...data, from: peerId })
+onMessage: ({ from, data }) => receiveEvent(from, data)   // the only `from` there is
 ```
 
 **Validate on the way out and on the way in.** Outbound catches our own bugs before they
@@ -103,6 +124,13 @@ reach a peer. Inbound is the wall. Both run even when there is one player.
 
 **Version the protocol and reject mismatches.** There is no negotiation. A version bump
 means old and new clients cannot see each other, which is correct and must be visible.
+`parseEvent` checks `v` *before* the union so the rejection can name both versions —
+"this peer speaks protocol 2 and you speak 1" is something a user can act on, and
+"invalid literal at v" is not.
+
+**Validation runs in both directions, always.** `encodeEvent` puts an outbound event
+through the same union, with one player at the table and no room open. The bug it
+catches is ours, and this is the last machine on which it can still be debugged.
 
 ### Host
 
