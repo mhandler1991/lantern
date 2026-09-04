@@ -85,6 +85,13 @@ export const MAX_DICE_PER_ROLL = 100;
 /** d100 is the largest die any pack may name. DATA-MODEL.md §2. */
 export const MAX_DIE_SIDES = 100;
 
+/**
+ * A coin is the smallest die there is. Nothing in the game rolls a d1 — a "roll" with
+ * one face is a constant wearing a die's clothes, and on the wire it is a peer claiming
+ * a result it did not roll for. `net/protocol.ts` refuses it.
+ */
+export const MIN_DIE_SIDES = 2;
+
 /** A modifier outside this band is a typo. Warned, clamped, never silently applied. */
 export const MAX_ROLL_MODIFIER = 999;
 
@@ -122,6 +129,15 @@ export const PACK_ID_PATTERN = new RegExp(
 
 /** A whole pack, as JSON, before parsing. A file larger than this is refused. */
 export const MAX_PACK_BYTES = 2 * 1024 * 1024;
+
+/**
+ * How many pieces the largest permitted pack can arrive in (DESIGN.md §3, `pack`).
+ * Derived from the two bounds above rather than written down, so a change to either
+ * cannot leave a peer able to claim a chunk count no pack could ever need. It is
+ * declared here rather than beside the other protocol numbers because a module-level
+ * `const` cannot reference one declared below it.
+ */
+export const MAX_PACK_CHUNKS = Math.ceil(MAX_PACK_BYTES / MAX_PACK_CHUNK_BYTES);
 
 /** How many packs may be loaded at once, core included. */
 export const MAX_PACKS_LOADED = 32;
@@ -364,6 +380,14 @@ export const ABILITY_POINTS_PER_MODIFIER = 2;
 
 /** AC with nothing worn, before dexterity. Armour entries in a pack replace it. */
 export const UNARMORED_AC = 10;
+
+/**
+ * A bound on an armour class arriving from another peer, not a ceiling on what a
+ * character may reach. AC is derived and never stored (CLAUDE.md §4), so this is only
+ * ever checked against the public projection on the wire — where an unbounded number
+ * is a peer's claim rather than our own arithmetic.
+ */
+export const MAX_AC = 99;
 
 /** Carry capacity is strength, or this, whichever is larger. */
 export const MIN_CARRY_SLOTS = 10;
