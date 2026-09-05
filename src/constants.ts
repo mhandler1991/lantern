@@ -189,6 +189,23 @@ const ID_SEGMENT = `[a-z0-9-]{${ENTRY_ID_MIN_LENGTH},${ENTRY_ID_MAX_LENGTH}}`;
  */
 export const REF_PATTERN = new RegExp(`^${ID_SEGMENT}:${ID_SEGMENT}:${ID_SEGMENT}$`);
 
+/**
+ * How one **entry** names another, which is looser than how a character sheet does, in
+ * one to three segments:
+ *
+ *   - `rimewalker-talents` — in the same pack.
+ *   - `frostbound:rimewalker` — in another pack, with the kind implied by the field it
+ *     was written in (DATA-MODEL.md §3, a spell's `classes`).
+ *   - `core:item:dagger` — in another pack, written out in full (§5, a class's `weapons`).
+ *
+ * All three appear in DATA-MODEL.md's own examples, so all three are accepted and the
+ * implied segments are filled in by resolution (#22) from the field the reference sat
+ * in. Refusing one form would refuse a pack written straight from the document, which
+ * is the failure PRD.md principle 4 exists to prevent. `REF_PATTERN` above stays exact:
+ * a **sheet** stores fully-qualified references and has no field to imply a kind from.
+ */
+export const ENTRY_REF_PATTERN = new RegExp(`^${ID_SEGMENT}(?::${ID_SEGMENT}){0,2}$`);
+
 /** Free text is allowed in exactly three places: `name`, `text`, `description`. */
 export const MAX_NAME_LENGTH = 60;
 export const MAX_TEXT_LENGTH = 1_000;
@@ -203,6 +220,51 @@ export const MAX_EXTENDS_PER_PACK = 200;
 
 /** Weapon properties, class weapon and armour lists, a spell's class list. */
 export const MAX_TAGS_PER_ENTRY = 32;
+
+/**
+ * How many dice a table may name in one notation — `2d6` is two, `d100` is one
+ * (DATA-MODEL.md §7). Ten is far past anything a table rolls on and keeps the span a
+ * row may name small enough to reason about.
+ */
+export const MAX_TABLE_DIE_COUNT = 10;
+
+/**
+ * The largest face a table row may name, derived from the two bounds above rather than
+ * written down: the biggest span any permitted notation can produce is every die
+ * showing its highest face. A row outside its own table's real span is a *warning* at
+ * lookup, not a refusal here — PRD.md principle 4.
+ */
+export const MAX_TABLE_ROLL = MAX_TABLE_DIE_COUNT * MAX_DIE_SIDES;
+
+/** A die face is numbered from one, so no roll on any table is lower. */
+export const MIN_TABLE_ROLL = 1;
+
+/** `100d100` is seven characters. Bounded before the notation is picked apart. */
+export const MAX_DIE_NOTATION_LENGTH = 8;
+
+/**
+ * A weapon's damage is one die notation, or two separated by `/` for a weapon that is
+ * used one- or two-handed (DATA-MODEL.md §4). 🚫 Never an expression — nothing in this
+ * app evaluates a string, and `"1d8 + level/2"` is exactly what the bound refuses.
+ */
+export const MAX_DAMAGE_NOTATION_PARTS = 2;
+export const MAX_DAMAGE_LENGTH =
+  MAX_DIE_NOTATION_LENGTH * MAX_DAMAGE_NOTATION_PARTS + (MAX_DAMAGE_NOTATION_PARTS - 1);
+
+/**
+ * What one of a pack's items costs to carry. Distinct from `MAX_ITEM_SLOTS`, which
+ * bounds what a *player* may type into a row on their own sheet: this one bounds a file
+ * that arrived from another peer, and the two are free to move apart.
+ */
+export const MIN_PACK_ITEM_SLOTS = 0;
+export const MAX_PACK_ITEM_SLOTS = 99;
+
+/**
+ * An armour entry's `ac` is either the class it sets or, for a shield, the bonus it
+ * adds (`model/derived.ts`). One bound covers both; `MAX_AC` is what the arithmetic
+ * over them may reach.
+ */
+export const MAX_ARMOR_AC = 99;
 
 /** Shown when `text` is absent. A page reference the size of a phone book is a typo. */
 export const MAX_PAGE_NUMBER = 9_999;

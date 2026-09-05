@@ -22,22 +22,47 @@
  * work, so it is in the schema from the first day rather than retrofitted (DESIGN.md
  * §5, §7). 🚫 Nothing in this repository ships rules text.
  *
- * Scope: this file validates **the envelope**. The entries inside each content array
- * are bounded and counted here but not yet described — the spell, item, class, ancestry
- * and table schemas are #20, and resolution of define/extend/override is #22.
+ * Scope: this file validates **the envelope and the entries inside it** — spells, items,
+ * classes, ancestries and tables, DATA-MODEL.md §§3-7. Two arrays are still counted
+ * rather than described: `talents`, which DATA-MODEL.md gives no shape, and `extends`,
+ * whose shape only means anything alongside the resolution that applies it (#22).
+ * Resolving define/extend/override across loaded packs is #22 as well; nothing here
+ * looks at a second pack.
  */
 
 import * as z from 'zod';
+import {
+  ArmorType,
+  Currency,
+  DamageNotation,
+  Die,
+  DieNotation,
+  Duration,
+  Range,
+  Stat,
+  Tier,
+  WeaponType,
+} from './enums';
 import { formatProblems, problemsFrom, type Problem } from './problems';
 import {
   ENTRY_ID_MAX_LENGTH,
+  ENTRY_REF_PATTERN,
+  MAX_ARMOR_AC,
+  MAX_CHARACTER_LEVEL,
+  MAX_COIN,
   MAX_DESCRIPTION_LENGTH,
   MAX_ENTRIES_PER_ARRAY,
   MAX_EXTENDS_PER_PACK,
   MAX_NAME_LENGTH,
+  MAX_PACK_ITEM_SLOTS,
   MAX_PAGE_NUMBER,
   MAX_REF_LENGTH,
+  MAX_TABLE_ROLL,
+  MAX_TABLE_ROWS,
+  MAX_TAGS_PER_ENTRY,
   MAX_TEXT_LENGTH,
+  MIN_PACK_ITEM_SLOTS,
+  MIN_TABLE_ROLL,
   ENTRY_ID_PATTERN,
   PACK_AUTHOR_MAX_LENGTH,
   PACK_DESCRIPTION_MAX_LENGTH,
@@ -54,6 +79,9 @@ import {
 /** A page is numbered from one; a name is not empty. Neither is a rule of the game. */
 const FIRST_PAGE = 1;
 const NOT_EMPTY = 1;
+
+/** Free, and weightless. A floor on a number, not a statement about gear. */
+const NOTHING = 0;
 
 // ---------------------------------------------------------------------------
 // The leaves every entry is built from. DATA-MODEL.md §§3-8 assemble these; #20.
@@ -73,6 +101,37 @@ export type EntryId = z.infer<typeof EntryId>;
 /** The full form of a cross-pack reference — `core:class:wizard`. */
 export const Ref = z.string().max(MAX_REF_LENGTH).regex(REF_PATTERN);
 export type Ref = z.infer<typeof Ref>;
+
+/**
+ * What one entry writes when it points at another. Three forms, all of which appear in
+ * DATA-MODEL.md's own examples: `rimewalker-talents` in the same pack (§5),
+ * `frostbound:rimewalker` in another with the kind implied by the field (§3), and
+ * `core:item:dagger` written out in full (§5).
+ *
+ * All three are accepted, because a pack author should not have to know whether the
+ * thing they are naming happens to live beside them, and because refusing one would
+ * refuse a pack written straight from the document. **Which form it is stays visible** —
+ * filling in the implied segments from the field a reference sat in is resolution's job
+ * (#22), not this schema's.
+ */
+export const EntryRef = z
+  .string()
+  .max(MAX_REF_LENGTH)
+  .regex(ENTRY_REF_PATTERN, 'expected a reference such as dagger, core:dagger or core:item:dagger');
+export type EntryRef = z.infer<typeof EntryRef>;
+
+/**
+ * A short closed-vocabulary label an entry carries a list of — a weapon property, an
+ * armour a class may wear. Same shape as an id and deliberately not free text: three
+ * fields hold free text (`name`, `text`, `description`) and a tag is not one of them
+ * (DATA-MODEL.md §2), which is what keeps a pack sortable and filterable.
+ */
+export const EntryTag = EntryId;
+export type EntryTag = z.infer<typeof EntryTag>;
+
+/** A list of them, bounded. `["versatile"]`, `["none", "light"]`. */
+const tagList = <T extends z.ZodType>(tag: T): z.ZodArray<T> =>
+  z.array(tag).max(MAX_TAGS_PER_ENTRY);
 
 /** One of the three fields free text is allowed in, and it is required on an entry. */
 export const EntryName = z.string().min(NOT_EMPTY).max(MAX_NAME_LENGTH);
@@ -103,20 +162,239 @@ export const Overrides = Ref.nullish();
 export type Overrides = z.infer<typeof Overrides>;
 
 // ---------------------------------------------------------------------------
+// Spells. DATA-MODEL.md §3.
+// ---------------------------------------------------------------------------
+
+/**
+ * **The spell is the source of truth for which lists it is on.** A class names its
+ * talent table; a spell names its classes. That direction is the whole reason adding
+ * spells to an existing class needs no `extends` at all — a four-spell pack for the
+ * wizard is four entries and no extension (DATA-MODEL.md §3).
+ *
+ * A spell on no list is allowed. It is a spell an author has not finished placing, and
+ * refusing it would cost them the pack over a field they are still writing (PRD.md
+ * principle 4); a picker simply never offers it.
+ */
+export const SpellEntry = z.strictObject({
+  id: EntryId,
+  name: EntryName,
+  tier: Tier,
+  classes: tagList(EntryRef),
+  range: Range,
+  duration: Duration,
+
+  text: EntryText,
+  page: PageReference,
+  overrides: Overrides,
+});
+export type SpellEntry = z.infer<typeof SpellEntry>;
+
+// ---------------------------------------------------------------------------
+// Items. DATA-MODEL.md §4.
+// ---------------------------------------------------------------------------
+
+/** What a thing costs, in one of the three coins a sheet keeps. */
+export const ItemCost = z.strictObject({
+  amount: z.int().min(NOTHING).max(MAX_COIN),
+  currency: Currency,
+});
+export type ItemCost = z.infer<typeof ItemCost>;
+
+/**
+ * 🚫 `damage` is a notation, never an expression, and nothing in this app evaluates it —
+ * `model/dice.ts` reads the dice out of it. `properties` are tags rather than sentences,
+ * so a sheet can group by them; a property that needs explaining goes in `text`.
+ */
+export const WeaponBlock = z.strictObject({
+  type: WeaponType,
+  damage: DamageNotation,
+  properties: tagList(EntryTag),
+});
+export type WeaponBlock = z.infer<typeof WeaponBlock>;
+
+/**
+ * `ac` is the class this armour sets, or — for a shield — the bonus it adds, which is
+ * how `model/derived.ts` already reads it. `addDex` is how heavy armour is expressed:
+ * false, and dexterity does not apply. Both are numbers a pack supplies to arithmetic
+ * that lives elsewhere; nothing here adjudicates (CLAUDE.md §4).
+ */
+export const ArmorBlock = z.strictObject({
+  type: ArmorType,
+  ac: z.int().min(NOTHING).max(MAX_ARMOR_AC),
+  addDex: z.boolean(),
+});
+export type ArmorBlock = z.infer<typeof ArmorBlock>;
+
+/**
+ * `weapon` and `armor` are mutually exclusive in practice and **not enforced to be**. A
+ * shield that also hits is somebody's homebrew, not a malformed file, and the pair of
+ * blocks costs the reader nothing (PRD.md principle 4).
+ *
+ * `slots` is what **one** of it costs to carry. A sheet multiplies by quantity and a
+ * pack's answer wins over the row's own — `model/derived.ts` §carry slots.
+ */
+export const ItemEntry = z.strictObject({
+  id: EntryId,
+  name: EntryName,
+  slots: z.int().min(MIN_PACK_ITEM_SLOTS).max(MAX_PACK_ITEM_SLOTS),
+  cost: ItemCost,
+
+  weapon: WeaponBlock.nullish(),
+  armor: ArmorBlock.nullish(),
+
+  text: EntryText,
+  page: PageReference,
+  overrides: Overrides,
+});
+export type ItemEntry = z.infer<typeof ItemEntry>;
+
+// ---------------------------------------------------------------------------
+// Classes. DATA-MODEL.md §5.
+// ---------------------------------------------------------------------------
+
+/**
+ * `null` for a non-caster, and that is a stated fact rather than an absent field —
+ * absent and null both read as "does not cast" here, the same way they do for `text`.
+ *
+ * `highestTierByLevel` is indexed by level − 1, one entry per level, which is why it is
+ * bounded by `MAX_CHARACTER_LEVEL` rather than by a cap of its own. A shorter list is
+ * accepted: a class that only goes to level five is a class an author is still writing,
+ * and the caller reads past the end as "no tier yet".
+ */
+export const SpellcastingBlock = z.strictObject({
+  stat: Stat,
+  highestTierByLevel: z.array(Tier).max(MAX_CHARACTER_LEVEL),
+});
+export type SpellcastingBlock = z.infer<typeof SpellcastingBlock>;
+
+/**
+ * XP thresholds are uniform across classes, so there is no per-class progression here —
+ * `model/derived.ts` computes advancement from level alone (DATA-MODEL.md §5).
+ *
+ * **A class referencing an item no pack defines warns and renders as plain text.** That
+ * is why `weapons` is a list of references and not a list of resolved items: resolution
+ * happens later and against whatever is loaded, and a missing one never fails the pack.
+ */
+export const ClassEntry = z.strictObject({
+  id: EntryId,
+  name: EntryName,
+  hitDie: Die,
+  weapons: tagList(EntryRef),
+  armor: tagList(ArmorType),
+  spellcasting: SpellcastingBlock.nullish(),
+  talentTable: EntryRef,
+
+  text: EntryText,
+  page: PageReference,
+  overrides: Overrides,
+});
+export type ClassEntry = z.infer<typeof ClassEntry>;
+
+// ---------------------------------------------------------------------------
+// Ancestries. DATA-MODEL.md §6.
+// ---------------------------------------------------------------------------
+
+/**
+ * The smallest entry there is: a name, the words describing its knack, and a page.
+ *
+ * `talent` is free text under a fourth name, which DATA-MODEL.md §2's three-field rule
+ * does not list. It is the same field as `text` wearing the label §6 gives it, so it
+ * carries the same bound — and, like `text`, core ships without it (DESIGN.md §5).
+ *
+ * 🚫 Nothing reads it. A talent is recorded, never applied (PRD.md principle 1).
+ */
+export const AncestryEntry = z.strictObject({
+  id: EntryId,
+  name: EntryName,
+  talent: EntryText,
+
+  text: EntryText,
+  page: PageReference,
+  overrides: Overrides,
+});
+export type AncestryEntry = z.infer<typeof AncestryEntry>;
+
+// ---------------------------------------------------------------------------
+// Tables. DATA-MODEL.md §7.
+// ---------------------------------------------------------------------------
+
+/**
+ * A face, or an inclusive band of them: `2` and `[3, 6]` (DATA-MODEL.md §7). The pair is
+ * a tuple rather than an array so a third element is a reported problem instead of a
+ * silently ignored one, and `low` may equal `high` — a one-face band is a band an author
+ * wrote out longhand, not an error.
+ *
+ * **Gaps and overlaps are not checked here.** They are real faults and they are
+ * *warnings*: a table missing a row for 7 is a table that answers for everything else,
+ * and refusing the pack over it is exactly what PRD.md principle 4 forbids. Coverage is
+ * `model/tables.ts` (CLAUDE.md §7), where the lookup that would fall through it lives.
+ */
+export const TableRoll = z.union([
+  z.int().min(MIN_TABLE_ROLL).max(MAX_TABLE_ROLL),
+  z
+    .tuple([
+      z.int().min(MIN_TABLE_ROLL).max(MAX_TABLE_ROLL),
+      z.int().min(MIN_TABLE_ROLL).max(MAX_TABLE_ROLL),
+    ])
+    .refine(([low, high]) => low <= high, {
+      message: 'expected an inclusive range [low, high] with low no greater than high',
+    }),
+]);
+export type TableRoll = z.infer<typeof TableRoll>;
+
+/**
+ * The row's `text` is required and is the only free text a table carries — a row with
+ * nothing to say is not a row. 🚫 **There is no `grants` field, deliberately.** A result
+ * lands on a sheet as words; applying it would need an effects engine, which PRD.md
+ * principle 1 rules out and PRD.md §4 defers indefinitely.
+ */
+export const TableRow = z.strictObject({
+  roll: TableRoll,
+  text: z.string().min(NOT_EMPTY).max(MAX_TEXT_LENGTH),
+});
+export type TableRow = z.infer<typeof TableRow>;
+
+/**
+ * `die` is a notation, not one of the `Die` enum's members: `2d6` carries a count and a
+ * talent table is usually rolled on more than one die.
+ *
+ * `rerollable` defaults to false when it is absent. An author who omits a flag means
+ * "no", and losing a whole pack to a missing boolean is the refusal PRD.md principle 4
+ * forbids — so the default is stated here rather than left to every caller to guess.
+ */
+export const TableEntry = z.strictObject({
+  id: EntryId,
+  name: EntryName,
+  die: DieNotation,
+  rerollable: z
+    .boolean()
+    .nullish()
+    .transform((value) => value ?? false),
+  rows: z.array(TableRow).max(MAX_TABLE_ROWS),
+
+  text: EntryText,
+  page: PageReference,
+  overrides: Overrides,
+});
+export type TableEntry = z.infer<typeof TableEntry>;
+
+// ---------------------------------------------------------------------------
 // Content arrays
 // ---------------------------------------------------------------------------
 
 /**
- * An entry as the envelope sees it: counted and bounded, not yet described. The shape
- * of a spell, an item, a class, an ancestry and a table is #20, and each of those is a
- * strict object built from the leaves above. Until then an entry is `unknown` rather
- * than a permissive object, because "not validated yet" and "validated loosely" must
- * not look the same in this file.
+ * Two arrays the envelope still only counts.
+ *
+ * `talents` has no shape in DATA-MODEL.md to be executable against, and `extends` (§8)
+ * is one half of a pair whose other half is resolution — an extension's `target` only
+ * means something once there is a stack of loaded packs to look it up in (#22). Both
+ * stay `unknown` rather than becoming a permissive object, because "not described yet"
+ * and "described loosely" must not look the same in this file.
  */
-const PackEntry = z.unknown();
+const UndescribedEntry = z.unknown();
 
-const contentArray = (): z.ZodOptional<z.ZodArray<typeof PackEntry>> =>
-  z.array(PackEntry).max(MAX_ENTRIES_PER_ARRAY).optional();
+const contentArray = <T extends z.ZodType>(entry: T): z.ZodOptional<z.ZodArray<T>> =>
+  z.array(entry).max(MAX_ENTRIES_PER_ARRAY).optional();
 
 // ---------------------------------------------------------------------------
 // The envelope
@@ -143,15 +421,15 @@ export const Pack = z.strictObject({
   author: z.string().max(PACK_AUTHOR_MAX_LENGTH).nullish(),
   description: z.string().max(PACK_DESCRIPTION_MAX_LENGTH).nullish(),
 
-  classes: contentArray(),
-  ancestries: contentArray(),
-  spells: contentArray(),
-  items: contentArray(),
-  talents: contentArray(),
-  tables: contentArray(),
+  classes: contentArray(ClassEntry),
+  ancestries: contentArray(AncestryEntry),
+  spells: contentArray(SpellEntry),
+  items: contentArray(ItemEntry),
+  talents: contentArray(UndescribedEntry),
+  tables: contentArray(TableEntry),
 
   /** Additions to something another pack defined. Never collides. DATA-MODEL.md §8. */
-  extends: z.array(PackEntry).max(MAX_EXTENDS_PER_PACK).optional(),
+  extends: z.array(UndescribedEntry).max(MAX_EXTENDS_PER_PACK).optional(),
 });
 export type Pack = z.infer<typeof Pack>;
 
