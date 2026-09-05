@@ -120,11 +120,11 @@ async function type(input: HTMLInputElement, value: string): Promise<void> {
  * — the component takes `size` and `text()` off whatever the picker handed it, which is
  * why `PickedFile` is a structural type.
  */
-async function pick(text: string): Promise<void> {
+async function pick(text: string, name = 'vess.json'): Promise<void> {
   const input = fieldLabelled('Character file');
   Object.defineProperty(input, 'files', {
     configurable: true,
-    value: [{ size: text.length, text: () => Promise.resolve(text) }],
+    value: [{ name, size: text.length, text: () => Promise.resolve(text) }],
   });
 
   await act(async () => {
@@ -242,6 +242,63 @@ describe('importing a character', () => {
 // ---------------------------------------------------------------------------
 // The round trip — the acceptance criterion for #16
 // ---------------------------------------------------------------------------
+
+// #21 — most people will not read a schema; they paste what the app says back into the
+// thing that wrote the file (DATA-MODEL.md §10). So what is asserted here is the block a
+// player is asked to paste: what it says, and that one button takes all of it.
+describe('the problems, ready to paste', () => {
+  function withClipboard(writeText: (text: string) => Promise<void>): void {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+  }
+
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'clipboard');
+  });
+
+  /** A file that is a character in every way but one. */
+  async function pickABrokenFile(): Promise<void> {
+    await mount();
+    const text = await exportText();
+    const broken = { ...JSON.parse(text), level: 99, luck: -1 };
+    await pick(JSON.stringify(broken), 'vess-of-the-low-road.json');
+  }
+
+  it('names the file, and gives every problem a path, an expectation and a value', async () => {
+    await pickABrokenFile();
+
+    expect(container.textContent).toContain('2 problems in "vess-of-the-low-road.json":');
+    expect(container.textContent).toContain('level — expected at most 10 — got 99');
+    expect(container.textContent).toContain('luck — expected at least 0 — got -1');
+  });
+
+  it('copies the whole block, heading and every line, in one click', async () => {
+    const copied: string[] = [];
+    withClipboard(async (text) => {
+      copied.push(text);
+    });
+
+    await pickABrokenFile();
+    await click(button('Copy the problems'));
+
+    expect(copied).toHaveLength(1);
+    expect(copied[0]).toContain('2 problems in "vess-of-the-low-road.json":');
+    expect(copied[0]).toContain('level — expected at most 10 — got 99');
+    expect(copied[0]).toContain('luck — expected at least 0 — got -1');
+    expect(container.textContent).toContain('Copied.');
+  });
+
+  it('leaves the lines on screen to be selected when the clipboard refuses', async () => {
+    withClipboard(async () => {
+      throw new Error('denied');
+    });
+
+    await pickABrokenFile();
+    await click(button('Copy the problems'));
+
+    expect(container.textContent).toContain('select the lines above');
+    expect(container.textContent).toContain('level — expected at most 10 — got 99');
+  });
+});
 
 describe('the round trip', () => {
   it('is the same character in a browser that has never seen it', async () => {

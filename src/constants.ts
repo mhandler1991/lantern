@@ -386,6 +386,18 @@ export const MAX_LIGHT_MINUTES = 24 * 60;
 export const LIGHT_TICK_MS = 1_000;
 
 // ---------------------------------------------------------------------------
+// Validation reports. DATA-MODEL.md §9.
+// ---------------------------------------------------------------------------
+
+/**
+ * How much of the offending value a problem prints back — `got "medium"`. Long enough
+ * that a name, an id or a reference arrives whole, short enough that a 1,000-character
+ * `text` field becomes a description of itself rather than a wall of prose in the
+ * middle of a report meant to be read. `model/problems.ts`.
+ */
+export const MAX_PROBLEM_VALUE_LENGTH = 60;
+
+// ---------------------------------------------------------------------------
 // Storage
 // ---------------------------------------------------------------------------
 

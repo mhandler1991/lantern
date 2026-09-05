@@ -284,6 +284,37 @@ Error messages are written to be **pasted back into an AI**.
 Path, expectation, actual. A model fixes that in one turn. "Invalid pack" starts a
 guessing game.
 
+**Every problem is reported, not the first.** An author fixing a pack one refusal at a
+time is an author pasting six times.
+
+`src/model/problems.ts` is this section executable, and every boundary in the app —
+a pack, a character file, a payload off the wire — reports through it. The grammar:
+
+| Case | Line |
+|---|---|
+| A value outside a vocabulary | `range — expected one of: self, close, near, far — got "medium"` |
+| The wrong type | `tier — expected a number — got "two"` |
+| A bound overrun | `name — expected at most 60 characters — got 74 characters` |
+| A pattern | `id — expected text matching /^[a-z0-9-]{2,32}$/ — got "Frostbound"` |
+| A field that is not there | `spells[7] — missing required field: tier` |
+| A field that should not be | `spells[0].onLoad — unknown field — remove it, or check the spelling` |
+| Several shapes allowed | `rows[0].roll — expected a number or a list — got "seven"` |
+
+Three of those are worth saying out loud:
+
+- **A missing field is reported against the object that should have held it**, and named
+  in the message. `spells[7].tier` is the one path an author cannot search their file
+  for, because it is not in it.
+- **An unknown key is reported at its own path**, not at the object holding it, because
+  the path is what an author searches for and a whole strict object is not a search term.
+- **A schema may write its own expectation** and it is used verbatim, on one condition:
+  it is phrased as `expected …`. Zod's own messages never are, which is what tells the
+  two apart.
+
+The value that was actually there is printed back, bounded — a 1,000-character `text`
+field arrives as its length rather than as a wall of prose. A value is never *evaluated*
+to describe it, and every line renders as a text node.
+
 ---
 
 ## 10. Authoring with an AI
@@ -296,7 +327,8 @@ Ship all of:
 1. `schema/pack.schema.json` — JSON Schema, for models and editors
 2. `docs/authoring-prompt.md` — the template below
 3. `packs/example-pack.json` — one of everything
-4. The in-app validator, with copy-pasteable errors
+4. The in-app validator, with copy-pasteable errors — the whole block, heading and all,
+   behind one button. A player picking lines out of a paragraph pastes half the problem.
 
 ### The prompt template
 

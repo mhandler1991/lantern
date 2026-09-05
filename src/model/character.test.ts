@@ -74,10 +74,14 @@ function withField(field: string, value: unknown): unknown {
 }
 
 /** The paths a failed parse complained about, for asserting the message is usable. */
-function pathsOf(input: unknown): string[] {
+function problemsOf(input: unknown): readonly CharacterProblem[] {
   const result = parseCharacter(input);
   if (result.ok) throw new Error('expected the parse to fail, and it succeeded');
-  return result.problems.map((problem) => problem.path);
+  return result.problems;
+}
+
+function pathsOf(input: unknown): string[] {
+  return problemsOf(input).map((problem) => problem.path);
 }
 
 describe('the documented shape', () => {
@@ -165,7 +169,11 @@ describe('row ids', () => {
   it('requires one on every row', () => {
     const withoutId: Record<string, unknown> = { ...(item() as Record<string, unknown>) };
     delete withoutId.id;
-    expect(pathsOf(withField('items', [withoutId]))).toEqual(['items[0].id']);
+    // Reported against the row, naming the field: `items[0].id` is the one path an
+    // author cannot search their file for, because it is not in it. DATA-MODEL.md §9.
+    expect(problemsOf(withField('items', [withoutId]))).toEqual([
+      { path: 'items[0]', message: 'missing required field: id' },
+    ]);
   });
 
   it('rejects one that could not be used as a key', () => {
@@ -188,7 +196,8 @@ describe('no derived value can be stored', () => {
   it.each(['ac', 'slots', 'slotsUsed', 'xpToNext', 'spellDC', 'modifiers', 'initiative'])(
     'rejects a stored %s',
     (field) => {
-      expect(pathsOf(withField(field, 14))).toContain('(root)');
+      // Named by the key itself, so the line says what to delete.
+      expect(pathsOf(withField(field, 14))).toContain(field);
     },
   );
 
@@ -216,10 +225,10 @@ describe('the envelope', () => {
 
 describe('stats', () => {
   it('requires all six', () => {
-    expect(pathsOf(withField('stats', { str: 10, dex: 10, con: 10 }))).toEqual([
-      'stats.int',
-      'stats.wis',
-      'stats.cha',
+    expect(problemsOf(withField('stats', { str: 10, dex: 10, con: 10 }))).toEqual([
+      { path: 'stats', message: 'missing required field: int' },
+      { path: 'stats', message: 'missing required field: wis' },
+      { path: 'stats', message: 'missing required field: cha' },
     ]);
   });
 

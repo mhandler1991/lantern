@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { CHARACTER_FORMAT, CHARACTER_FORMAT_VERSION, MAX_CHARACTER_BYTES } from '../constants';
-import { parseCharacter } from '../model/character';
+import { formatProblems, parseCharacter } from '../model/character';
 import type { CharacterMigration, MigrationResult, StoredDocument } from './character-storage';
 import {
   CHARACTER_KEY,
@@ -83,7 +83,7 @@ describe('a stored value that cannot be read', () => {
     [
       'carries a derived value the schema forbids',
       JSON.stringify({ ...vess, ac: 14 }),
-      '(root)',
+      'ac',
     ],
     [
       'is missing a required field',
@@ -92,13 +92,15 @@ describe('a stored value that cannot be read', () => {
     ],
   ];
 
-  it.each(cases)('rejects a value that %s, naming %s', (_label, raw, path) => {
+  // Named by the path, or by the message where a field is missing entirely and there is
+  // no path to it — DATA-MODEL.md §9. Both are in the block the player pastes.
+  it.each(cases)('rejects a value that %s, naming %s', (_label, raw, named) => {
     localStorage.setItem(CHARACTER_KEY, raw);
 
     const load = loadCharacter();
     expect(load.kind).toBe('rejected');
     if (load.kind === 'rejected') {
-      expect(load.problems.map((problem) => problem.path)).toContain(path);
+      expect(formatProblems(load.problems)).toContain(named);
       expect(load.kept).toBe(true);
     }
   });

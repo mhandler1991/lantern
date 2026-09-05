@@ -29,6 +29,7 @@ import { MAX_ROOM_PASSWORD_LENGTH, ROOM_CODE_LENGTH } from '../constants';
 import { describeRejection } from '../net/protocol';
 import type { Presence } from '../state/use-presence';
 import type { Room } from '../state/use-room';
+import { copyText } from './clipboard';
 import { EmptyNote, Panel, TextField, Warning } from './fields';
 import { PartyView } from './PartyView';
 
@@ -50,20 +51,10 @@ export function Lobby({
   async function copyLink(): Promise<void> {
     if (link === null) return;
 
-    // Undefined outside a secure context, so this branch is the http case as well as
-    // the browser-does-not-support-it one.
-    const clipboard: Clipboard | undefined = navigator.clipboard;
-    if (clipboard === undefined) {
-      setCopy('unavailable');
-      return;
-    }
-
-    try {
-      await clipboard.writeText(link);
-      setCopy('copied');
-    } catch {
-      setCopy('unavailable');
-    }
+    // Every way this can be refused — an http origin, a permission, a hardened profile —
+    // is one answer here: the link stays on screen to be selected by hand.
+    const copied = await copyText(link);
+    setCopy(copied.ok ? 'copied' : 'unavailable');
   }
 
   return (

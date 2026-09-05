@@ -20,7 +20,6 @@
 import type { ReactElement } from 'react';
 import { useMemo } from 'react';
 import '../styles/app.css';
-import { formatProblems } from '../model/character';
 import type { ItemLookup } from '../model/derived';
 import { toPublicCharacter } from '../net/projection';
 import { usePersistentCharacter } from '../state/use-persistent-character';
@@ -28,6 +27,7 @@ import { usePresence } from '../state/use-presence';
 import { useRoom } from '../state/use-room';
 import { Lobby } from './Lobby';
 import { Portability } from './Portability';
+import { ProblemReport } from './ProblemReport';
 import { CharacterSheet } from './sheet/CharacterSheet';
 
 /** No pack is loaded until Phase 2, so no reference resolves — the same state as the sheet. */
@@ -56,12 +56,13 @@ export function App(): ReactElement {
 
       <div className="app__notices">
         {load.kind === 'rejected' && (
-          <p className="notice notice--danger" role="alert">
-            The saved character could not be read, so this is a new one.
-            {load.kept ? ' The old value has been kept aside, unchanged.' : ''}
-            {'\n'}
-            {formatProblems(load.problems)}
-          </p>
+          <div className="notice notice--danger" role="alert">
+            <p>
+              The saved character could not be read, so this is a new one.
+              {load.kept ? ' The old value has been kept aside, unchanged.' : ''}
+            </p>
+            <ProblemReport subject="the saved character" problems={load.problems} />
+          </div>
         )}
 
         {load.kind === 'unavailable' && (
@@ -78,12 +79,17 @@ export function App(): ReactElement {
           </p>
         )}
 
-        {lastSave !== null && !lastSave.ok && (
+        {lastSave !== null && !lastSave.ok && lastSave.reason === 'storage' && (
           <p className="notice notice--danger" role="alert">
-            {lastSave.reason === 'storage'
-              ? `The last change could not be saved. (${lastSave.failure.detail})`
-              : `The last change could not be saved, because the sheet did not validate:\n${formatProblems(lastSave.problems)}`}
+            The last change could not be saved. ({lastSave.failure.detail})
           </p>
+        )}
+
+        {lastSave !== null && !lastSave.ok && lastSave.reason === 'invalid' && (
+          <div className="notice notice--danger" role="alert">
+            <p>The last change could not be saved, because the sheet did not validate:</p>
+            <ProblemReport subject="the sheet" problems={lastSave.problems} />
+          </div>
         )}
       </div>
 

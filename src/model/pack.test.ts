@@ -23,6 +23,7 @@ import {
   TableEntry,
   formatProblems,
   parsePack,
+  reportProblems,
 } from './pack';
 import {
   ENTRY_ID_MAX_LENGTH,
@@ -369,6 +370,65 @@ describe('the report', () => {
     const report = formatProblems(result.problems);
     expect(result.problems.map((problem) => problem.path)).toEqual(['id', 'version']);
     expect(report.split('\n')).toHaveLength(2);
+  });
+
+  // DATA-MODEL.md §9 prints these two lines. They are produced here rather than written
+  // by hand, so the document and the validator cannot drift apart.
+  it('writes §9\'s line for a value outside an enum', () => {
+    const spells = [SPELL, SPELL, SPELL, SPELL, { ...SPELL, range: 'medium' }];
+    const result = parsePack(envelope({ spells }));
+    if (result.ok) throw new Error('expected the pack to be refused');
+
+    expect(formatProblems(result.problems)).toBe(
+      '  spells[4].range — expected one of: self, close, near, far — got "medium"',
+    );
+  });
+
+  it('writes §9\'s line for a field that is not there', () => {
+    const spells = [...Array(7).fill(SPELL), { ...SPELL, tier: undefined }];
+    const result = parsePack(envelope({ spells }));
+    if (result.ok) throw new Error('expected the pack to be refused');
+
+    expect(formatProblems(result.problems)).toBe('  spells[7] — missing required field: tier');
+  });
+
+  it('says every shape a value could have taken, on one line', () => {
+    const tables = [{ ...TABLE, rows: [{ roll: 'seven', text: 'A rimeblade' }] }];
+    const result = parsePack(envelope({ tables }));
+    if (result.ok) throw new Error('expected the pack to be refused');
+
+    expect(formatProblems(result.problems)).toBe(
+      '  tables[0].rows[0].roll — expected a number or a list — got "seven"',
+    );
+  });
+
+  it('heads the block with the pack the paths belong to', () => {
+    const result = parsePack(envelope({ id: 'Frostbound', version: 'v1' }));
+    if (result.ok) throw new Error('expected the pack to be refused');
+
+    expect(reportProblems(result.problems, FROSTBOUND.name)).toContain(
+      '2 problems in "Frostbound":',
+    );
+  });
+
+  it('never says only that the pack is invalid', () => {
+    // Six ways to be wrong at once, none of which may come back as a bare refusal.
+    const result = parsePack(
+      envelope({
+        id: 'Frostbound',
+        version: 'v1',
+        onLoad: 'alert(1)',
+        spells: [{ ...SPELL, range: 'medium', tier: 9 }],
+        tables: [{ ...TABLE, rows: [{ roll: 'seven', text: 'A rimeblade' }] }],
+      }),
+    );
+    if (result.ok) throw new Error('expected the pack to be refused');
+
+    for (const problem of result.problems) {
+      expect(problem.message).not.toBe('Invalid input');
+      expect(problem.message).toMatch(/^(expected|missing|unknown)/u);
+    }
+    expect(result.problems.length).toBeGreaterThan(5);
   });
 });
 
