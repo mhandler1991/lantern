@@ -140,6 +140,16 @@ export const PACK_ID_PATTERN = new RegExp(
   `^[a-z0-9-]{${PACK_ID_MIN_LENGTH},${PACK_ID_MAX_LENGTH}}$`,
 );
 
+/**
+ * A pack version is semver (DATA-MODEL.md §1) and is only ever compared for equality —
+ * it answers "is this the pack I already have". The pattern is therefore deliberately
+ * looser than semver: a digit, then digits, dots, dashes and letters. `1.2.0` passes,
+ * so does `1.2.0-beta.1` and `2026.09`. Refusing an author's `1.2` would cost them
+ * their whole pack over a field nothing computes with (PRD.md principle 4), while an
+ * unbounded free-text version would put a paragraph of prose in the content screen.
+ */
+export const PACK_VERSION_PATTERN = /^[0-9][0-9A-Za-z.+-]*$/;
+
 /** A whole pack, as JSON, before parsing. A file larger than this is refused. */
 export const MAX_PACK_BYTES = 2 * 1024 * 1024;
 
