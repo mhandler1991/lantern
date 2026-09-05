@@ -7,23 +7,37 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  AncestryEntry,
+  ClassEntry,
   EntryId,
   EntryName,
+  EntryRef,
   EntryText,
+  ItemEntry,
   Overrides,
   Pack,
   PackId,
   PageReference,
   Ref,
+  SpellEntry,
+  TableEntry,
   formatProblems,
   parsePack,
 } from './pack';
 import {
   ENTRY_ID_MAX_LENGTH,
+  MAX_ARMOR_AC,
+  MAX_CHARACTER_LEVEL,
+  MAX_COIN,
   MAX_ENTRIES_PER_ARRAY,
   MAX_EXTENDS_PER_PACK,
   MAX_NAME_LENGTH,
+  MAX_PACK_ITEM_SLOTS,
   MAX_PAGE_NUMBER,
+  MAX_TABLE_DIE_COUNT,
+  MAX_TABLE_ROLL,
+  MAX_TABLE_ROWS,
+  MAX_TAGS_PER_ENTRY,
   MAX_TEXT_LENGTH,
   PACK_AUTHOR_MAX_LENGTH,
   PACK_DESCRIPTION_MAX_LENGTH,
@@ -50,6 +64,93 @@ const FROSTBOUND = {
   tables: [],
   extends: [],
 } as const;
+
+/**
+ * One of each, copied from DATA-MODEL.md §§3-7 exactly the way `FROSTBOUND` copies §1.
+ * These are what an author reading the document would write, so a schema that refuses
+ * one of them has broken the contract rather than tightened it.
+ */
+const SPELL = {
+  id: 'hoarfrost',
+  name: 'Hoarfrost',
+  tier: 2,
+  classes: ['wizard', 'frostbound:rimewalker'],
+  range: 'near',
+  duration: 'focus',
+  text: 'Optional. Present only in packs, never in core.',
+  page: 53,
+} as const;
+
+const ITEM = {
+  id: 'rimeblade',
+  name: 'Rimeblade',
+  slots: 1,
+  cost: { amount: 90, currency: 'gp' },
+  weapon: {
+    type: 'melee',
+    damage: '1d8',
+    properties: ['versatile'],
+  },
+  armor: null,
+  text: 'Optional.',
+  page: null,
+} as const;
+
+const CLASS = {
+  id: 'rimewalker',
+  name: 'Rimewalker',
+  hitDie: 'd6',
+  weapons: ['core:item:dagger', 'core:item:staff'],
+  armor: ['none'],
+  spellcasting: {
+    stat: 'wis',
+    highestTierByLevel: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
+  },
+  talentTable: 'rimewalker-talents',
+  text: 'Optional.',
+  page: null,
+} as const;
+
+const ANCESTRY = {
+  id: 'frostborn',
+  name: 'Frostborn',
+  talent: 'Optional text describing the ancestry knack.',
+  page: null,
+} as const;
+
+const TABLE = {
+  id: 'rimewalker-talents',
+  name: 'Rimewalker talents',
+  die: '2d6',
+  rerollable: false,
+  rows: [
+    { roll: 2, text: 'Choose a talent or +2 to a stat' },
+    { roll: [3, 6], text: '+1 to melee and ranged attacks' },
+    { roll: [7, 9], text: '+2 to your spellcasting checks' },
+    { roll: [10, 11], text: '+1 to a stat of your choice' },
+    { roll: 12, text: 'Choose any talent' },
+  ],
+} as const;
+
+/** Which fixture belongs in which array, for the tests that walk every array. */
+const SAMPLE: Record<string, unknown> = {
+  classes: CLASS,
+  ancestries: ANCESTRY,
+  spells: SPELL,
+  items: ITEM,
+  tables: TABLE,
+  talents: {},
+  extends: {},
+};
+
+/** An entry with one field replaced, or — when the value is `undefined` — removed. */
+function entry(base: Record<string, unknown>, over: Record<string, unknown> = {}): unknown {
+  const merged: Record<string, unknown> = { ...base, ...over };
+  for (const [key, value] of Object.entries(over)) {
+    if (value === undefined) delete merged[key];
+  }
+  return merged;
+}
 
 /** The envelope with one field replaced or removed, so a test states only its own field. */
 function envelope(over: Record<string, unknown> = {}): unknown {
@@ -185,7 +286,10 @@ describe('what must be refused', () => {
   it.each(['classes', 'ancestries', 'spells', 'items', 'talents', 'tables'])(
     'caps %s at MAX_ENTRIES_PER_ARRAY',
     (array) => {
-      const entries = new Array(MAX_ENTRIES_PER_ARRAY + 1).fill({});
+      // Filled with a valid entry rather than `{}`: since #20 the arrays are described,
+      // so `{}` would now fail on its own missing fields and the test would stop
+      // proving anything about the count.
+      const entries = new Array(MAX_ENTRIES_PER_ARRAY + 1).fill(SAMPLE[array]);
       expect(parsePack(envelope({ [array]: entries })).ok).toBe(false);
       expect(parsePack(envelope({ [array]: entries.slice(0, MAX_ENTRIES_PER_ARRAY) })).ok).toBe(
         true,
@@ -265,5 +369,456 @@ describe('the report', () => {
     const report = formatProblems(result.problems);
     expect(result.problems.map((problem) => problem.path)).toEqual(['id', 'version']);
     expect(report.split('\n')).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The entries. DATA-MODEL.md §§3-7.
+// ---------------------------------------------------------------------------
+
+describe('spells', () => {
+  it('accepts the spell from DATA-MODEL.md §3 unchanged', () => {
+    expect(SpellEntry.safeParse(SPELL).success).toBe(true);
+  });
+
+  it.each(['id', 'name', 'tier', 'classes', 'range', 'duration'])(
+    'refuses a spell missing %s',
+    (field) => {
+      expect(SpellEntry.safeParse(entry(SPELL, { [field]: undefined })).success).toBe(false);
+    },
+  );
+
+  it.each(['text', 'page'])('leaves %s absent or null', (field) => {
+    expect(SpellEntry.safeParse(entry(SPELL, { [field]: undefined })).success).toBe(true);
+    expect(SpellEntry.safeParse(entry(SPELL, { [field]: null })).success).toBe(true);
+  });
+
+  it('takes the five tiers and nothing either side of them', () => {
+    for (const tier of [1, 2, 3, 4, 5]) {
+      expect(SpellEntry.safeParse(entry(SPELL, { tier })).success).toBe(true);
+    }
+    for (const tier of [0, 6, '2', 2.5, null]) {
+      expect(SpellEntry.safeParse(entry(SPELL, { tier })).success).toBe(false);
+    }
+  });
+
+  it('matches range and duration exactly', () => {
+    // "medium" is DATA-MODEL.md §9's own worked example of a rejected value.
+    expect(SpellEntry.safeParse(entry(SPELL, { range: 'medium' })).success).toBe(false);
+    expect(SpellEntry.safeParse(entry(SPELL, { range: 'Near' })).success).toBe(false);
+    expect(SpellEntry.safeParse(entry(SPELL, { duration: 'concentration' })).success).toBe(false);
+    expect(SpellEntry.safeParse(entry(SPELL, { duration: 'permanent' })).success).toBe(true);
+  });
+
+  it('names classes bare within a pack and in full across packs', () => {
+    expect(SpellEntry.safeParse(entry(SPELL, { classes: ['wizard'] })).success).toBe(true);
+    expect(SpellEntry.safeParse(entry(SPELL, { classes: ['core:class:wizard'] })).success).toBe(
+      true,
+    );
+    expect(SpellEntry.safeParse(entry(SPELL, { classes: ['Wizard'] })).success).toBe(false);
+    expect(SpellEntry.safeParse(entry(SPELL, { classes: 'wizard' })).success).toBe(false);
+  });
+
+  it('caps the class list and allows it to be empty', () => {
+    const many = new Array(MAX_TAGS_PER_ENTRY + 1).fill('wizard');
+    expect(SpellEntry.safeParse(entry(SPELL, { classes: many })).success).toBe(false);
+    expect(SpellEntry.safeParse(entry(SPELL, { classes: [] })).success).toBe(true);
+  });
+
+  it('adds a spell to an existing class with no extends at all', () => {
+    // The point of the spell owning its class list (DATA-MODEL.md §3): a four-spell pack
+    // for the wizard is four entries and no extension.
+    const result = parsePack({
+      format: 'lantern-pack',
+      formatVersion: 1,
+      id: 'four-spells',
+      name: 'Four spells',
+      version: '1.0.0',
+      spells: [entry(SPELL, { classes: ['core:class:wizard'] })],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('refuses an unknown key on a spell', () => {
+    expect(SpellEntry.safeParse(entry(SPELL, { grants: '+1 str' })).success).toBe(false);
+  });
+});
+
+describe('items', () => {
+  it('accepts the item from DATA-MODEL.md §4 unchanged', () => {
+    expect(ItemEntry.safeParse(ITEM).success).toBe(true);
+  });
+
+  it.each(['id', 'name', 'slots', 'cost'])('refuses an item missing %s', (field) => {
+    expect(ItemEntry.safeParse(entry(ITEM, { [field]: undefined })).success).toBe(false);
+  });
+
+  it('lets a thing be weightless and caps what one of it costs to carry', () => {
+    expect(ItemEntry.safeParse(entry(ITEM, { slots: 0 })).success).toBe(true);
+    expect(ItemEntry.safeParse(entry(ITEM, { slots: MAX_PACK_ITEM_SLOTS })).success).toBe(true);
+    expect(ItemEntry.safeParse(entry(ITEM, { slots: MAX_PACK_ITEM_SLOTS + 1 })).success).toBe(
+      false,
+    );
+    expect(ItemEntry.safeParse(entry(ITEM, { slots: -1 })).success).toBe(false);
+    expect(ItemEntry.safeParse(entry(ITEM, { slots: 0.5 })).success).toBe(false);
+  });
+
+  it('quotes a cost in one of the three coins', () => {
+    for (const currency of ['gp', 'sp', 'cp']) {
+      expect(ItemEntry.safeParse(entry(ITEM, { cost: { amount: 1, currency } })).success).toBe(
+        true,
+      );
+    }
+    expect(ItemEntry.safeParse(entry(ITEM, { cost: { amount: 1, currency: 'ep' } })).success).toBe(
+      false,
+    );
+    expect(ItemEntry.safeParse(entry(ITEM, { cost: { amount: 0, currency: 'gp' } })).success).toBe(
+      true,
+    );
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { cost: { amount: MAX_COIN + 1, currency: 'gp' } })).success,
+    ).toBe(false);
+    expect(ItemEntry.safeParse(entry(ITEM, { cost: '90gp' })).success).toBe(false);
+  });
+
+  it.each(['weapon', 'armor'])('leaves the %s block absent or null', (block) => {
+    expect(ItemEntry.safeParse(entry(ITEM, { [block]: undefined })).success).toBe(true);
+    expect(ItemEntry.safeParse(entry(ITEM, { [block]: null })).success).toBe(true);
+  });
+
+  it('reads the armour block DATA-MODEL.md §4 shows', () => {
+    const armor = { type: 'light', ac: 12, addDex: true };
+    expect(ItemEntry.safeParse(entry(ITEM, { weapon: null, armor })).success).toBe(true);
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { armor: { ...armor, ac: MAX_ARMOR_AC + 1 } })).success,
+    ).toBe(false);
+    expect(ItemEntry.safeParse(entry(ITEM, { armor: { ...armor, type: 'plate' } })).success).toBe(
+      false,
+    );
+    expect(ItemEntry.safeParse(entry(ITEM, { armor: { ...armor, addDex: 'yes' } })).success).toBe(
+      false,
+    );
+    expect(ItemEntry.safeParse(entry(ITEM, { armor: { type: 'light', ac: 12 } })).success).toBe(
+      false,
+    );
+  });
+
+  it.each(['1d8', 'd6', '2d6', '1d4/1d8', '1d100'])('takes %s as damage', (damage) => {
+    expect(ItemEntry.safeParse(entry(ITEM, { weapon: { ...ITEM.weapon, damage } })).success).toBe(
+      true,
+    );
+  });
+
+  it.each(['1d8 + level/2', '1d7', '1d8+1', 'd8/1d10/2d6', '', 'a lot', '<script>'])(
+    'refuses %s as damage — it is a notation, never a formula',
+    (damage) => {
+      expect(ItemEntry.safeParse(entry(ITEM, { weapon: { ...ITEM.weapon, damage } })).success).toBe(
+        false,
+      );
+    },
+  );
+
+  it('keeps weapon properties as tags rather than a sentence', () => {
+    const weapon = ITEM.weapon;
+    expect(ItemEntry.safeParse(entry(ITEM, { weapon: { ...weapon, properties: [] } })).success).toBe(
+      true,
+    );
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { weapon: { ...weapon, properties: ['two-handed'] } }))
+        .success,
+    ).toBe(true);
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { weapon: { ...weapon, properties: ['Versatile, thrown'] } }))
+        .success,
+    ).toBe(false);
+  });
+
+  it('matches the weapon type exactly', () => {
+    for (const type of ['melee', 'ranged', 'both']) {
+      expect(ItemEntry.safeParse(entry(ITEM, { weapon: { ...ITEM.weapon, type } })).success).toBe(
+        true,
+      );
+    }
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { weapon: { ...ITEM.weapon, type: 'thrown' } })).success,
+    ).toBe(false);
+  });
+
+  it('refuses an unknown key on an item and inside its blocks', () => {
+    expect(ItemEntry.safeParse(entry(ITEM, { magical: true })).success).toBe(false);
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { weapon: { ...ITEM.weapon, bonus: 1 } })).success,
+    ).toBe(false);
+  });
+});
+
+describe('classes', () => {
+  it('accepts the class from DATA-MODEL.md §5 unchanged', () => {
+    expect(ClassEntry.safeParse(CLASS).success).toBe(true);
+  });
+
+  it.each(['id', 'name', 'hitDie', 'weapons', 'armor', 'talentTable'])(
+    'refuses a class missing %s',
+    (field) => {
+      expect(ClassEntry.safeParse(entry(CLASS, { [field]: undefined })).success).toBe(false);
+    },
+  );
+
+  it('takes a single die as the hit die, never a notation', () => {
+    expect(ClassEntry.safeParse(entry(CLASS, { hitDie: 'd8' })).success).toBe(true);
+    expect(ClassEntry.safeParse(entry(CLASS, { hitDie: '2d6' })).success).toBe(false);
+    expect(ClassEntry.safeParse(entry(CLASS, { hitDie: 'd7' })).success).toBe(false);
+    expect(ClassEntry.safeParse(entry(CLASS, { hitDie: 6 })).success).toBe(false);
+  });
+
+  it('names weapons bare within a pack and in full across packs', () => {
+    expect(ClassEntry.safeParse(entry(CLASS, { weapons: ['dagger'] })).success).toBe(true);
+    expect(ClassEntry.safeParse(entry(CLASS, { weapons: ['core:item:dagger'] })).success).toBe(
+      true,
+    );
+    expect(ClassEntry.safeParse(entry(CLASS, { weapons: ['all simple weapons'] })).success).toBe(
+      false,
+    );
+    const many = new Array(MAX_TAGS_PER_ENTRY + 1).fill('dagger');
+    expect(ClassEntry.safeParse(entry(CLASS, { weapons: many })).success).toBe(false);
+  });
+
+  it('lists armour it may wear from the enum and nothing else', () => {
+    expect(ClassEntry.safeParse(entry(CLASS, { armor: ['none', 'light', 'shield'] })).success).toBe(
+      true,
+    );
+    expect(ClassEntry.safeParse(entry(CLASS, { armor: [] })).success).toBe(true);
+    expect(ClassEntry.safeParse(entry(CLASS, { armor: ['plate'] })).success).toBe(false);
+  });
+
+  it('holds a non-caster as null and a caster as the block', () => {
+    expect(ClassEntry.safeParse(entry(CLASS, { spellcasting: null })).success).toBe(true);
+    expect(ClassEntry.safeParse(entry(CLASS, { spellcasting: undefined })).success).toBe(true);
+    expect(
+      ClassEntry.safeParse(
+        entry(CLASS, { spellcasting: { stat: 'int', highestTierByLevel: [1] } }),
+      ).success,
+    ).toBe(true);
+  });
+
+  it('bounds the spellcasting block to one tier per level', () => {
+    const tiers = new Array(MAX_CHARACTER_LEVEL + 1).fill(1);
+    expect(
+      ClassEntry.safeParse(entry(CLASS, { spellcasting: { stat: 'wis', highestTierByLevel: tiers } }))
+        .success,
+    ).toBe(false);
+    expect(
+      ClassEntry.safeParse(
+        entry(CLASS, { spellcasting: { stat: 'wis', highestTierByLevel: [1, 6] } }),
+      ).success,
+    ).toBe(false);
+    expect(
+      ClassEntry.safeParse(
+        entry(CLASS, { spellcasting: { stat: 'luck', highestTierByLevel: [1] } }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it('names its talent table bare or in full', () => {
+    expect(ClassEntry.safeParse(entry(CLASS, { talentTable: 'core:table:wizard-talents' })).success).toBe(
+      true,
+    );
+    expect(ClassEntry.safeParse(entry(CLASS, { talentTable: 'Wizard talents' })).success).toBe(
+      false,
+    );
+  });
+
+  it('refuses an unknown key on a class', () => {
+    expect(ClassEntry.safeParse(entry(CLASS, { xpTable: [10, 20] })).success).toBe(false);
+  });
+});
+
+describe('ancestries', () => {
+  it('accepts the ancestry from DATA-MODEL.md §6 unchanged', () => {
+    expect(AncestryEntry.safeParse(ANCESTRY).success).toBe(true);
+  });
+
+  it.each(['id', 'name'])('refuses an ancestry missing %s', (field) => {
+    expect(AncestryEntry.safeParse(entry(ANCESTRY, { [field]: undefined })).success).toBe(false);
+  });
+
+  it('leaves the talent absent or null — core ships without it', () => {
+    expect(AncestryEntry.safeParse(entry(ANCESTRY, { talent: undefined })).success).toBe(true);
+    expect(AncestryEntry.safeParse(entry(ANCESTRY, { talent: null })).success).toBe(true);
+    expect(
+      AncestryEntry.safeParse(entry(ANCESTRY, { talent: 't'.repeat(MAX_TEXT_LENGTH + 1) })).success,
+    ).toBe(false);
+  });
+
+  it('takes a page reference in place of the words', () => {
+    expect(AncestryEntry.safeParse(entry(ANCESTRY, { talent: null, page: 21 })).success).toBe(true);
+    expect(AncestryEntry.safeParse(entry(ANCESTRY, { page: MAX_PAGE_NUMBER + 1 })).success).toBe(
+      false,
+    );
+  });
+
+  it('refuses an unknown key on an ancestry', () => {
+    expect(AncestryEntry.safeParse(entry(ANCESTRY, { statBonus: 'str' })).success).toBe(false);
+  });
+});
+
+describe('tables', () => {
+  it('accepts the table from DATA-MODEL.md §7 unchanged', () => {
+    expect(TableEntry.safeParse(TABLE).success).toBe(true);
+  });
+
+  it.each(['id', 'name', 'die', 'rows'])('refuses a table missing %s', (field) => {
+    expect(TableEntry.safeParse(entry(TABLE, { [field]: undefined })).success).toBe(false);
+  });
+
+  it.each(['2d6', '1d20', 'd100', 'd4', `${MAX_TABLE_DIE_COUNT}d10`])(
+    'reads %s as the die a table is rolled on',
+    (die) => {
+      expect(TableEntry.safeParse(entry(TABLE, { die })).success).toBe(true);
+    },
+  );
+
+  it.each(['d7', '3', '2 d6', 'd', 'two d6', `${MAX_TABLE_DIE_COUNT + 1}d10`, 'd20+1'])(
+    'refuses %s as a die',
+    (die) => {
+      expect(TableEntry.safeParse(entry(TABLE, { die })).success).toBe(false);
+    },
+  );
+
+  it('treats an absent rerollable as false rather than refusing the table', () => {
+    const absent = TableEntry.safeParse(entry(TABLE, { rerollable: undefined }));
+    if (!absent.success) throw new Error('expected a table with no rerollable to load');
+    expect(absent.data.rerollable).toBe(false);
+
+    const explicit = TableEntry.safeParse(entry(TABLE, { rerollable: true }));
+    if (!explicit.success) throw new Error('expected rerollable: true to load');
+    expect(explicit.data.rerollable).toBe(true);
+
+    const nulled = TableEntry.safeParse(entry(TABLE, { rerollable: null }));
+    if (!nulled.success) throw new Error('expected a null rerollable to load');
+    expect(nulled.data.rerollable).toBe(false);
+  });
+
+  it('takes a roll as one face or an inclusive band of them', () => {
+    const rows = (roll: unknown): unknown => entry(TABLE, { rows: [{ roll, text: 'A result' }] });
+    expect(TableEntry.safeParse(rows(7)).success).toBe(true);
+    expect(TableEntry.safeParse(rows([3, 6])).success).toBe(true);
+    expect(TableEntry.safeParse(rows([4, 4])).success).toBe(true);
+    expect(TableEntry.safeParse(rows([6, 3])).success).toBe(false);
+    expect(TableEntry.safeParse(rows([1, 2, 3])).success).toBe(false);
+    expect(TableEntry.safeParse(rows([3])).success).toBe(false);
+    expect(TableEntry.safeParse(rows('3-6')).success).toBe(false);
+    expect(TableEntry.safeParse(rows(0)).success).toBe(false);
+    expect(TableEntry.safeParse(rows(2.5)).success).toBe(false);
+    expect(TableEntry.safeParse(rows(MAX_TABLE_ROLL + 1)).success).toBe(false);
+  });
+
+  it('requires every row to say something, and caps how many there are', () => {
+    expect(TableEntry.safeParse(entry(TABLE, { rows: [{ roll: 1, text: '' }] })).success).toBe(
+      false,
+    );
+    expect(TableEntry.safeParse(entry(TABLE, { rows: [{ roll: 1 }] })).success).toBe(false);
+    expect(TableEntry.safeParse(entry(TABLE, { rows: [] })).success).toBe(true);
+
+    const rows = new Array(MAX_TABLE_ROWS + 1).fill({ roll: 1, text: 'A result' });
+    expect(TableEntry.safeParse(entry(TABLE, { rows })).success).toBe(false);
+    expect(TableEntry.safeParse(entry(TABLE, { rows: rows.slice(0, MAX_TABLE_ROWS) })).success).toBe(
+      true,
+    );
+  });
+
+  it('has no grants field on a row, and refuses one', () => {
+    // PRD.md principle 1 — a result is recorded, never applied. Applying one needs an
+    // effects engine, which PRD.md §4 defers indefinitely. A pack that ships `grants` is
+    // told so rather than having the field quietly ignored.
+    const granting = entry(TABLE, {
+      rows: [{ roll: 1, text: '+1 to melee attacks', grants: { str: 1 } }],
+    });
+    const result = TableEntry.safeParse(granting);
+    expect(result.success).toBe(false);
+    expect(Object.keys(TableEntry.shape.rows.element.shape)).toEqual(['roll', 'text']);
+  });
+
+  it('leaves gaps and overlaps to the lookup rather than refusing the pack', () => {
+    // PRD.md principle 4 — a table missing a row for 7 still answers for everything
+    // else. Coverage is `model/tables.ts`; this schema only says the rows are well formed.
+    const gapped = entry(TABLE, {
+      rows: [
+        { roll: [2, 6], text: 'The low half' },
+        { roll: [8, 12], text: 'The high half' },
+      ],
+    });
+    expect(TableEntry.safeParse(gapped).success).toBe(true);
+
+    const overlapping = entry(TABLE, {
+      rows: [
+        { roll: [2, 8], text: 'One' },
+        { roll: [6, 12], text: 'Another' },
+      ],
+    });
+    expect(TableEntry.safeParse(overlapping).success).toBe(true);
+  });
+
+  it('refuses an unknown key on a table', () => {
+    expect(TableEntry.safeParse(entry(TABLE, { d: 6 })).success).toBe(false);
+  });
+});
+
+describe('an entry inside a pack', () => {
+  it('reports its problem with the array, the index and the field', () => {
+    const result = parsePack(envelope({ spells: [entry(SPELL, { range: 'medium' })] }));
+    if (result.ok) throw new Error('expected the pack to be refused');
+    expect(result.problems.map((problem) => problem.path)).toEqual(['spells[0].range']);
+  });
+
+  it('accepts one of everything, as a pack an author would actually write', () => {
+    const result = parsePack(
+      envelope({
+        classes: [CLASS],
+        ancestries: [ANCESTRY],
+        spells: [SPELL],
+        items: [ITEM],
+        tables: [TABLE],
+      }),
+    );
+    if (!result.ok) throw new Error(`expected the pack to load:\n${formatProblems(result.problems)}`);
+    expect(result.pack.spells?.[0]?.name).toBe('Hoarfrost');
+  });
+
+  it('lets any entry declare what it overrides, and only in the full form', () => {
+    const overriding = entry(SPELL, { overrides: 'core:spell:fireball' });
+    expect(SpellEntry.safeParse(overriding).success).toBe(true);
+    expect(SpellEntry.safeParse(entry(SPELL, { overrides: 'fireball' })).success).toBe(false);
+    expect(ItemEntry.safeParse(entry(ITEM, { overrides: 'core:item:sword' })).success).toBe(true);
+    expect(ClassEntry.safeParse(entry(CLASS, { overrides: 'core:class:wizard' })).success).toBe(
+      true,
+    );
+    expect(
+      AncestryEntry.safeParse(entry(ANCESTRY, { overrides: 'core:ancestry:dwarf' })).success,
+    ).toBe(true);
+    expect(TableEntry.safeParse(entry(TABLE, { overrides: 'core:table:loot' })).success).toBe(true);
+  });
+});
+
+describe('a reference from one entry to another', () => {
+  it('reads all three forms DATA-MODEL.md writes references in', () => {
+    // §5 writes a class's talent table bare and its weapons in full; §3 writes a spell's
+    // class as `pack:id`, with the kind implied by the field. A schema that refused any
+    // of the three would refuse a pack copied out of the document.
+    expect(EntryRef.safeParse('rimewalker-talents').success).toBe(true);
+    expect(EntryRef.safeParse('frostbound:rimewalker').success).toBe(true);
+    expect(EntryRef.safeParse('core:table:rimewalker-talents').success).toBe(true);
+  });
+
+  it('stops at three segments, and admits no character an id would reject', () => {
+    expect(EntryRef.safeParse('core:table:talents:extra').success).toBe(false);
+    expect(EntryRef.safeParse('Rimewalker Talents').success).toBe(false);
+    expect(EntryRef.safeParse('core:').success).toBe(false);
+    expect(EntryRef.safeParse('').success).toBe(false);
+  });
+
+  it('keeps a sheet reference exact, where no field implies a kind', () => {
+    expect(Ref.safeParse('core:class:wizard').success).toBe(true);
+    expect(Ref.safeParse('frostbound:rimewalker').success).toBe(false);
   });
 });

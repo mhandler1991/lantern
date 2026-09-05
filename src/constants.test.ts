@@ -6,6 +6,16 @@ import {
   ABILITY_SCORE_BASELINE,
   DEFAULT_STAT_SCORE,
   ENTRY_ID_MAX_LENGTH,
+  ENTRY_REF_PATTERN,
+  MAX_DAMAGE_LENGTH,
+  MAX_DAMAGE_NOTATION_PARTS,
+  MAX_DIE_NOTATION_LENGTH,
+  MAX_ITEM_SLOTS,
+  MAX_PACK_ITEM_SLOTS,
+  MAX_TABLE_DIE_COUNT,
+  MAX_TABLE_ROLL,
+  MIN_PACK_ITEM_SLOTS,
+  MIN_TABLE_ROLL,
   ENTRY_ID_PATTERN,
   MAX_DIE_SIDES,
   MAX_PACK_CHUNK_BYTES,
@@ -87,6 +97,39 @@ describe('caps that depend on each other', () => {
     expect(REF_PATTERN.test(longest)).toBe(true);
     expect(longest.length).toBe(MAX_REF_LENGTH);
     expect(REF_PATTERN.test(`${longest}a`)).toBe(false);
+  });
+
+  it('lets an entry imply the segments a sheet must write out', () => {
+    // A sheet has no field to imply a kind from, so REF_PATTERN stays exact while the
+    // form one entry writes about another admits one, two or three segments.
+    expect(ENTRY_REF_PATTERN.test('dagger')).toBe(true);
+    expect(ENTRY_REF_PATTERN.test('frostbound:rimewalker')).toBe(true);
+    expect(ENTRY_REF_PATTERN.test('core:item:dagger')).toBe(true);
+    expect(ENTRY_REF_PATTERN.test('core:item:dagger:extra')).toBe(false);
+    expect(ENTRY_REF_PATTERN.test('Core:Item')).toBe(false);
+    expect(ENTRY_REF_PATTERN.flags).not.toContain('g');
+  });
+
+  it('accepts everything the exact reference does', () => {
+    expect(ENTRY_REF_PATTERN.test('core:class:wizard')).toBe(true);
+    const segment = 'a'.repeat(ENTRY_ID_MAX_LENGTH);
+    expect(ENTRY_REF_PATTERN.test([segment, segment, segment].join(':'))).toBe(true);
+  });
+
+  it('lets a table row name the highest face its die could ever show', () => {
+    expect(MAX_TABLE_ROLL).toBe(MAX_TABLE_DIE_COUNT * MAX_DIE_SIDES);
+    expect(MIN_TABLE_ROLL).toBeLessThanOrEqual(MAX_TABLE_ROLL);
+  });
+
+  it('sizes a damage string to hold two notations and the slash between them', () => {
+    expect(MAX_DAMAGE_LENGTH).toBe(MAX_DIE_NOTATION_LENGTH * MAX_DAMAGE_NOTATION_PARTS + 1);
+    expect('1d4/1d8'.length).toBeLessThanOrEqual(MAX_DAMAGE_LENGTH);
+    expect('100d100'.length).toBeLessThanOrEqual(MAX_DIE_NOTATION_LENGTH);
+  });
+
+  it('keeps a pack\'s own slot cost apart from what a player may type', () => {
+    expect(MIN_PACK_ITEM_SLOTS).toBe(0);
+    expect(MAX_PACK_ITEM_SLOTS).toBeLessThanOrEqual(MAX_ITEM_SLOTS);
   });
 });
 

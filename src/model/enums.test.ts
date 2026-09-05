@@ -4,8 +4,26 @@
 // than in a pack somebody authored against whichever of the two they read.
 
 import { describe, expect, it } from 'vitest';
-import { MAX_SPELL_TIER, MIN_SPELL_TIER } from '../constants';
-import { Alignment, ArmorType, Die, Duration, Range, Stat, Tier, WeaponType } from './enums';
+import {
+  MAX_DIE_NOTATION_LENGTH,
+  MAX_SPELL_TIER,
+  MAX_TABLE_DIE_COUNT,
+  MIN_SPELL_TIER,
+} from '../constants';
+import {
+  Alignment,
+  ArmorType,
+  Currency,
+  DamageNotation,
+  Die,
+  DieNotation,
+  Duration,
+  Range,
+  Stat,
+  Tier,
+  WeaponType,
+  dieNotationParts,
+} from './enums';
 
 describe('the vocabulary of DATA-MODEL.md §2', () => {
   it.each([
@@ -16,6 +34,7 @@ describe('the vocabulary of DATA-MODEL.md §2', () => {
     ['armorType', ArmorType, ['none', 'light', 'medium', 'heavy', 'shield']],
     ['weaponType', WeaponType, ['melee', 'ranged', 'both']],
     ['alignment', Alignment, ['lawful', 'neutral', 'chaotic']],
+    ['currency', Currency, ['gp', 'sp', 'cp']],
   ])('%s admits exactly the documented values', (_name, schema, values) => {
     expect(schema.options).toEqual(values);
     for (const value of values) expect(schema.safeParse(value).success).toBe(true);
@@ -29,6 +48,7 @@ describe('the vocabulary of DATA-MODEL.md §2', () => {
     ['armorType', ArmorType, 'plate'],
     ['weaponType', WeaponType, 'thrown'],
     ['alignment', Alignment, 'good'],
+    ['currency', Currency, 'ep'],
   ])('%s rejects a plausible near miss', (_name, schema, near) => {
     expect(schema.safeParse(near).success).toBe(false);
   });
@@ -51,4 +71,55 @@ describe('the vocabulary of DATA-MODEL.md §2', () => {
     expect(Tier.safeParse('2').success).toBe(false);
     expect(Tier.safeParse(2.5).success).toBe(false);
   });
+});
+
+// A notation is not an enum — it carries a count — but it is checked against one, which
+// is what keeps the set of dice a table may name identical to the set a class may have.
+
+describe('dice notation', () => {
+  it('reads a count and a die out of every form DATA-MODEL.md §7 allows', () => {
+    expect(dieNotationParts('2d6')).toEqual({ count: 2, die: 'd6' });
+    expect(dieNotationParts('1d20')).toEqual({ count: 1, die: 'd20' });
+    expect(dieNotationParts('d100')).toEqual({ count: 1, die: 'd100' });
+  });
+
+  it('names only dice the Die enum has', () => {
+    for (const die of Die.options) {
+      expect(dieNotationParts(die)).toEqual({ count: 1, die });
+    }
+    expect(dieNotationParts('d7')).toBeNull();
+    expect(dieNotationParts('d0')).toBeNull();
+    expect(dieNotationParts('d200')).toBeNull();
+  });
+
+  it('bounds how many dice one notation may name', () => {
+    expect(dieNotationParts(`${MAX_TABLE_DIE_COUNT}d6`)).not.toBeNull();
+    expect(dieNotationParts(`${MAX_TABLE_DIE_COUNT + 1}d6`)).toBeNull();
+    expect(dieNotationParts('0d6')).toBeNull();
+  });
+
+  it.each(['', 'd', '6', '2 d6', 'd6 ', 'D6', '2d6+1', '2d6/1d4', 'alert(1)'])(
+    'refuses %s as a notation',
+    (notation) => {
+      expect(dieNotationParts(notation)).toBeNull();
+      expect(DieNotation.safeParse(notation).success).toBe(false);
+    },
+  );
+
+  it('bounds the string before picking it apart', () => {
+    expect(DieNotation.safeParse('9'.repeat(MAX_DIE_NOTATION_LENGTH + 1)).success).toBe(false);
+  });
+});
+
+describe('damage notation', () => {
+  it.each(['1d8', 'd6', '2d6', '1d4/1d8', 'd4/d8'])('takes %s', (damage) => {
+    expect(DamageNotation.safeParse(damage).success).toBe(true);
+  });
+
+  it.each(['1d8 + level/2', '1d8+1', 'd8/d10/d12', '1d7', 'the usual', '', '/'])(
+    'refuses %s — never an expression',
+    (damage) => {
+      expect(DamageNotation.safeParse(damage).success).toBe(false);
+    },
+  );
 });

@@ -58,8 +58,18 @@ Every id inside a pack is namespaced by the pack id automatically:
 pack "frostbound" + spell "hoarfrost"  →  frostbound:hoarfrost
 ```
 
-You write `"id": "hoarfrost"`. You reference across packs with the full form
-`"core:class:wizard"`.
+You write `"id": "hoarfrost"`. One entry may name another in any of three forms, and
+which segments are implied is filled in from the field the reference was written in:
+
+| Form | Means | Example |
+|---|---|---|
+| `id` | In this pack. | a class's `"talentTable": "rimewalker-talents"` |
+| `pack:id` | In another pack; the kind comes from the field. | a spell's `"classes": ["frostbound:rimewalker"]` |
+| `pack:kind:id` | In another pack, written out. | a class's `"weapons": ["core:item:dagger"]` |
+
+**A character sheet is stricter: it stores `pack:kind:id` and nothing else.** A sheet has
+no field to imply a kind from, so the full form is the only one that can be resolved
+years later against whatever packs happen to be loaded.
 
 **Two packs can both define a Skald and nothing collides.** You get two Skalds, each
 labelled with its source. Collisions happen only when someone writes `overrides`.
@@ -89,6 +99,7 @@ in a prompt** — which is most of why authoring with an AI works at all.
 | `armorType` | `none` `light` `medium` `heavy` `shield` |
 | `weaponType` | `melee` `ranged` `both` |
 | `alignment` | `lawful` `neutral` `chaotic` |
+| `currency` | `gp` `sp` `cp` |
 
 Free text is allowed only in `name`, `text` and `description`.
 
@@ -134,8 +145,15 @@ spell declares its classes. This means adding spells to an existing class needs 
 }
 ```
 
-`weapon` and `armor` are both optional and mutually exclusive in practice. An armour
-entry looks like:
+`damage` is dice notation and **never an expression** — `1d8`, or `1d4/1d8` for a weapon
+used in one hand or two. `1d8 + level/2` is refused, and nothing in the app would
+evaluate it if it were not. `properties` are tags in the same shape as an id
+(`versatile`, `two-handed`), not sentences, so a sheet can group by them; a property that
+needs explaining goes in `text`.
+
+`weapon` and `armor` are both optional and mutually exclusive in practice — **and that is
+not enforced**. A shield that also hits is somebody's homebrew, not a malformed file. An
+armour entry looks like:
 
 ```json
 "armor": { "type": "light", "ac": 12, "addDex": true }
@@ -202,10 +220,20 @@ Random tables are first class. Talents, loot, monsters, creation, quirks — all
 - `roll` is a single number or an inclusive `[low, high]` range
 - Ranges must not overlap and must cover the die's full span
 - `die` accepts `2d6`, `1d20`, `d100` — count optional, defaults to 1
-- `rerollable` lets a table offer a reroll before the result is kept
+- `rerollable` lets a table offer a reroll before the result is kept. Absent or `null`
+  means `false` — an omitted flag costs an author a default, never their pack
+- Gaps and overlaps are **warnings, not refusals** (`PRD.md` principle 4). The schema
+  checks that each row is well formed; coverage is checked where the lookup happens,
+  `src/model/tables.ts`
 
-**Table results are recorded, never applied.** There is no `grants` field. That is
-deliberate (`PRD.md` principle 1).
+**Table results are recorded, never applied.** There is no `grants` field, and a pack
+that ships one is told so rather than having it silently ignored. That is deliberate
+(`PRD.md` principle 1).
+
+`src/model/pack.ts` is §§1-7 executable, and `pack.test.ts` parses the examples above
+verbatim — the same arrangement §11 has with `character.ts`. Two arrays are still only
+counted: `talents`, which this document gives no shape, and `extends`, whose `target`
+means nothing without the resolution that applies it.
 
 ## 8. Extends
 
@@ -288,9 +316,12 @@ Rules:
     die: d4 d6 d8 d10 d12 d20 d100
     armorType: none light medium heavy shield
     weaponType: melee ranged both
+    currency: gp sp cp
 - Table `roll` is a number or an inclusive [low, high] range.
   Ranges must not overlap and must cover the whole die.
-- No formulas. "1d8" is fine; "1d8 + level/2" is not.
+- No formulas. "1d8" is fine, and "1d4/1d8" for a weapon used in one hand or two;
+  "1d8 + level/2" is not.
+- Reference another entry as `id` in this pack, or `pack:id`, or `pack:kind:id`.
 - No HTML in any field.
 - Do not copy text from a published rulebook you do not have the rights to.
 
