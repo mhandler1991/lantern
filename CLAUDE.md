@@ -146,6 +146,7 @@ export type RollEvent = z.infer<typeof RollEvent>;
 | Types, components | UpperCamelCase | `PublicCharacter`, `DiceOverlay.tsx` |
 | Functions, variables | lowerCamelCase | `resolvePacks()` |
 | Files | kebab-case | `pack-resolver.ts` |
+| A component's helper module | A different word, never a different case | `PartyView.tsx` + `party.ts` |
 | Booleans | `is` `has` `can` `should` | `isRolling` |
 | Constants | SCREAMING_SNAKE_CASE | `MAX_PARTY_SIZE` |
 
