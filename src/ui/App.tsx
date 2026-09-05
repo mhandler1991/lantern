@@ -10,6 +10,11 @@
  * The lobby sits above the sheet rather than in front of it: a room is optional, and
  * PRD.md principle 6 says the app has to work alone with no room and no packs at all.
  * There are no packs and no dice yet, and the sheet does not need either.
+ *
+ * The character file sits above the sheet for the opposite reason: it is not optional.
+ * A character lives in this browser and nowhere else (DESIGN.md §8), so export is the
+ * only mitigation there is against losing one, and a mitigation nobody can see is not
+ * one.
  */
 
 import type { ReactElement } from 'react';
@@ -22,6 +27,7 @@ import { usePersistentCharacter } from '../state/use-persistent-character';
 import { usePresence } from '../state/use-presence';
 import { useRoom } from '../state/use-room';
 import { Lobby } from './Lobby';
+import { Portability } from './Portability';
 import { CharacterSheet } from './sheet/CharacterSheet';
 
 /** No pack is loaded until Phase 2, so no reference resolves — the same state as the sheet. */
@@ -84,6 +90,9 @@ export function App(): ReactElement {
       <main>
         <div className="lobby">
           <Lobby room={room} presence={presence} />
+        </div>
+        <div className="portability">
+          <Portability character={character} setCharacter={setCharacter} />
         </div>
         <CharacterSheet character={character} setCharacter={setCharacter} />
       </main>
