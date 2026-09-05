@@ -45,7 +45,7 @@ import {
   PROTOCOL_VERSION,
 } from '../constants';
 import { Condition, HitPoints, PackId, Ref, RowId } from '../model/character';
-import { formatProblems, problemsFrom, type Problem } from '../model/problems';
+import { formatProblems, validate, type Problem } from '../model/problems';
 import { checkEventSize, isPeerId, type JsonValue, type PeerId } from './transport';
 
 /** Zero is the floor of a count and the first index, not a rule of the game. */
@@ -498,10 +498,10 @@ export function parseEvent(input: unknown): ParseEventResult {
     };
   }
 
-  const parsed = ProtocolEvent.safeParse(input);
-  if (!parsed.success) return { ok: false, rejection: malformed(problemsFrom(parsed.error)) };
+  const parsed = validate(ProtocolEvent, input);
+  if (!parsed.ok) return { ok: false, rejection: malformed(parsed.problems) };
 
-  return { ok: true, event: parsed.data };
+  return { ok: true, event: parsed.value };
 }
 
 /**
@@ -510,10 +510,10 @@ export function parseEvent(input: unknown): ParseEventResult {
  * found here, on the machine that can still be debugged, instead of on a peer's.
  */
 export function encodeEvent(event: ProtocolEvent): EncodeEventResult {
-  const parsed = ProtocolEvent.safeParse(event);
-  if (!parsed.success) return { ok: false, rejection: malformed(problemsFrom(parsed.error)) };
+  const parsed = validate(ProtocolEvent, event);
+  if (!parsed.ok) return { ok: false, rejection: malformed(parsed.problems) };
 
-  const size = checkEventSize(parsed.data);
+  const size = checkEventSize(parsed.value);
   if (!size.ok) {
     if (size.error.kind === 'too-large') {
       return { ok: false, rejection: { kind: 'too-large', message: size.error.message } };
@@ -521,7 +521,7 @@ export function encodeEvent(event: ProtocolEvent): EncodeEventResult {
     return { ok: false, rejection: malformed([{ path: '(root)', message: size.error.message }]) };
   }
 
-  return { ok: true, payload: parsed.data };
+  return { ok: true, payload: parsed.value };
 }
 
 /**

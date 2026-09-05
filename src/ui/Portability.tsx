@@ -20,10 +20,10 @@
 import type { ChangeEvent, ReactElement } from 'react';
 import { useId, useState } from 'react';
 import type { Character, CharacterProblem } from '../model/character';
-import { formatProblems } from '../model/character';
 import { CHARACTER_FILE_ACCEPT, readCharacterFile, toCharacterFile } from '../state/character-file';
 import { saveTextFile } from './download';
 import { Panel, Warning } from './fields';
+import { ProblemReport } from './ProblemReport';
 import type { PanelProps } from './sheet/sheet-props';
 
 /** What the last export did. Cleared by the next one, never on a timer. */
@@ -45,7 +45,12 @@ type ImportState =
       readonly character: Character;
       readonly migratedFrom: number | null;
     }
-  | { readonly kind: 'failed'; readonly problems: readonly CharacterProblem[] }
+  | {
+      readonly kind: 'failed';
+      /** The file that failed, so the report says which one the paths belong to. */
+      readonly name: string;
+      readonly problems: readonly CharacterProblem[];
+    }
   | {
       readonly kind: 'replaced';
       readonly name: string;
@@ -92,7 +97,7 @@ export function Portability({ character, setCharacter }: PanelProps): ReactEleme
     setImported(
       read.ok
         ? { kind: 'offered', character: read.character, migratedFrom: read.migratedFrom }
-        : { kind: 'failed', problems: read.problems },
+        : { kind: 'failed', name: file.name, problems: read.problems },
     );
   }
 
@@ -132,9 +137,10 @@ export function Portability({ character, setCharacter }: PanelProps): ReactEleme
         <>
           <Warning>
             The sheet did not validate, so nothing was written. This is a bug in Lantern,
-            not something you did — the paths below say where:
+            not something you did — the paths below say where, and the button copies
+            them for an issue:
           </Warning>
-          <p className="problems">{formatProblems(exported.problems)}</p>
+          <ProblemReport subject={describeName(character.name)} problems={exported.problems} />
         </>
       )}
 
@@ -197,9 +203,10 @@ export function Portability({ character, setCharacter }: PanelProps): ReactEleme
         <>
           <Warning>
             That file could not be read as a character, so nothing has changed. The sheet
-            on screen is exactly as it was:
+            on screen is exactly as it was. Every problem is listed below — copy them and
+            paste them back into whatever wrote the file:
           </Warning>
-          <p className="problems">{formatProblems(imported.problems)}</p>
+          <ProblemReport subject={imported.name} problems={imported.problems} />
         </>
       )}
     </Panel>

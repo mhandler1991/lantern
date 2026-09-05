@@ -85,8 +85,6 @@ body {
   background-color: var(--surface-raised);
   color: var(--text-on-room);
   font-size: var(--text-sm);
-  /* Problems are written one per line to be pasted back. DATA-MODEL.md §9. */
-  white-space: pre-wrap;
 }
 
 .notice--danger {
@@ -456,6 +454,22 @@ body {
   line-height: var(--leading-snug);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* The report is one block because it is copied as one (DATA-MODEL.md §10): the lines,
+   and under them the button that takes every line rather than the one under the cursor. */
+.problem-report {
+  margin: var(--space-3) var(--space-0) var(--space-0);
+}
+
+.problem-report .row-actions {
+  margin-top: var(--space-2);
+}
+
+/* Above the sheet the report sits on the room's own surface, not on paper, so it takes
+   the notice's ink rather than reaching past it for the paper role. */
+.notice .problems {
+  color: inherit;
 }
 
 /* ---------------------------------------------------------------------------

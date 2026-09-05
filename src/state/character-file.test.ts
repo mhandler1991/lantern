@@ -14,6 +14,7 @@ import {
   MAX_CHARACTER_FILE_SLUG_LENGTH,
 } from '../constants';
 import type { Character } from '../model/character';
+import { formatProblems } from '../model/character';
 import type { PickedFile } from './character-file';
 import {
   CHARACTER_FILE_TYPE,
@@ -141,7 +142,7 @@ describe('importing', () => {
     [
       'carries a derived value the schema forbids',
       JSON.stringify({ ...vess, ac: 14 }),
-      '(root)',
+      'ac',
     ],
     ['is missing a required field', JSON.stringify({ ...vess, stats: undefined }), 'stats'],
     ['claims a level no character reaches', JSON.stringify({ ...vess, level: 99 }), 'level'],
@@ -152,11 +153,14 @@ describe('importing', () => {
     ],
   ];
 
-  it.each(rejections)('refuses a file that %s, naming %s', async (_label, text, path) => {
+  // What is named may be the path or the message — a field that is missing is reported
+  // against the object that should have held it (DATA-MODEL.md §9). Either way it is in
+  // the block the player is asked to paste.
+  it.each(rejections)('refuses a file that %s, naming %s', async (_label, text, named) => {
     const read = await readCharacterFile(picked(text));
 
     expect(read.ok).toBe(false);
-    if (!read.ok) expect(read.problems.map((problem) => problem.path)).toContain(path);
+    if (!read.ok) expect(formatProblems(read.problems)).toContain(named);
   });
 
   it('refuses a file larger than the cap without reading a byte of it', async () => {

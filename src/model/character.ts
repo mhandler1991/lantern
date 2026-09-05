@@ -19,7 +19,7 @@
 
 import * as z from 'zod';
 import { Alignment, Stat } from './enums';
-import { formatProblems, problemsFrom, type Problem } from './problems';
+import { formatProblems, reportProblems, validate, type Problem } from './problems';
 import {
   CHARACTER_FORMAT,
   CHARACTER_FORMAT_VERSION,
@@ -266,7 +266,7 @@ export type Character = z.infer<typeof Character>;
  */
 export type CharacterProblem = Problem;
 
-export { formatProblems };
+export { formatProblems, reportProblems };
 
 /** Errors are values at every boundary. CLAUDE.md §2.5. */
 export type CharacterParseResult =
@@ -279,8 +279,8 @@ export type CharacterParseResult =
  * validation is reported, not guessed at.
  */
 export function parseCharacter(input: unknown): CharacterParseResult {
-  const result = Character.safeParse(input);
-  if (result.success) return { ok: true, character: result.data };
+  const result = validate(Character, input);
+  if (result.ok) return { ok: true, character: result.value };
 
-  return { ok: false, problems: problemsFrom(result.error) };
+  return { ok: false, problems: result.problems };
 }

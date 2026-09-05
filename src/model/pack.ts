@@ -43,7 +43,7 @@ import {
   Tier,
   WeaponType,
 } from './enums';
-import { formatProblems, problemsFrom, type Problem } from './problems';
+import { formatProblems, reportProblems, validate, type Problem } from './problems';
 import {
   ENTRY_ID_MAX_LENGTH,
   ENTRY_REF_PATTERN,
@@ -444,7 +444,7 @@ export type Pack = z.infer<typeof Pack>;
  */
 export type PackProblem = Problem;
 
-export { formatProblems };
+export { formatProblems, reportProblems };
 
 /** Errors are values at every boundary. CLAUDE.md §2.5. */
 export type PackParseResult =
@@ -457,8 +457,8 @@ export type PackParseResult =
  * reported, not guessed at.
  */
 export function parsePack(input: unknown): PackParseResult {
-  const result = Pack.safeParse(input);
-  if (result.success) return { ok: true, pack: result.data };
+  const result = validate(Pack, input);
+  if (result.ok) return { ok: true, pack: result.value };
 
-  return { ok: false, problems: problemsFrom(result.error) };
+  return { ok: false, problems: result.problems };
 }
