@@ -21,11 +21,35 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * Every module the app ships, so a missing export is caught by name rather than by a
- * blank page. Non-eager: the loaders run inside the test, where a module that throws
- * on load fails the assertion instead of the file collection.
+ * The HTML entry points, read from the pages that load them. A module named in a
+ * `<script type="module">` runs side effects the moment it is imported — `main.tsx`
+ * mounts the app, `test-room.ts` joins a real Trystero room — so the sweep must not
+ * load one. Deriving the set from the HTML beats listing filenames: a third entry
+ * excludes itself.
  */
-const appModules = import.meta.glob('./{model,net,state,ui}/**/*.{ts,tsx}', {
+const rootPages = import.meta.glob('/*.html', {
+  query: '?raw',
+  eager: true,
+  import: 'default',
+});
+
+const entryModules = new Set(
+  Object.values(rootPages).flatMap((html) =>
+    Array.from(
+      String(html).matchAll(/<script[^>]*\bsrc="\/src\/([^"]+)"/g),
+      (match) => `./${match[1]}`,
+    ),
+  ),
+);
+
+/**
+ * Every module the app ships, so a missing export is caught by name rather than by a
+ * blank page. The whole of `src/`, not the four directories of CLAUDE.md §4: root
+ * modules such as `constants.ts` are app code too, and a fifth directory should not
+ * have to remember to widen this. Non-eager: the loaders run inside the test, where a
+ * module that throws on load fails the assertion instead of the file collection.
+ */
+const appModules = import.meta.glob(['./**/*.{ts,tsx}', '!./**/*.{test,spec}.{ts,tsx}'], {
   eager: false,
 });
 
@@ -65,7 +89,17 @@ function format(errors: unknown[][]): string {
 
 describe('app smoke test', () => {
   it('resolves every export in the app module graph', async () => {
-    const paths = Object.keys(appModules).filter((path) => !/\.(test|spec)\.tsx?$/.test(path));
+    expect(
+      Object.keys(rootPages).length,
+      'no root HTML page matched — the entry derivation has drifted',
+    ).toBeGreaterThan(0);
+    expect(
+      entryModules,
+      'main.tsx is missing from the derived entries — the <script> match has drifted, and ' +
+        'an entry module would now be imported by the sweep',
+    ).toContain('./main.tsx');
+
+    const paths = Object.keys(appModules).filter((path) => !entryModules.has(path));
     expect(
       paths.length,
       'no app modules matched the glob — the pattern has drifted',
