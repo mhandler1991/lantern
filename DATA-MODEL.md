@@ -42,6 +42,14 @@ Every content array is optional. A pack of four spells has one array.
 | `author` | no | 0-60 chars. |
 | `description` | no | 0-300 chars. |
 
+`version` is only ever compared for equality — nothing orders or computes with it — so
+the validator bounds it and checks it starts with a digit rather than enforcing strict
+semver. `1.2.0`, `1.2.0-beta.1` and `2026.09` all pass; `v1` and prose do not.
+
+**An optional field may be absent or `null`.** Both mean the same thing, everywhere, and
+that includes `text` and `page` on every entry — a hand-written pack and a generated one
+disagree about which to reach for and neither is wrong.
+
 ### IDs and namespacing
 
 Every id inside a pack is namespaced by the pack id automatically:

@@ -18,6 +18,7 @@
  */
 
 import * as z from 'zod';
+import { Alignment, Stat } from './enums';
 import { formatProblems, problemsFrom, type Problem } from './problems';
 import {
   CHARACTER_FORMAT,
@@ -66,12 +67,13 @@ const NONE = 0;
 // Shared leaves
 // ---------------------------------------------------------------------------
 
-/** DATA-MODEL.md §2. The six, in the order every sheet prints them. */
-export const Stat = z.enum(['str', 'dex', 'con', 'int', 'wis', 'cha']);
-export type Stat = z.infer<typeof Stat>;
-
-export const Alignment = z.enum(['lawful', 'neutral', 'chaotic']);
-export type Alignment = z.infer<typeof Alignment>;
+/**
+ * DATA-MODEL.md §2. A sheet and a pack say these words the same way, so they are defined
+ * once in `model/enums.ts` and re-exported here — every existing import of `Stat` or
+ * `Alignment` from the character contract keeps working, and there is only ever one
+ * spelling of either to keep correct.
+ */
+export { Alignment, Stat } from './enums';
 
 /**
  * A reference into pack content — `core:class:thief`. The length cap is checked before
