@@ -357,6 +357,21 @@ Three DM-selected modes: **dims the room** (the interface darkens and sepia-shif
 closes to a pool of light), **bar only** (timer, no atmospherics), **off**.
 
 Room-wide, so the table agrees on how atmospheric it is being. Changeable mid-session.
+The modes and the DM's control of them are Phase 6; the burn itself is not.
+
+**Burning down is arithmetic, never a countdown.** A light stores when it was lit and how
+long it burns, and nothing else (`DATA-MODEL.md` §11). `model/light.ts` turns that pair
+plus a moment into what is left — pure, with `now` as an argument — and
+`state/use-light-clock.ts` re-renders so the sum is redone against a newer clock.
+
+That hook's interval is a **repaint trigger, not an accumulator**: every tick reads
+`Date.now()` afresh, so a tick that fires late, early or never changes when the number is
+redrawn and never what it is. It runs only while something is actually alight, and
+re-reads on `visibilitychange` because a throttled tab's next tick can be a minute away
+and looking at the torch is the first thing a player does on coming back. A reload, a
+backgrounded tab and a clock corrected over NTP are then one case at three distances —
+a later `now` against the same stored `litAt`. A clock that moved *backwards* reads as no
+time passed: a torch is never longer for having been lit in the future.
 
 ---
 

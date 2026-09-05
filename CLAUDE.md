@@ -99,6 +99,7 @@ src/
 │   ├── character.ts      # types + the schema boundary
 │   ├── derived.ts        # AC, slots, modifiers, XP, spell DC — computed on read
 │   ├── pack.ts           # types + resolution (define/extend/override)
+│   ├── light.ts          # burn-down from litAt and the clock
 │   ├── dice.ts           # rolling, rejection sampling
 │   └── tables.ts         # table lookup
 ├── net/

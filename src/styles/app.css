@@ -304,6 +304,49 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+ * Light
+ * ------------------------------------------------------------------------ */
+
+/* A torch burning down is the one number on the sheet that moves on its own, so it is
+   drawn twice: a bar for the glance across the table, and the countdown in words beside
+   it. Both are read from `litAt` and the clock — nothing here is stored. DESIGN.md §6. */
+.light {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.light__bar {
+  width: var(--width-field-number);
+  height: var(--space-2);
+  border: var(--border-hairline) solid var(--rule-page);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-page-low);
+  overflow: hidden;
+}
+
+.light__bar-fill {
+  height: 100%;
+  background-color: var(--state-caution);
+  transition: width var(--duration-settle) var(--ease-out);
+}
+
+.light__remaining {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Out is a state worth seeing without reading: the bar is empty and the words are the
+   sheet's own warning colour. It is emphasis, not a ruling (PRD.md principle 1). */
+.light--spent .light__remaining {
+  color: var(--text-danger);
+}
+
+/* ---------------------------------------------------------------------------
  * Buttons
  * ------------------------------------------------------------------------ */
 

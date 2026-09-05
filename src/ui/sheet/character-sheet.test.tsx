@@ -60,6 +60,13 @@ function button(label: string): HTMLButtonElement {
   return found;
 }
 
+/** What the light row says about itself: unlit, a countdown, or burnt out. */
+function remaining(): string {
+  const found = container.querySelector('.row--light .light__remaining');
+  if (!found) throw new Error('no light row on the sheet');
+  return found.textContent ?? '';
+}
+
 async function click(element: HTMLElement): Promise<void> {
   await act(async () => {
     element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -160,5 +167,41 @@ describe('building a character by hand', () => {
     expect(raw).not.toContain('xpToNext');
     // The one `slots` a sheet may hold is the player's own note on a row, not a total.
     expect(stored().ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The torch
+// ---------------------------------------------------------------------------
+
+describe('a light source', () => {
+  it('counts down from the moment it was lit, and stores only that moment', async () => {
+    await mount();
+    await click(button('Add light source'));
+
+    expect(remaining()).toBe('unlit');
+
+    await click(button('Light it'));
+
+    // A fresh torch, read a millisecond after it was struck. DEFAULT_LIGHT_MINUTES.
+    expect(remaining()).toBe('1:00:00 left');
+
+    await closeTheTab();
+
+    const raw = localStorage.getItem(CHARACTER_KEY) ?? '';
+    expect(raw).toContain('"litAt"');
+    // What is left is derived on read. A remainder in storage is the drift itself.
+    expect(raw).not.toContain('remaining');
+    expect(raw).not.toContain('elapsed');
+  });
+
+  it('goes back to unlit when it is put out', async () => {
+    await mount();
+    await click(button('Add light source'));
+    await click(button('Light it'));
+    await click(button('Put it out'));
+
+    expect(remaining()).toBe('unlit');
+    await closeTheTab();
   });
 });
