@@ -227,6 +227,16 @@ body {
   line-height: var(--leading-snug);
 }
 
+/* A file input is the one control the browser draws for itself, button and all. Padding
+   and a border around that button read as a box inside a box, so it gets the row it
+   needs and nothing else. */
+.field__input--file {
+  padding: var(--space-2) var(--space-0);
+  border: none;
+  background-color: transparent;
+  box-shadow: none;
+}
+
 .field__input:focus-visible,
 .field__check:focus-visible,
 .button:focus-visible {
@@ -434,6 +444,20 @@ body {
   font-size: var(--text-sm);
 }
 
+/* Problems are written one per line and are meant to be pasted back — into an issue, or
+   into an AI (DATA-MODEL.md §9). Set in the label face so a path reads as a path, and
+   left wrapping rather than scrolling: a truncated path is a useless one. */
+.problems {
+  margin: var(--space-0) var(--space-0) var(--space-3);
+  padding-left: var(--space-3);
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ---------------------------------------------------------------------------
  * The lobby
  *
@@ -444,6 +468,19 @@ body {
  * ------------------------------------------------------------------------ */
 
 .lobby {
+  max-width: var(--measure);
+  margin-bottom: var(--space-5);
+}
+
+/* ---------------------------------------------------------------------------
+ * The character file
+ *
+ * The same page-above-the-table treatment the lobby gets, and for the opposite reason:
+ * a room is optional and this is not. A character lives in one browser (DESIGN.md §8),
+ * so the export control has to be visible without looking for it.
+ * ------------------------------------------------------------------------ */
+
+.portability {
   max-width: var(--measure);
   margin-bottom: var(--space-5);
 }

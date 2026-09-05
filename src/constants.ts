@@ -221,6 +221,15 @@ export const CHARACTER_FORMAT_VERSION = 2;
 /** An exported character, as JSON. Import refuses anything larger. */
 export const MAX_CHARACTER_BYTES = 512 * 1024;
 
+/**
+ * How much of a character's own name reaches the name of an exported file. The file is
+ * `lantern-character-vess-of-the-low-road.json`, and the slug is capped well short of
+ * `MAX_CHARACTER_NAME_LENGTH` because the rest of the path belongs to the player's
+ * machine, not to us — a download folder deep in a synced drive has less room left than
+ * any of us can see from here.
+ */
+export const MAX_CHARACTER_FILE_SLUG_LENGTH = 40;
+
 export const MAX_CHARACTER_NAME_LENGTH = 60;
 
 /**

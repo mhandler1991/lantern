@@ -432,3 +432,33 @@ keystroke, and flushed on `pagehide`, on the tab being hidden and on unmount —
 that swallows the last keystroke is indistinguishable from losing it. Every write is
 validated on the way out as well as in (`CLAUDE.md` §2.7): a character that would not load
 back is reported rather than stored.
+
+### Export and import
+
+Export writes the stored document to a file and nothing else: `src/state/character-file.ts`
+validates the sheet, stringifies it, and the bytes are **identical** to what
+`lantern:character` holds. `character-file.test.ts` asserts the two strings are equal, so
+the sentence above fails a test rather than a session if it ever stops being true.
+
+The file is named `lantern-character-{slug}.json` — the format first, so a folder of them
+sorts together and says what it is before anything opens it, then the character's own name
+reduced to `[a-z0-9-]` and capped by `MAX_CHARACTER_FILE_SLUG_LENGTH`. A name that leaves
+nothing behind (no name yet, or one in another script) is dropped rather than left as
+hyphens: `lantern-character.json`.
+
+Import is the reading path above with a file in front of it, in this order:
+
+1. The file's own `size`, before a byte is read — an oversize file is refused, not decoded.
+2. The decoded text's length, because a reported size is a claim and the text is another.
+3. `JSON.parse`, `migrateCharacterDocument`, `parseCharacter` — the same three, in the same
+   order, as a read from storage.
+
+Every failure comes back as problems with paths (§9) and **nothing is replaced**: a
+malformed file leaves the sheet on screen exactly as it was. A file that validates is not
+applied either until it is confirmed — `ui/Portability.tsx` names the character the file
+holds and asks, because replacing the sheet is the one irreversible thing a player can do
+and a file picker fires the moment a file is chosen (PRD.md principle 4).
+
+An imported character keeps its `id`. A round trip is the same character, not a copy of
+one — which is what makes "export here, import there" a move between browsers rather than
+a duplicate at the table.
