@@ -225,7 +225,7 @@ describe('a torch lit before the page was reloaded', () => {
     });
 
     // Twenty minutes of burn and five ticks later, the stored row is byte for byte what
-    // was written. Nothing counted down into storage (DATA-MODEL.md §11).
+    // was written. Nothing counted down into storage (DATA-MODEL.md §12).
     expect(reload().lights).toEqual(lit.lights);
     await app.unmount();
   });

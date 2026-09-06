@@ -227,7 +227,7 @@ export type LevelProgress = {
 
 /**
  * XP is counted **per level and reset**, not accumulated — which is what lets a sheet
- * hold `level: 3, xp: 6` (DATA-MODEL.md §11). Level 0 is a real state and advances on
+ * hold `level: 3, xp: 6` (DATA-MODEL.md §12). Level 0 is a real state and advances on
  * the same threshold as level 1.
  */
 export function xpToAdvance(level: number): number | null {

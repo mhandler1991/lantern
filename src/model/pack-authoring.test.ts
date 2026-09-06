@@ -1,5 +1,5 @@
 /**
- * The four files DATA-MODEL.md §10 ships for authors, tested against the code they claim
+ * The four files DATA-MODEL.md §11 ships for authors, tested against the code they claim
  * to describe. All four fail the same way if nobody watches them: they keep describing
  * last month's schema, and the person they mislead is the one who cannot read
  * `model/pack.ts` to check.
@@ -21,7 +21,7 @@
  * and demonstrate each operation it claims to.
  *
  * **`packs/broken-pack.json`.** The same file with a mistake in every entry, kept so the
- * error report can be *seen* rather than described — §9 promises lines precise enough to
+ * error report can be *seen* rather than described — §10 promises lines precise enough to
  * paste back into an AI, and a promise nobody has read the output of is a promise. Held
  * to its paths one by one: a schema change that stopped naming one of these would be a
  * report that had quietly got vaguer.
@@ -128,7 +128,7 @@ function flatten(node: Json, defs: { readonly [key: string]: Json }, at: string)
 /**
  * Every way the committed schema says less than the Zod schema does, as lines a reader
  * can act on. Empty is the passing answer, and the whole list is reported at once for
- * the same reason a pack's problems are (DATA-MODEL.md §9).
+ * the same reason a pack's problems are (DATA-MODEL.md §10).
  */
 function shortfalls(expected: Json, actual: Json, at: string): readonly string[] {
   if (Array.isArray(expected) || Array.isArray(actual)) {
@@ -314,21 +314,36 @@ describe('packs/example-pack.json', () => {
   const core = parse(read('public', CORE_PACK_PATH), 'core.json');
   const stack = resolvePacks([core, example]);
 
-  it('is one of everything DATA-MODEL.md gives a shape', () => {
+  it('is one of everything the envelope can hold', () => {
     expect({
       classes: example.classes?.length ?? 0,
       ancestries: example.ancestries?.length ?? 0,
       spells: example.spells?.length ?? 0,
       items: example.items?.length ?? 0,
+      talents: example.talents?.length ?? 0,
       tables: example.tables?.length ?? 0,
       extends: example.extends?.length ?? 0,
-    }).toEqual({ classes: 1, ancestries: 1, spells: 2, items: 2, tables: 1, extends: 2 });
+    }).toEqual({
+      classes: 1,
+      ancestries: 1,
+      spells: 2,
+      items: 2,
+      talents: 1,
+      tables: 1,
+      extends: 2,
+    });
   });
 
-  // `talents` is the one array with no shape in DATA-MODEL.md. An example entry would
-  // be a shape somebody copied, so the file omits it and the guide says why.
-  it('leaves out the array that has no shape to copy', () => {
-    expect(example.talents).toBeUndefined();
+  // The talent the file's first extension offers the core fighter is defined in the same
+  // file, so an author reads the whole loop — entry, then extension — off one page. It is
+  // also the one reference resolution does not check yet (#127), which is exactly why it
+  // is asserted here instead.
+  it('defines the talent its own extension offers a class', () => {
+    const offered = (example.extends ?? []).flatMap((extension) => extension.talents ?? []);
+    const defined = (example.talents ?? []).map((talent) => talent.id);
+
+    expect(offered).toEqual(['cold-forged']);
+    expect(defined).toEqual(['cold-forged']);
   });
 
   it('demonstrates define, extend and override', () => {
@@ -351,7 +366,7 @@ describe('packs/example-pack.json', () => {
 
   /**
    * Every warning it produces is one it means to produce. An override warns by design
-   * (DATA-MODEL.md §8) and this file exists partly to show what that looks like; a
+   * (DATA-MODEL.md §9) and this file exists partly to show what that looks like; a
    * warning about anything else is a broken reference in the file people copy.
    */
   it('warns about the override it wrote on purpose, and about nothing else', () => {
@@ -378,7 +393,7 @@ describe('packs/example-pack.json', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The pack that is wrong on purpose. DATA-MODEL.md §9, §10.
+// The pack that is wrong on purpose. DATA-MODEL.md §10, §11.
 // ---------------------------------------------------------------------------
 
 describe('packs/broken-pack.json', () => {
@@ -396,6 +411,7 @@ describe('packs/broken-pack.json', () => {
     'items[0].slots',
     'items[0].cost.currency',
     'items[0].armor',
+    'talents[0].grants',
     'tables[0].rows[0].roll',
   ];
 
@@ -410,7 +426,7 @@ describe('packs/broken-pack.json', () => {
     expect(parsed.problems.map((problem) => problem.path)).toEqual(EXPECTED_PATHS);
   });
 
-  it('reports all of them at once, so an author pastes once rather than eleven times', () => {
+  it('reports all of them at once, so an author pastes once rather than twelve times', () => {
     expect(parsed.ok).toBe(false);
     if (parsed.ok) return;
 
@@ -424,7 +440,7 @@ describe('packs/broken-pack.json', () => {
     if (parsed.ok) return;
 
     for (const problem of parsed.problems) {
-      // The three grammars §9 allows, and nothing else: an expectation and the value
+      // The three grammars §10 allows, and nothing else: an expectation and the value
       // that failed it, a field that is not there, or a field that should not be.
       expect(problem.message).toMatch(
         /^(expected .+ — got .+|missing required field: .+|unknown field — .+)$/,

@@ -1,4 +1,4 @@
-// DATA-MODEL.md §8 prints one line as the example of what the content screen shows:
+// DATA-MODEL.md §9 prints one line as the example of what the content screen shows:
 //
 //   Wizard = core (32 spells, 4 talents) + Frostbound (4 spells)
 //
@@ -82,7 +82,7 @@ describe('the resolution stack', () => {
   it('names every pack that made a class what it is, in load order', () => {
     const stack = resolvePacks([core, frostbound]);
 
-    // The example from DATA-MODEL.md §8, at this fixture's scale.
+    // The example from DATA-MODEL.md §9, at this fixture's scale.
     expect(lineFor(stack, 'Wizard')).toBe(
       'Wizard = Core (2 spells, 1 talent) + Frostbound (2 spells, 1 talent)',
     );

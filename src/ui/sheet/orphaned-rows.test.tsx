@@ -310,7 +310,7 @@ describe('the pack back on', () => {
     const [name, quantity] = row.querySelectorAll('input');
 
     // A typed name would be discarded the moment the pack answered for it again, which
-    // is the same reason an orphaned row's name is read only (DATA-MODEL.md §11).
+    // is the same reason an orphaned row's name is read only (DATA-MODEL.md §12).
     expect(name?.readOnly).toBe(true);
     expect(quantity?.readOnly).toBe(false);
 

@@ -9,7 +9,7 @@
  * Gear arrives two ways. **Add item** opens a blank row the player names and prices
  * themselves; the picker beside it appends a row that is a reference and nothing else,
  * and the name and slot cost are read back out of the pack every render (DATA-MODEL.md
- * §11 — `name` is a fallback, never a cache).
+ * §12 — `name` is a fallback, never a cache).
  *
  * That is also why a row carrying a reference has its name and its slots read only,
  * whether or not the pack is on: both are fields a loaded pack answers for, and a typed

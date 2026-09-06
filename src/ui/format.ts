@@ -26,7 +26,7 @@ export function formatModifier(modifier: number): string {
 
 /**
  * A journal entry's moment, in the reader's own locale. `at` is epoch milliseconds
- * (DATA-MODEL.md §11); nothing is stored formatted, so a character written in one place
+ * (DATA-MODEL.md §12); nothing is stored formatted, so a character written in one place
  * reads correctly in another.
  */
 export function formatMoment(at: number): string {

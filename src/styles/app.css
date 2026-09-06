@@ -462,7 +462,7 @@ body {
 }
 
 /* Problems are written one per line and are meant to be pasted back — into an issue, or
-   into an AI (DATA-MODEL.md §9). Set in the label face so a path reads as a path, and
+   into an AI (DATA-MODEL.md §10). Set in the label face so a path reads as a path, and
    left wrapping rather than scrolling: a truncated path is a useless one. */
 .problems {
   margin: var(--space-0) var(--space-0) var(--space-3);
@@ -475,7 +475,7 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* The report is one block because it is copied as one (DATA-MODEL.md §10): the lines,
+/* The report is one block because it is copied as one (DATA-MODEL.md §11): the lines,
    and under them the button that takes every line rather than the one under the cursor. */
 .problem-report {
   margin: var(--space-3) var(--space-0) var(--space-0);
@@ -771,7 +771,7 @@ body {
 
 /* The resolution stack. One line per entry, set in the label face because it is read as
    a record rather than as prose, and wrapped rather than truncated: the pack name at the
-   end of the line is the whole reason to read it (DATA-MODEL.md §8). */
+   end of the line is the whole reason to read it (DATA-MODEL.md §9). */
 .stack {
   margin: var(--space-0);
   padding: var(--space-0);
@@ -806,7 +806,7 @@ body {
 
 /* A field a pack answers for: the name of a referenced row, and what one of it weighs.
    Flat paper, because the value is the pack's rather than the player's — the same
-   reading the orphan mark gives, and for the same reason (DATA-MODEL.md §11). */
+   reading the orphan mark gives, and for the same reason (DATA-MODEL.md §12). */
 .row .field__input:read-only {
   background-color: var(--surface-page-low);
   box-shadow: none;

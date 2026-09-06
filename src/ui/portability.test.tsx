@@ -272,7 +272,7 @@ describe('importing a character', () => {
 // ---------------------------------------------------------------------------
 
 // #21 — most people will not read a schema; they paste what the app says back into the
-// thing that wrote the file (DATA-MODEL.md §10). So what is asserted here is the block a
+// thing that wrote the file (DATA-MODEL.md §11). So what is asserted here is the block a
 // player is asked to paste: what it says, and that one button takes all of it.
 describe('the problems, ready to paste', () => {
   function withClipboard(writeText: (text: string) => Promise<void>): void {

@@ -9,7 +9,7 @@
  * Three decisions carry it.
  *
  * **A choice is a reference, never a copy.** Picking Rimeblade stores
- * `frostbound:item:rimeblade` and leaves `name` empty (DATA-MODEL.md §11 — `name` is a
+ * `frostbound:item:rimeblade` and leaves `name` empty (DATA-MODEL.md §12 — `name` is a
  * fallback, never a cache). The word on the screen is read back out of the stack every
  * render, so turning the pack off costs the sheet nothing it had and turning it back on
  * restores the label without an edit.

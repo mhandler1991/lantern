@@ -2,7 +2,7 @@
  * What is wrong with something that failed validation, in the one format the whole app
  * reports it in.
  *
- * DATA-MODEL.md §9 makes this a contract rather than a convenience: these lines are
+ * DATA-MODEL.md §10 makes this a contract rather than a convenience: these lines are
  * written to be **pasted back into an AI** along with the file that produced them, so
  * every line carries three things and a model can fix the file in one turn.
  *
@@ -240,7 +240,7 @@ function actualOf(issue: z.core.$ZodIssue): string | null {
 
 /**
  * A field that is not there is reported **against the object that should have held it**,
- * naming the field — `spells[7] — missing required field: tier`, DATA-MODEL.md §9. The
+ * naming the field — `spells[7] — missing required field: tier`, DATA-MODEL.md §10. The
  * path Zod gives points at a value that does not exist, which is the one path an author
  * cannot search their file for.
  */
@@ -390,7 +390,7 @@ export function validate<T extends z.ZodType>(schema: T, input: unknown): Valida
 // The report
 // ---------------------------------------------------------------------------
 
-/** The problems, one per line, ready to paste. DATA-MODEL.md §9. */
+/** The problems, one per line, ready to paste. DATA-MODEL.md §10. */
 export function formatProblems(problems: readonly Problem[]): string {
   return problems.map((problem) => `  ${problem.path} — ${problem.message}`).join('\n');
 }

@@ -77,7 +77,7 @@ describe('the vocabulary of DATA-MODEL.md §2', () => {
 // is what keeps the set of dice a table may name identical to the set a class may have.
 
 describe('dice notation', () => {
-  it('reads a count and a die out of every form DATA-MODEL.md §7 allows', () => {
+  it('reads a count and a die out of every form DATA-MODEL.md §8 allows', () => {
     expect(dieNotationParts('2d6')).toEqual({ count: 2, die: 'd6' });
     expect(dieNotationParts('1d20')).toEqual({ count: 1, die: 'd20' });
     expect(dieNotationParts('d100')).toEqual({ count: 1, die: 'd100' });

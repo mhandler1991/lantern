@@ -7,7 +7,7 @@
  *     for saved characters. DESIGN.md §3 — there is no negotiation.
  *   - **Validation caps.** The wall against hostile input. A pack or a payload arrives
  *     from another peer, so every string and every array is bounded before it is trusted
- *     (DATA-MODEL.md §9). These are ours to choose: generous enough that no honest
+ *     (DATA-MODEL.md §10). These are ours to choose: generous enough that no honest
  *     author hits one, small enough that a malicious peer cannot exhaust memory.
  *   - **Shape of the game.** Party size, room code length, how many dice one roll may
  *     contain. Product decisions from PRD.md §4.
@@ -183,7 +183,7 @@ export const CORE_PACK_ID = 'core';
 export const CORE_PACK_PATH = 'packs/core.json';
 
 // ---------------------------------------------------------------------------
-// Content packs — entries. DATA-MODEL.md §§3-8.
+// Content packs — entries. DATA-MODEL.md §§3-9.
 // ---------------------------------------------------------------------------
 
 /** Ids inside a pack are written bare and namespaced on load: `frostbound:hoarfrost`. */
@@ -239,7 +239,7 @@ export const MAX_EXTENDS_PER_PACK = 200;
 export const MAX_TAGS_PER_ENTRY = 32;
 
 /**
- * Talent references one extension may add to a class (DATA-MODEL.md §8). It matches the
+ * Talent references one extension may add to a class (DATA-MODEL.md §9). It matches the
  * sheet's own `MAX_TALENTS` rather than deriving from it, because that constant is
  * declared below and a module-level `const` cannot reference one declared after it: no
  * extension needs to offer a class more talents than a character could ever hold.
@@ -248,7 +248,7 @@ export const MAX_TALENT_REFS_PER_EXTENSION = 100;
 
 /**
  * How many dice a table may name in one notation — `2d6` is two, `d100` is one
- * (DATA-MODEL.md §7). Ten is far past anything a table rolls on and keeps the span a
+ * (DATA-MODEL.md §8). Ten is far past anything a table rolls on and keeps the span a
  * row may name small enough to reason about.
  */
 export const MAX_TABLE_DIE_COUNT = 10;
@@ -302,7 +302,7 @@ export const MAX_SPELL_TIER = 5;
 export const MAX_CHARACTER_LEVEL = 10;
 
 // ---------------------------------------------------------------------------
-// Characters. DATA-MODEL.md §11.
+// Characters. DATA-MODEL.md §12.
 // ---------------------------------------------------------------------------
 
 export const CHARACTER_FORMAT = 'lantern-character';
@@ -411,7 +411,7 @@ export const MAX_LIGHT_MINUTES = 24 * 60;
 export const LIGHT_TICK_MS = 1_000;
 
 // ---------------------------------------------------------------------------
-// Validation reports. DATA-MODEL.md §9.
+// Validation reports. DATA-MODEL.md §10.
 // ---------------------------------------------------------------------------
 
 /**
@@ -528,7 +528,7 @@ export const COINS_PER_SLOT = 100;
 
 /**
  * XP needed to advance is `level × this`, and resets on each level — which is why a
- * sheet can hold `level: 3, xp: 6` (DATA-MODEL.md §11) rather than a running total.
+ * sheet can hold `level: 3, xp: 6` (DATA-MODEL.md §12) rather than a running total.
  */
 export const XP_PER_LEVEL = 10;
 

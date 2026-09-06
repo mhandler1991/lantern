@@ -94,7 +94,7 @@ describe('a stored value that cannot be read', () => {
   ];
 
   // Named by the path, or by the message where a field is missing entirely and there is
-  // no path to it — DATA-MODEL.md §9. Both are in the block the player pastes.
+  // no path to it — DATA-MODEL.md §10. Both are in the block the player pastes.
   it.each(cases)('rejects a value that %s, naming %s', (_label, raw, named) => {
     localStorage.setItem(CHARACTER_KEY, raw);
 

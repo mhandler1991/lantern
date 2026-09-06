@@ -14,7 +14,7 @@
  * than behind a confirmation, because a licensing position nobody reads is not one.
  *
  * **It reorders with buttons, not with a drag.** Load order decides which override wins
- * (DATA-MODEL.md §8), so it must be changeable — but a drag is a mouse-only gesture that
+ * (DATA-MODEL.md §9), so it must be changeable — but a drag is a mouse-only gesture that
  * needs a library, and CLAUDE.md §12 forbids installing one without asking. Two buttons
  * are keyboard-reachable, announce what they move, and are the same operation.
  *
@@ -26,7 +26,7 @@
  * **It warns and keeps going.** A pack that would not parse leaves everything else
  * loaded, a pack whose extension points at nothing still loads, and the core pack
  * failing to arrive is a notice above a working sheet (PRD.md principle 4). Every one of
- * those prints its problems with paths, ready to paste back (DATA-MODEL.md §9).
+ * those prints its problems with paths, ready to paste back (DATA-MODEL.md §10).
  *
  * Nothing here renders markup from a string. A pack name, a file name and a table name
  * are all text somebody else wrote, and they are text nodes like every value on the

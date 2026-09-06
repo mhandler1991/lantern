@@ -51,7 +51,7 @@ function fileText(character: Character): string {
 // ---------------------------------------------------------------------------
 
 describe('exporting', () => {
-  it('writes the same bytes storage holds — DATA-MODEL.md §12, no wrapper of its own', () => {
+  it('writes the same bytes storage holds — DATA-MODEL.md §13, no wrapper of its own', () => {
     localStorage.clear();
     expect(saveCharacter(vess)).toEqual({ ok: true });
 
@@ -154,7 +154,7 @@ describe('importing', () => {
   ];
 
   // What is named may be the path or the message — a field that is missing is reported
-  // against the object that should have held it (DATA-MODEL.md §9). Either way it is in
+  // against the object that should have held it (DATA-MODEL.md §10). Either way it is in
   // the block the player is asked to paste.
   it.each(rejections)('refuses a file that %s, naming %s', async (_label, text, named) => {
     const read = await readCharacterFile(picked(text));

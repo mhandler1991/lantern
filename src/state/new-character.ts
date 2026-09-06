@@ -6,7 +6,7 @@
  * pure and takes the id; only `newCharacterId` reaches for the platform's randomness.
  *
  * A blank character is a **real** character, not an empty placeholder: level 0, no class,
- * no ancestry, and it validates. DATA-MODEL.md §11 — "zero is a real state, not an empty
+ * no ancestry, and it validates. DATA-MODEL.md §12 — "zero is a real state, not an empty
  * one" — which is what lets the app open, save and reload before creation has run at all.
  */
 

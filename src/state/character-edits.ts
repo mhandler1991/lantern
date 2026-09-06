@@ -113,7 +113,7 @@ export function removeRow<T extends Row>(rows: T[], id: string): T[] {
  * A row added from a picker is the other half: it carries the reference and **nothing
  * else**. The name stays empty because `name` is a fallback and never a cache, and the
  * slots stay at zero because a loaded pack's answer wins and the row's own number is
- * never read while one does (DATA-MODEL.md §11).
+ * never read while one does (DATA-MODEL.md §12).
  */
 export function newItem(ref: Ref | null = null): CarriedItem {
   return {

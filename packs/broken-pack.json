@@ -46,6 +46,15 @@
       "page": null
     }
   ],
+  "talents": [
+    {
+      "id": "thorn-touched",
+      "name": "Thorn touched",
+      "text": "+1 to attacks made with a thorned weapon.",
+      "grants": { "attack": 1 },
+      "page": null
+    }
+  ],
   "tables": [
     {
       "id": "hedge-knight-talents",

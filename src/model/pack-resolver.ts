@@ -19,7 +19,7 @@
  * alternative is a DM whose table stops working because a supplement mentions a book
  * they turned off.
  *
- * Warnings are `Problem`s, the same shape a malformed pack reports (DATA-MODEL.md §9),
+ * Warnings are `Problem`s, the same shape a malformed pack reports (DATA-MODEL.md §10),
  * so `reportProblems` puts a resolution fault and a schema fault in one pasteable block.
  * The path is `pack.array[index].field` — which pack, which entry, which field.
  *
@@ -56,10 +56,14 @@ const KIND_SEGMENT = 1;
 // References
 // ---------------------------------------------------------------------------
 
-/** Every kind a pack actually defines. `talent` is a kind nothing has a shape for yet. */
+/**
+ * Every kind this file resolves. A talent is a defined kind in `pack.ts` since
+ * DATA-MODEL.md §7 gave it a shape, and it is still absent here: putting talents in the
+ * stack is #127, and until it lands a defined talent parses and reaches no picker.
+ */
 export type DefinedKind = Exclude<EntryKind, 'talent'>;
 
-/** The five described entry types, as one union. */
+/** The five entry types this file resolves, as one union. */
 export type PackEntry = ClassEntry | AncestryEntry | SpellEntry | ItemEntry | TableEntry;
 
 /**
@@ -99,7 +103,7 @@ function kindOf(reference: Ref): EntryKind | undefined {
 
 /**
  * One pack's contribution to one entry, in load order. This is what makes the stack
- * inspectable rather than merely correct: DATA-MODEL.md §8's line —
+ * inspectable rather than merely correct: DATA-MODEL.md §9's line —
  *
  * ```
  * Wizard = core (32 spells, 4 talents) + Frostbound (4 spells) + Cursed Scroll 1 (2 talents)
@@ -389,9 +393,10 @@ function applyExtensions(
         );
       } else {
         talents.forEach((talent, position) => {
-          // Talents have no shape in DATA-MODEL.md, so this is a reference the sheet
-          // records and nothing reads (PRD.md principle 1). Duplicates are dropped
-          // rather than kept: the list becomes React keys, and it is worth saying so.
+          // A reference recorded and never looked up. No talent is defined in this
+          // file's stack yet (#127), so a name nothing answers for reads the same here
+          // as one that resolves. Duplicates are dropped rather than kept: the list
+          // becomes React keys, and it is worth saying so.
           const reference = normalizeRef(talent, 'talent', pack.id);
           if (target.talents.includes(reference)) {
             warn(`${at}.talents[${position}]`, `${extension.target} already offers ${reference}`);
@@ -411,7 +416,7 @@ function applyExtensions(
         // 🚫 Gaps and overlaps are not checked here, the same way `pack.ts` does not
         // check them: a row an extension adds over one that exists is a real fault and
         // it is `model/tables.ts`'s to report, where the lookup that falls through it
-        // lives (DATA-MODEL.md §7).
+        // lives (DATA-MODEL.md §8).
         target.rows.push(...rows);
         rowsAdded = rows.length;
       }

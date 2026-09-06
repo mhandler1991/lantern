@@ -49,6 +49,9 @@ Rules:
     currency: gp sp cp
 - Table `roll` is a number or an inclusive [low, high] range.
   Ranges must not overlap and must cover the whole die.
+- A talent is `{ "id": ..., "name": ... }` with optional `text` and `page`, and
+  nothing else. There is no `grants` field anywhere in the format: the app records
+  a talent, it never applies one.
 - No formulas. "1d8" is fine, and "1d4/1d8" for a weapon used in one hand or two;
   "1d8 + level/2" is not.
 - Reference another entry as `id` in this pack, or `pack:id`, or `pack:kind:id`.
@@ -90,7 +93,7 @@ nothing collides — you get two Skalds, each labelled with the pack it came fro
 ## 4. The example
 
 `packs/example-pack.json` is one of everything: a class, an ancestry, two spells, two
-items, a table, and both kinds of `extends`. It is homebrew invented for that file, so
+items, a talent, a table, and both kinds of `extends`. It is homebrew invented for that file, so
 you can copy any of it. Reading it beside the schema is faster than reading either alone.
 
 It also shows the two operations that are not just "put the thing in an array":
@@ -106,10 +109,12 @@ It also shows the two operations that are not just "put the thing in an array":
 The pack's second extension points at its own table, so the file stands alone. Yours will
 usually point at somebody else's.
 
-One array the example leaves out: `talents`. A standalone talent has no shape yet — the
-app counts the array and validates nothing inside it — so there is nothing to copy. A
-talent a class offers is a reference in an `extends` block, and a talent a player rolled
-is text on their sheet.
+**A talent comes in two shapes and they are not interchangeable.** An entry in `talents`
+is a *named* talent — a choice a class can be offered — and it is what an `extends` block
+names. A row on a talent *table* is the result a die produced, and it is words. The
+example has both: `cold-forged` in `talents`, offered to the core fighter by the first
+extension, and the rows of `rimewalker-talents`. Either way a talent reaches a character
+as text, so nothing on a sheet points back at your pack for it.
 
 ---
 

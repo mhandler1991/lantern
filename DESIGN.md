@@ -368,7 +368,7 @@ Room-wide, so the table agrees on how atmospheric it is being. Changeable mid-se
 The modes and the DM's control of them are Phase 6; the burn itself is not.
 
 **Burning down is arithmetic, never a countdown.** A light stores when it was lit and how
-long it burns, and nothing else (`DATA-MODEL.md` §11). `model/light.ts` turns that pair
+long it burns, and nothing else (`DATA-MODEL.md` §12). `model/light.ts` turns that pair
 plus a moment into what is left — pure, with `now` as an argument — and
 `state/use-light-clock.ts` re-renders so the sum is redone against a newer clock.
 

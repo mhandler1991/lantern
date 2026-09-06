@@ -2,7 +2,7 @@
 // meets files off disk and payloads off the wire, and what it rejects, a player loses.
 // So the tests come in two halves — what must be accepted, and what must not be.
 //
-// `VESS` is the example from DATA-MODEL.md §11, copied exactly. If the doc and the
+// `VESS` is the example from DATA-MODEL.md §12, copied exactly. If the doc and the
 // schema ever disagree, this file fails, which is the only way to keep a written
 // contract honest.
 
@@ -85,7 +85,7 @@ function pathsOf(input: unknown): string[] {
 }
 
 describe('the documented shape', () => {
-  it('accepts DATA-MODEL.md §11 exactly as written', () => {
+  it('accepts DATA-MODEL.md §12 exactly as written', () => {
     const result = parseCharacter(VESS);
     expect(result.ok).toBe(true);
   });
@@ -170,7 +170,7 @@ describe('row ids', () => {
     const withoutId: Record<string, unknown> = { ...(item() as Record<string, unknown>) };
     delete withoutId.id;
     // Reported against the row, naming the field: `items[0].id` is the one path an
-    // author cannot search their file for, because it is not in it. DATA-MODEL.md §9.
+    // author cannot search their file for, because it is not in it. DATA-MODEL.md §10.
     expect(problemsOf(withField('items', [withoutId]))).toEqual([
       { path: 'items[0]', message: 'missing required field: id' },
     ]);

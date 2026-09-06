@@ -1,6 +1,6 @@
 /**
  * Where the character lives between visits, and how a stored one is brought forward
- * when the format moves under it. DATA-MODEL.md §12.
+ * when the format moves under it. DATA-MODEL.md §13.
  *
  * The bytes under `lantern:character` are the same bytes an export writes — the whole
  * character document, `format` and `formatVersion` included, with no wrapper of its own.
@@ -283,7 +283,7 @@ export function readRejectedCharacter(driver = defaultStorageDriver()): Rejected
 /**
  * Read the stored sheet. Never throws, and never returns a partially repaired
  * character — a rejected one is reported with the paths that failed, ready to paste
- * (DATA-MODEL.md §9).
+ * (DATA-MODEL.md §10).
  */
 export function loadCharacter(driver = defaultStorageDriver()): CharacterLoad {
   const read = readText(CHARACTER_KEY, driver);

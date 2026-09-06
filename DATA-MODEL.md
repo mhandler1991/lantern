@@ -197,7 +197,49 @@ not block the pack. (`PRD.md` principle 4.)
 }
 ```
 
-## 7. Tables
+## 7. Talents
+
+```json
+{
+  "id": "frost-affinity",
+  "name": "Frost affinity",
+  "text": "Optional. Present only in packs, never in core.",
+  "page": 27
+}
+```
+
+A talent is **a named thing a class can be offered**, and it holds nothing else: an `id`,
+a `name`, and the same optional `text` and `page` every entry carries. It is what an
+extension attaches to a class (§9), and what a table row reading *choose a talent* points
+at.
+
+**A talent and a talent table row are different objects, and both are needed.** A row is
+a *result* — the words a `2d6` produced (§8). An entry is a *choice on offer*: a thing
+with a name, which a pack other than the one that defined the class can add to it. That
+is why the array exists at all. Without it, `extends` could only name talents nothing
+defines, and the stack line §9 opens with could never say where a class's talents came
+from.
+
+**Nothing on a sheet holds a live talent reference.** Rolling and choosing both put the
+*words* on the character, with `source` naming the table or the talent they came from
+(§12). That is what lets a talent outlive the pack it arrived in, and it is why an entry
+needs no field a sheet would have to read back.
+
+🚫 **No `grants`,** for the reason a table row has none: applying a talent needs an
+effects engine (`PRD.md` principle 1, and `PRD.md` §4 defers it indefinitely).
+
+🚫 **And no `classes` list.** A spell is the source of truth for its own lists (§3);
+a talent is not, because §9's `extends` is already how a talent reaches a class, and two
+ways to say one thing is one of them going quietly out of date. A pack's own class is no
+exception — it gets its own talents through an extension naming it, which works because
+resolution applies every definition before any extension (§9).
+
+📌 **Resolution does not place talents in the stack yet.** `pack.ts` validates the array
+and `pack-resolver.ts` still treats an extension's `talents` as references it records
+without checking (#127). Defining a talent is legal, described and parsed; nothing reads
+it until that lands.
+
+## 8. Tables
 
 Random tables are first class. Talents, loot, monsters, creation, quirks — all one shape.
 
@@ -230,11 +272,10 @@ Random tables are first class. Talents, loot, monsters, creation, quirks — all
 that ships one is told so rather than having it silently ignored. That is deliberate
 (`PRD.md` principle 1).
 
-`src/model/pack.ts` is §§1-8 executable, and `pack.test.ts` parses the examples above
-verbatim — the same arrangement §11 has with `character.ts`. One array is still only
-counted: `talents`, which this document gives no shape.
+`src/model/pack.ts` is §§1-9 executable, and `pack.test.ts` parses the examples above
+verbatim — the same arrangement §12 has with `character.ts`.
 
-## 8. Extends
+## 9. Extends
 
 ```json
 "extends": [
@@ -277,7 +318,7 @@ pack may therefore extend a pack loaded after it, and moving a pack up the list 
 the *order* additions land in, never whether they land at all.
 
 Resolution never fails and never refuses a pack (`PRD.md` principle 4). Every fault is a
-warning in the same `path — what happened` shape a malformed pack reports (§9), so a
+warning in the same `path — what happened` shape a malformed pack reports (§10), so a
 resolution fault and a schema fault paste back in one block:
 
 | Fault | What happens |
@@ -307,7 +348,7 @@ is that list on screen: a picker, the load order, and the stack it resolved to.
 | **Core is never removed** | Every other pack came from a file that can be picked again; core is fetched once on boot. Turning it off is offered instead, because that is reversible. |
 | **At `MAX_PACKS_LOADED`, nothing is dropped** | A pick that would exceed the cap is reported and refused. An *update* still lands, because it replaces rather than adds. |
 
-A picked file is read the way a character file is (§12): the file's own `size` before a
+A picked file is read the way a character file is (§13): the file's own `size` before a
 byte is decoded, then the decoded text's length, then `JSON.parse`, then `parsePack`.
 `src/state/pack-file.ts`. Every failure is problems with paths and **nothing is
 replaced** — a malformed pack leaves every loaded pack exactly as it was.
@@ -318,7 +359,7 @@ the tab, and the content screen says so rather than letting a DM find out after 
 
 ### The resolution stack, rendered
 
-`src/ui/content.ts` turns `sources` into the line §8 opens with. It is built for classes
+`src/ui/content.ts` turns `sources` into the line §9 opens with. It is built for classes
 and tables — the two kinds anything can be *added* to. A spell or an item that was
 replaced is a one-pack story already told, because every override is a warning above the
 list.
@@ -329,7 +370,7 @@ Its count is a `spellsForClass` query, computed where the line is built.
 
 ---
 
-## 9. Validation
+## 10. Validation
 
 Validation does two jobs from one implementation.
 
@@ -390,7 +431,7 @@ to describe it, and every line renders as a text node.
 
 ---
 
-## 10. Authoring with an AI
+## 11. Authoring with an AI
 
 Most people will not read a schema. They will paste a template and their notes into a
 chat window, and **making that path work well is most of the adoption.**
@@ -402,12 +443,13 @@ Four things ship together, and all four are in the repository:
 | `schema/pack.schema.json` | JSON Schema (draft 2020-12), for models and editors | Hand written, so it carries descriptions a generated one would not — and held to `model/pack.ts` by generating a schema from the Zod one and requiring the committed file to carry every constraint it expresses, with the same fields and the same required lists |
 | `docs/authoring-prompt.md` | The prompt to paste, the paste-the-errors loop, and what to check before loading | Its enum lists are compared against `model/enums.ts` member by member |
 | `packs/example-pack.json` | One of everything, at the repository root because nothing fetches it at runtime | Parsed by the real `parsePack` and resolved against core, with every reference in it required to resolve |
-| `packs/broken-pack.json` | The same file with a mistake in every entry, so the error report can be seen rather than described — load it to watch §9 work | Its eleven paths are asserted one by one; a report that stopped naming one of them would have quietly got vaguer |
+| `packs/broken-pack.json` | The same file with a mistake in every entry, so the error report can be seen rather than described — load it to watch §10 work | Its twelve paths are asserted one by one; a report that stopped naming one of them would have quietly got vaguer |
 | The in-app validator | `ui/ProblemReport.tsx` — the whole block, heading and all, behind one **Copy the problems** button | A player picking lines out of a paragraph pastes half the problem |
 
-`src/model/pack-authoring.test.ts` is the last column, executable. The example pack
-omits `talents` for the same reason `pack.ts` leaves it `unknown`: an entry nobody has
-described is not an entry to copy.
+`src/model/pack-authoring.test.ts` is the last column, executable. The example pack now
+carries one of every array, `talents` included — the talent its `extends` block offers the
+core fighter is defined in the same file, so the loop from entry to extension is one an
+author can read off the page they copy.
 
 ### The prompt template
 
@@ -424,7 +466,7 @@ enums have moved.
 
 ---
 
-## 11. Characters
+## 12. Characters
 
 The character is local and never sent whole. Export writes this file.
 
@@ -536,10 +578,10 @@ app with no packs at all and write *Shortsword* in a box.
 
 ---
 
-## 12. Storage
+## 13. Storage
 
 The character lives in `localStorage` under **`lantern:character`**, as the same document
-§11 describes — `format` and `formatVersion` included, with no wrapper of its own. What
+§12 describes — `format` and `formatVersion` included, with no wrapper of its own. What
 is stored and what an export writes are byte-identical, so storage and import are brought
 forward by one migration path and cannot drift apart.
 
@@ -639,7 +681,7 @@ Import is the reading path above with a file in front of it, in this order:
 3. `JSON.parse`, `migrateCharacterDocument`, `parseCharacter` — the same three, in the same
    order, as a read from storage.
 
-Every failure comes back as problems with paths (§9) and **nothing is replaced**: a
+Every failure comes back as problems with paths (§10) and **nothing is replaced**: a
 malformed file leaves the sheet on screen exactly as it was. A file that validates is not
 applied either until it is confirmed — `ui/Portability.tsx` names the character the file
 holds and asks, because replacing the sheet is the one irreversible thing a player can do

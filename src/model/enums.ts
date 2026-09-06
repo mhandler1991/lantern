@@ -5,7 +5,7 @@
  * character's spell points at — so they are defined once and imported by both. Two
  * copies would eventually disagree about which of them spells `armorType: 'shield'`.
  *
- * Every one of them is an exact match, deliberately (DATA-MODEL.md §9). Free text is
+ * Every one of them is an exact match, deliberately (DATA-MODEL.md §10). Free text is
  * allowed in exactly three fields — `name`, `text` and `description` — and nowhere
  * else, which is what makes a pack validatable, sortable, and small enough to put in a
  * prompt (DESIGN.md §5).
@@ -58,7 +58,7 @@ export type Die = z.infer<typeof Die>;
 
 /**
  * A table names its dice as a notation rather than a single die — `2d6` carries a count
- * the `Die` enum has no room for (DATA-MODEL.md §7). It is picked apart here rather than
+ * the `Die` enum has no room for (DATA-MODEL.md §8). It is picked apart here rather than
  * matched by a regex that lists the faces again, so the set of dice a notation may name
  * is the enum above and cannot drift from it.
  *

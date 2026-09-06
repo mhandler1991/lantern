@@ -50,7 +50,7 @@ export function marchingOrder(members: readonly PresenceMember[]): readonly Seat
  *
  * Three cases a peer can honestly produce and one it can send to break us: a `max` of
  * zero is a sheet whose HP has not been set (the blank character is a real character —
- * DATA-MODEL.md §11), a `current` below zero is somebody bleeding out, and a `current`
+ * DATA-MODEL.md §12), a `current` below zero is somebody bleeding out, and a `current`
  * above `max` is a blessing. The bar shows empty, empty and full; none of them divides
  * by zero and none of them draws outside the track.
  */

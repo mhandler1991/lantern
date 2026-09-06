@@ -95,7 +95,7 @@ describe('the HP bar', () => {
   });
 
   it('draws an unfilled sheet empty rather than dividing by its maximum', () => {
-    // A blank character is a real character (DATA-MODEL.md §11) and it arrives with
+    // A blank character is a real character (DATA-MODEL.md §12) and it arrives with
     // `max: 0`. Without the guard this is NaN, and a NaN width is a bar that vanishes.
     expect(hpBarPercent({ current: 0, max: 0 })).toBe(0);
     expect(hpBarPercent({ current: 5, max: 0 })).toBe(0);

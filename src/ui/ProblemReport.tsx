@@ -1,7 +1,7 @@
 /**
  * Everything wrong with a file, shown as one block and copyable as one block.
  *
- * DATA-MODEL.md §10 — most people will not read a schema. They will paste a template
+ * DATA-MODEL.md §11 — most people will not read a schema. They will paste a template
  * and their notes into a chat window, and the way they fix what comes back is by pasting
  * the errors in after it. **So the unit here is the whole report, not a line of it**:
  * the heading names the file the paths below belong to, and one button takes the lot.

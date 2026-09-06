@@ -15,7 +15,7 @@
  * call where it cannot be seen.
  *
  * Nothing here throws. Every way the fetch can fail comes back as problems with paths,
- * in DATA-MODEL.md §9's grammar, so a core pack that is missing reports itself the same
+ * in DATA-MODEL.md §10's grammar, so a core pack that is missing reports itself the same
  * way a homebrew pack with a bad field does.
  */
 
@@ -67,7 +67,7 @@ export function corePackUrl(base: string = import.meta.env.BASE_URL): string {
  * Fetch, bound, decode, validate — in that order, because each step is only safe once
  * the one before it has passed. The size check is on the decoded text rather than a
  * `Content-Length` header: a header is a claim the server made and the text is what we
- * are actually holding (DATA-MODEL.md §12 makes the same distinction about a picked
+ * are actually holding (DATA-MODEL.md §13 makes the same distinction about a picked
  * file's `size`).
  *
  * The id check at the end is not ceremony. Every reference the app stores is written

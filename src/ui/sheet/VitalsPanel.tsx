@@ -3,7 +3,7 @@
  *
  * HP is two numbers the player owns outright — `current` may sit above `max` after a
  * blessing and below zero when things have gone badly, and the sheet records both
- * rather than deciding they cannot be so (DATA-MODEL.md §11).
+ * rather than deciding they cannot be so (DATA-MODEL.md §12).
  *
  * AC is the opposite: it is not a field at all, because it is computed from equipped
  * armour (CLAUDE.md §4). Armour comes off the item a loaded pack defines, so a row that

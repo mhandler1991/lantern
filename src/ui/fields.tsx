@@ -117,7 +117,7 @@ export function TextField({
  * The options are what the packs that are on actually hold (`ui/choices.ts`), and the
  * value is a reference rather than a word — picking sets `ref` and the label is read
  * back out of the stack every render, so nothing here copies a pack's text onto a sheet
- * (DATA-MODEL.md §11).
+ * (DATA-MODEL.md §12).
  *
  * The first option is always the way out: a table running homebrew with no pack for it
  * types the name in, and the app has to stay usable with no packs at all (PRD.md

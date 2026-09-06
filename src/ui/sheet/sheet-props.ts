@@ -27,7 +27,7 @@ export type PanelProps = {
  * about whether a row is orphaned would be two answers to one question.
  *
  * Taken by the four panels that hold references — identity, gear, spells and light.
- * 🚫 Not talents: a talent stores its words rather than a reference (DATA-MODEL.md §11)
+ * 🚫 Not talents: a talent stores its words rather than a reference (DATA-MODEL.md §12)
  * and keeps working with every pack off, which is what it stored them for.
  */
 export type OrphanProps = {
