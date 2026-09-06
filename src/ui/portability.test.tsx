@@ -28,6 +28,9 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let container: HTMLDivElement;
 let root: Root;
 
+/** Whether `root` currently holds a tree, so unmounting twice is not an error. */
+let isMounted = false;
+
 /** Every blob the app asked the browser to make a URL for, in order. */
 let saved: Blob[] = [];
 
@@ -57,9 +60,16 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+  isMounted = false;
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // A mounted sheet keeps a debounced write in flight — `usePersistentCharacter` writes
+  // `PERSIST_DEBOUNCE_MS` after an edit and flushes on unmount. A test that ends still
+  // mounted leaves that timer to fire during a *later* test and overwrite the storage it
+  // is asserting on, which is what CI caught on the round trip: it read back a character
+  // from a test three above it. Unmounting here is the app's own tab-closed path.
+  await unmount();
   document.body.replaceChildren();
   localStorage.clear();
   vi.restoreAllMocks();
@@ -69,9 +79,13 @@ async function mount(): Promise<void> {
   await act(async () => {
     root.render(<App />);
   });
+  isMounted = true;
 }
 
 async function unmount(): Promise<void> {
+  if (!isMounted) return;
+
+  isMounted = false;
   await act(async () => {
     root.unmount();
   });

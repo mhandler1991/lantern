@@ -39,14 +39,14 @@ import {
   type SpellEntry,
   type TableEntry,
   type TableRow,
-} from "./pack";
-import type { Problem } from "./problems";
+} from './pack';
+import type { Problem } from './problems';
 
 /** An empty count, and the first index. Neither is a rule of the game. */
 const NONE = 0;
 
 /** How a reference is written: `pack:kind:id`. */
-const SEPARATOR = ":";
+const SEPARATOR = ':';
 
 /** Where the kind sits in the full form. */
 const KIND_SEGMENT = 1;
@@ -56,11 +56,10 @@ const KIND_SEGMENT = 1;
 // ---------------------------------------------------------------------------
 
 /** Every kind a pack actually defines. `talent` is a kind nothing has a shape for yet. */
-export type DefinedKind = Exclude<EntryKind, "talent">;
+export type DefinedKind = Exclude<EntryKind, 'talent'>;
 
 /** The five described entry types, as one union. */
-export type PackEntry =
-  ClassEntry | AncestryEntry | SpellEntry | ItemEntry | TableEntry;
+export type PackEntry = ClassEntry | AncestryEntry | SpellEntry | ItemEntry | TableEntry;
 
 /**
  * Fill in the segments an entry left implied and return the one form everything else
@@ -77,16 +76,11 @@ export type PackEntry =
  * and stores the full form instead. Pure, and it never looks at what is loaded: whether
  * the thing exists is a separate question from what it is called.
  */
-export function normalizeRef(
-  reference: EntryRef,
-  kind: EntryKind,
-  fromPack: PackId,
-): Ref {
+export function normalizeRef(reference: EntryRef, kind: EntryKind, fromPack: PackId): Ref {
   const [first, second, third] = reference.split(SEPARATOR);
 
   if (third !== undefined) return reference;
-  if (second !== undefined)
-    return `${first ?? fromPack}${SEPARATOR}${kind}${SEPARATOR}${second}`;
+  if (second !== undefined) return `${first ?? fromPack}${SEPARATOR}${kind}${SEPARATOR}${second}`;
 
   return `${fromPack}${SEPARATOR}${kind}${SEPARATOR}${reference}`;
 }
@@ -116,7 +110,7 @@ function kindOf(reference: Ref): EntryKind | undefined {
 export type EntrySource = {
   readonly packId: PackId;
   readonly packName: string;
-  readonly operation: "define" | "override" | "extend";
+  readonly operation: 'define' | 'override' | 'extend';
   readonly talentsAdded: number;
   readonly rowsAdded: number;
 };
@@ -134,37 +128,33 @@ type Provenance = {
 
 /** `talents` is what extensions added; a class defines none of its own (DATA-MODEL.md §5). */
 export type ResolvedClass = Provenance & {
-  readonly kind: "class";
+  readonly kind: 'class';
   readonly entry: ClassEntry;
   readonly talents: readonly Ref[];
 };
 
 /** `rows` is the entry's own rows, then every extension's, in load order. */
 export type ResolvedTable = Provenance & {
-  readonly kind: "table";
+  readonly kind: 'table';
   readonly entry: TableEntry;
   readonly rows: readonly TableRow[];
 };
 
 export type ResolvedAncestry = Provenance & {
-  readonly kind: "ancestry";
+  readonly kind: 'ancestry';
   readonly entry: AncestryEntry;
 };
 export type ResolvedSpell = Provenance & {
-  readonly kind: "spell";
+  readonly kind: 'spell';
   readonly entry: SpellEntry;
 };
 export type ResolvedItem = Provenance & {
-  readonly kind: "item";
+  readonly kind: 'item';
   readonly entry: ItemEntry;
 };
 
 export type ResolvedEntry =
-  | ResolvedClass
-  | ResolvedAncestry
-  | ResolvedSpell
-  | ResolvedItem
-  | ResolvedTable;
+  ResolvedClass | ResolvedAncestry | ResolvedSpell | ResolvedItem | ResolvedTable;
 
 /** A loaded pack as the content screen shows it: what it is, and how much it brought. */
 export type PackSummary = {
@@ -243,7 +233,7 @@ type Definable = {
 
 const contribution = (
   pack: Pack,
-  operation: EntrySource["operation"],
+  operation: EntrySource['operation'],
   talentsAdded = NONE,
   rowsAdded = NONE,
 ): EntrySource => ({
@@ -266,7 +256,7 @@ function place<E extends PackEntry>(
   kind: DefinedKind,
   pack: Pack,
   entry: E,
-  operation: EntrySource["operation"],
+  operation: EntrySource['operation'],
 ): void {
   const existing = into.get(ref);
 
@@ -307,19 +297,19 @@ function collect<E extends PackEntry & Definable>(
         if (existing !== undefined) {
           warn(
             `${at}.id`,
-            `${own} is already defined by "${existing.packName}" — the later one wins, and neither pack asked for that`,
+            `${own} is already defined by "${existing.packName}" — the later entry wins`,
           );
         }
-        place(into, own, kind, pack, entry, "define");
+        place(into, own, kind, pack, entry, 'define');
         return;
       }
 
       if (kindOf(target) !== kind) {
         warn(
           `${at}.overrides`,
-          `${target} is not a ${kind} — a ${kind} may only override a ${kind}, so this entry is kept as ${own}`,
+          `${target} is not a ${kind} — a ${kind} may only override a ${kind}; kept as ${own}`,
         );
-        place(into, own, kind, pack, entry, "define");
+        place(into, own, kind, pack, entry, 'define');
         return;
       }
 
@@ -327,37 +317,34 @@ function collect<E extends PackEntry & Definable>(
       if (replaced === undefined) {
         warn(
           `${at}.overrides`,
-          `no loaded pack defines ${target} — the entry is kept as ${target} anyway, so a character holding that reference still resolves`,
+          `no loaded pack defines ${target} — kept there anyway, so a sheet holding it resolves`,
         );
       } else {
         warn(
           `${at}.overrides`,
-          `replaces ${target} from "${replaced.packName}" — deliberate, and the last pack loaded wins`,
+          `replaces ${target} from "${replaced.packName}" — the last pack loaded wins`,
         );
       }
 
-      place(into, target, kind, pack, entry, "override");
+      place(into, target, kind, pack, entry, 'override');
     });
   }
 }
 
 /** The entry a reference names, whatever kind it is, or `undefined` if nothing does. */
-function find(
-  definitions: Definitions,
-  reference: Ref,
-): Extensible | undefined {
+function find(definitions: Definitions, reference: Ref): Extensible | undefined {
   switch (kindOf(reference)) {
-    case "class":
+    case 'class':
       return definitions.class.get(reference);
-    case "ancestry":
+    case 'ancestry':
       return definitions.ancestry.get(reference);
-    case "spell":
+    case 'spell':
       return definitions.spell.get(reference);
-    case "item":
+    case 'item':
       return definitions.item.get(reference);
-    case "table":
+    case 'table':
       return definitions.table.get(reference);
-    case "talent":
+    case 'talent':
     case undefined:
       return undefined;
   }
@@ -384,7 +371,7 @@ function applyExtensions(
       if (target === undefined) {
         warn(
           `${at}.target`,
-          `no loaded pack defines ${extension.target} — the extension is skipped, and the rest of the pack loads`,
+          `no loaded pack defines ${extension.target} — the extension is skipped`,
         );
         return;
       }
@@ -394,22 +381,19 @@ function applyExtensions(
       let talentsAdded = NONE;
       let rowsAdded = NONE;
 
-      if (talents.length > NONE && target.kind !== "class") {
+      if (talents.length > NONE && target.kind !== 'class') {
         warn(
           `${at}.talents`,
-          `${extension.target} is a ${target.kind} — talents may only be added to a class, so they are skipped`,
+          `${extension.target} is a ${target.kind} — talents may only be added to a class`,
         );
       } else {
         talents.forEach((talent, position) => {
           // Talents have no shape in DATA-MODEL.md, so this is a reference the sheet
           // records and nothing reads (PRD.md principle 1). Duplicates are dropped
           // rather than kept: the list becomes React keys, and it is worth saying so.
-          const reference = normalizeRef(talent, "talent", pack.id);
+          const reference = normalizeRef(talent, 'talent', pack.id);
           if (target.talents.includes(reference)) {
-            warn(
-              `${at}.talents[${position}]`,
-              `${extension.target} already offers ${reference}`,
-            );
+            warn(`${at}.talents[${position}]`, `${extension.target} already offers ${reference}`);
             return;
           }
           target.talents.push(reference);
@@ -417,10 +401,10 @@ function applyExtensions(
         });
       }
 
-      if (rows.length > NONE && target.kind !== "table") {
+      if (rows.length > NONE && target.kind !== 'table') {
         warn(
           `${at}.rows`,
-          `${extension.target} is a ${target.kind} — rows may only be added to a table, so they are skipped`,
+          `${extension.target} is a ${target.kind} — rows may only be added to a table`,
         );
       } else {
         // 🚫 Gaps and overlaps are not checked here, the same way `pack.ts` does not
@@ -432,9 +416,7 @@ function applyExtensions(
       }
 
       if (talentsAdded > NONE || rowsAdded > NONE) {
-        target.sources.push(
-          contribution(pack, "extend", talentsAdded, rowsAdded),
-        );
+        target.sources.push(contribution(pack, 'extend', talentsAdded, rowsAdded));
       }
     });
   }
@@ -475,10 +457,7 @@ export function resolvePacks(packs: readonly Pack[]): ResolvedStack {
       // Two packs sharing an id share every reference inside them, so this is not a
       // near miss: the later pack's entries land on the earlier one's. Say so once,
       // here, rather than as a duplicate-id warning per entry further down.
-      warn(
-        `packs[${index}].id`,
-        `another loaded pack already uses the id ${pack.id}`,
-      );
+      warn(`packs[${index}].id`, `another loaded pack already uses the id ${pack.id}`);
     }
     seen.add(pack.id);
   });
@@ -491,91 +470,55 @@ export function resolvePacks(packs: readonly Pack[]): ResolvedStack {
     table: new Map(),
   };
 
-  collect(
-    definitions.class,
-    "class",
-    "classes",
-    packs,
-    (pack) => pack.classes,
-    warn,
-  );
-  collect(
-    definitions.ancestry,
-    "ancestry",
-    "ancestries",
-    packs,
-    (pack) => pack.ancestries,
-    warn,
-  );
-  collect(
-    definitions.spell,
-    "spell",
-    "spells",
-    packs,
-    (pack) => pack.spells,
-    warn,
-  );
-  collect(definitions.item, "item", "items", packs, (pack) => pack.items, warn);
-  collect(
-    definitions.table,
-    "table",
-    "tables",
-    packs,
-    (pack) => pack.tables,
-    warn,
-  );
+  collect(definitions.class, 'class', 'classes', packs, (pack) => pack.classes, warn);
+  collect(definitions.ancestry, 'ancestry', 'ancestries', packs, (pack) => pack.ancestries, warn);
+  collect(definitions.spell, 'spell', 'spells', packs, (pack) => pack.spells, warn);
+  collect(definitions.item, 'item', 'items', packs, (pack) => pack.items, warn);
+  collect(definitions.table, 'table', 'tables', packs, (pack) => pack.tables, warn);
 
   applyExtensions(definitions, packs, warn);
 
-  const classes = [...definitions.class.values()].map(
-    (working): ResolvedClass => ({
-      ref: working.ref,
-      kind: "class",
-      packId: working.packId,
-      packName: working.packName,
-      entry: working.entry,
-      talents: working.talents,
-      sources: working.sources,
-    }),
-  );
+  const classes = [...definitions.class.values()].map((working): ResolvedClass => ({
+    ref: working.ref,
+    kind: 'class',
+    packId: working.packId,
+    packName: working.packName,
+    entry: working.entry,
+    talents: working.talents,
+    sources: working.sources,
+  }));
 
-  const tables = [...definitions.table.values()].map(
-    (working): ResolvedTable => ({
-      ref: working.ref,
-      kind: "table",
-      packId: working.packId,
-      packName: working.packName,
-      entry: working.entry,
-      rows: [...working.entry.rows, ...working.rows],
-      sources: working.sources,
-    }),
-  );
+  const tables = [...definitions.table.values()].map((working): ResolvedTable => ({
+    ref: working.ref,
+    kind: 'table',
+    packId: working.packId,
+    packName: working.packName,
+    entry: working.entry,
+    rows: [...working.entry.rows, ...working.rows],
+    sources: working.sources,
+  }));
 
-  const ancestries = [...definitions.ancestry.values()].map(
-    (working): ResolvedAncestry => ({
-      ref: working.ref,
-      kind: "ancestry",
-      packId: working.packId,
-      packName: working.packName,
-      entry: working.entry,
-      sources: working.sources,
-    }),
-  );
+  const ancestries = [...definitions.ancestry.values()].map((working): ResolvedAncestry => ({
+    ref: working.ref,
+    kind: 'ancestry',
+    packId: working.packId,
+    packName: working.packName,
+    entry: working.entry,
+    sources: working.sources,
+  }));
 
-  const spells = [...definitions.spell.values()].map(
-    (working): ResolvedSpell => ({
-      ref: working.ref,
-      kind: "spell",
-      packId: working.packId,
-      packName: working.packName,
-      entry: working.entry,
-      sources: working.sources,
-    }),
-  );
+  const spells = [...definitions.spell.values()].map((working): ResolvedSpell => ({
+    ref: working.ref,
+    kind: 'spell',
+    packId: working.packId,
+    packName: working.packName,
+    entry: working.entry,
+    sources: working.sources,
+  }));
 
   const items = [...definitions.item.values()].map((working): ResolvedItem => ({
     ref: working.ref,
-    kind: "item",
+    kind: 'item',
     packId: working.packId,
     packName: working.packName,
     entry: working.entry,
@@ -583,13 +526,7 @@ export function resolvePacks(packs: readonly Pack[]): ResolvedStack {
   }));
 
   const byRef = new Map<Ref, ResolvedEntry>();
-  for (const entry of [
-    ...classes,
-    ...ancestries,
-    ...spells,
-    ...items,
-    ...tables,
-  ]) {
+  for (const entry of [...classes, ...ancestries, ...spells, ...items, ...tables]) {
     byRef.set(entry.ref, entry);
   }
 
@@ -629,14 +566,10 @@ export function lookup(
  * round** (DATA-MODEL.md §3), which is why a pack adding four wizard spells needs no
  * extension at all — and why this is a query rather than a field.
  */
-export function spellsForClass(
-  stack: ResolvedStack,
-  classRef: Ref,
-): readonly ResolvedSpell[] {
+export function spellsForClass(stack: ResolvedStack, classRef: Ref): readonly ResolvedSpell[] {
   return stack.spells.filter((spell) =>
     spell.entry.classes.some(
-      (reference) =>
-        normalizeRef(reference, "class", spell.packId) === classRef,
+      (reference) => normalizeRef(reference, 'class', spell.packId) === classRef,
     ),
   );
 }
