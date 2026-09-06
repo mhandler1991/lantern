@@ -3,7 +3,7 @@
  *
  * #15 shipped the quarantine half of "never destroy player data": a stored value that
  * fails to load is copied to `lantern:character.rejected` before autosave is allowed to
- * write over it (DATA-MODEL.md §12). Nothing ever offered it back, so recovering it
+ * write over it (DATA-MODEL.md §13). Nothing ever offered it back, so recovering it
  * meant devtools — which for the people this app is for is the same as gone. This is the
  * other half: one button, inside the warning that is already on screen.
  *

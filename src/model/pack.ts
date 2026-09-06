@@ -1,6 +1,6 @@
 /**
  * A content pack. DATA-MODEL.md §1 is the contract; this file is the envelope of that
- * contract, executable — and DATA-MODEL.md §9 is why it is shaped the way it is.
+ * contract, executable — and DATA-MODEL.md §10 is why it is shaped the way it is.
  *
  * **A pack arrives from another peer. It is hostile input.** Everything that follows is
  * that one sentence, applied:
@@ -23,11 +23,11 @@
  * §5, §7). 🚫 Nothing in this repository ships rules text.
  *
  * Scope: this file validates **the envelope and the entries inside it** — spells, items,
- * classes, ancestries, tables and extensions, DATA-MODEL.md §§3-8. One array is still
- * counted rather than described: `talents`, which DATA-MODEL.md gives no shape.
- * Nothing here looks at a second pack — applying an extension, resolving an override
- * and namespacing an id are `model/pack-resolver.ts`, which reads what this file
- * produced.
+ * classes, ancestries, talents, tables and extensions, DATA-MODEL.md §§3-9. Every array
+ * the envelope carries has a shape here. Nothing looks at a second pack: applying an
+ * extension, resolving an override and namespacing an id are `model/pack-resolver.ts`,
+ * which reads what this file produced — and which does not place a talent in the stack
+ * it builds yet (#127).
  */
 
 import * as z from 'zod';
@@ -85,7 +85,7 @@ const NOT_EMPTY = 1;
 const NOTHING = 0;
 
 // ---------------------------------------------------------------------------
-// The leaves every entry is built from. DATA-MODEL.md §§3-8 assemble these; #20.
+// The leaves every entry is built from. DATA-MODEL.md §§3-9 assemble these; #20.
 // ---------------------------------------------------------------------------
 
 /**
@@ -107,11 +107,10 @@ export type Ref = z.infer<typeof Ref>;
  * The middle segment of a reference: which array of a pack the thing lives in. Singular,
  * because that is how DATA-MODEL.md §1 writes it — `core:item:dagger`, not `core:items`.
  *
- * `talent` is listed and nothing defines one. DATA-MODEL.md gives talents no shape, so
- * an extension's `talents` list is a set of references the app records and never
- * resolves (PRD.md principle 1 — record, do not adjudicate). Leaving the kind out would
- * make those references unwritable; listing it keeps them expressible against the day
- * the array is described.
+ * All six are things a pack defines and a reference can name, `talent` included since
+ * DATA-MODEL.md §7 gave it a shape. What a talent reference does not have yet is a
+ * resolver that looks it up: an extension's `talents` list is a set of references
+ * recorded and never checked (#127, PRD.md principle 1 — record, do not adjudicate).
  */
 export const EntryKind = z.enum(['class', 'ancestry', 'spell', 'item', 'talent', 'table']);
 export type EntryKind = z.infer<typeof EntryKind>;
@@ -329,11 +328,42 @@ export const AncestryEntry = z.strictObject({
 export type AncestryEntry = z.infer<typeof AncestryEntry>;
 
 // ---------------------------------------------------------------------------
-// Tables. DATA-MODEL.md §7.
+// Talents. DATA-MODEL.md §7.
 // ---------------------------------------------------------------------------
 
 /**
- * A face, or an inclusive band of them: `2` and `[3, 6]` (DATA-MODEL.md §7). The pair is
+ * A named thing a class can be offered — an id, a name, and the text and page every
+ * entry may carry. There is nothing else for one to hold.
+ *
+ * **A talent is not a talent table row**, and the format needs both. A row is the result
+ * a die produced (§8); an entry is a choice on offer, which is what §9's `extends`
+ * attaches to a class and what a row reading *choose a talent* points at. Either way the
+ * sheet stores the **words** and never a reference (DATA-MODEL.md §12), so nothing
+ * defined here is read back off a character — which is what lets a talent outlive the
+ * pack it arrived in.
+ *
+ * 🚫 **No `grants`**, for the reason `TableRow` has none: applying one needs an effects
+ * engine, which PRD.md principle 1 rules out. 🚫 **And no `classes` list**, unlike a
+ * spell — an extension is already how a talent reaches a class, and a second way is the
+ * one that goes quietly out of date. A pack's own class is no exception: it extends
+ * itself, which works because resolution applies every definition before any extension.
+ */
+export const TalentEntry = z.strictObject({
+  id: EntryId,
+  name: EntryName,
+
+  text: EntryText,
+  page: PageReference,
+  overrides: Overrides,
+});
+export type TalentEntry = z.infer<typeof TalentEntry>;
+
+// ---------------------------------------------------------------------------
+// Tables. DATA-MODEL.md §8.
+// ---------------------------------------------------------------------------
+
+/**
+ * A face, or an inclusive band of them: `2` and `[3, 6]` (DATA-MODEL.md §8). The pair is
  * a tuple rather than an array so a third element is a reported problem instead of a
  * silently ignored one, and `low` may equal `high` — a one-face band is a band an author
  * wrote out longhand, not an error.
@@ -393,7 +423,7 @@ export const TableEntry = z.strictObject({
 export type TableEntry = z.infer<typeof TableEntry>;
 
 // ---------------------------------------------------------------------------
-// Extensions. DATA-MODEL.md §8.
+// Extensions. DATA-MODEL.md §9.
 // ---------------------------------------------------------------------------
 
 /**
@@ -422,14 +452,6 @@ export type PackExtension = z.infer<typeof PackExtension>;
 // ---------------------------------------------------------------------------
 // Content arrays
 // ---------------------------------------------------------------------------
-
-/**
- * The one array the envelope still only counts. `talents` has no shape in
- * DATA-MODEL.md to be executable against, so it stays `unknown` rather than becoming a
- * permissive object: "not described yet" and "described loosely" must not look the same
- * in this file.
- */
-const UndescribedEntry = z.unknown();
 
 const contentArray = <T extends z.ZodType>(entry: T): z.ZodOptional<z.ZodArray<T>> =>
   z.array(entry).max(MAX_ENTRIES_PER_ARRAY).optional();
@@ -463,10 +485,10 @@ export const Pack = z.strictObject({
   ancestries: contentArray(AncestryEntry),
   spells: contentArray(SpellEntry),
   items: contentArray(ItemEntry),
-  talents: contentArray(UndescribedEntry),
+  talents: contentArray(TalentEntry),
   tables: contentArray(TableEntry),
 
-  /** Additions to something another pack defined. Never collides. DATA-MODEL.md §8. */
+  /** Additions to something another pack defined. Never collides. DATA-MODEL.md §9. */
   extends: z.array(PackExtension).max(MAX_EXTENDS_PER_PACK).optional(),
 });
 export type Pack = z.infer<typeof Pack>;
@@ -477,7 +499,7 @@ export type Pack = z.infer<typeof Pack>;
 
 /**
  * What is wrong with a pack, as `path — what was expected`. The same shape a character
- * file reports, because DATA-MODEL.md §9 makes that format a contract: these lines are
+ * file reports, because DATA-MODEL.md §10 makes that format a contract: these lines are
  * written to be pasted back into a model along with the file that produced them.
  */
 export type PackProblem = Problem;

@@ -1,7 +1,7 @@
 /**
  * The character as a file on disk: what export writes, and what import is allowed to
  * believe. DESIGN.md §8 — characters live in one browser, so this file is the only
- * mitigation there is against losing one, and DATA-MODEL.md §12 is its contract.
+ * mitigation there is against losing one, and DATA-MODEL.md §13 is its contract.
  *
  * Two decisions carry the whole module.
  *
@@ -10,13 +10,13 @@
  * what lets one migration path serve both — a file exported by an old build and a sheet
  * saved by one are the same bytes and are brought forward by the same code, so the two
  * cannot drift apart. `character-file.test.ts` asserts the two strings are equal, which
- * turns that sentence of DATA-MODEL.md §12 into something that fails when it stops
+ * turns that sentence of DATA-MODEL.md §13 into something that fails when it stops
  * being true.
  *
  * **An imported file is hostile until it parses.** It was picked off a disk, it may have
  * been edited by hand or by an AI, and it may not be ours at all. It is bounded, decoded,
  * migrated and validated in that order, and nothing here throws: every way a file can be
- * wrong comes back as problems with paths, ready to paste (DATA-MODEL.md §9). Nothing
+ * wrong comes back as problems with paths, ready to paste (DATA-MODEL.md §10). Nothing
  * partially repaired is ever returned, so the caller cannot half-import anything.
  *
  * There is no DOM here. Picking a file and starting a download are `ui/download.ts`.
@@ -33,7 +33,7 @@ import { parseCharacter } from '../model/character';
 import { migrateCharacterDocument } from './character-storage';
 import { describeError } from './storage';
 
-/** JSON, because the file is meant to be readable and pasteable. DATA-MODEL.md §11. */
+/** JSON, because the file is meant to be readable and pasteable. DATA-MODEL.md §12. */
 export const CHARACTER_FILE_TYPE = 'application/json';
 
 /** What the file picker offers by default. Both spellings: browsers disagree on which. */

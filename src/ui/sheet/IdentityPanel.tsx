@@ -4,7 +4,7 @@
  * Ancestry and class are the sheet's two single-value references, and from Phase 2 a
  * loaded pack drives a picker for each. Picking stores the reference and nothing else —
  * the word on screen is read back out of the stack every render, so `name` stays the
- * player's own words rather than a copy of a pack's label (DATA-MODEL.md §11).
+ * player's own words rather than a copy of a pack's label (DATA-MODEL.md §12).
  *
  * With no pack loaded there is nothing to offer, and the field falls back to the box a
  * player types in. That is not a degraded mode: a table running homebrew with no pack at

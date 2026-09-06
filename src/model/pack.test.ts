@@ -1,5 +1,5 @@
 // A pack arrives from another peer, so the envelope is a security boundary before it is
-// anything else (DATA-MODEL.md §9). The tests come in the two halves that implies: what
+// anything else (DATA-MODEL.md §10). The tests come in the two halves that implies: what
 // an honest author must be able to load, and what a hostile file must not get past.
 //
 // `FROSTBOUND` is the envelope from DATA-MODEL.md §1, copied exactly. If the doc and the
@@ -22,6 +22,7 @@ import {
   Ref,
   SpellEntry,
   TableEntry,
+  TalentEntry,
   formatProblems,
   parsePack,
   reportProblems,
@@ -69,7 +70,7 @@ const FROSTBOUND = {
 } as const;
 
 /**
- * One of each, copied from DATA-MODEL.md §§3-7 exactly the way `FROSTBOUND` copies §1.
+ * One of each, copied from DATA-MODEL.md §§3-8 exactly the way `FROSTBOUND` copies §1.
  * These are what an author reading the document would write, so a schema that refuses
  * one of them has broken the contract rather than tightened it.
  */
@@ -121,6 +122,13 @@ const ANCESTRY = {
   page: null,
 } as const;
 
+const TALENT = {
+  id: 'frost-affinity',
+  name: 'Frost affinity',
+  text: 'Optional. Present only in packs, never in core.',
+  page: 27,
+} as const;
+
 const TABLE = {
   id: 'rimewalker-talents',
   name: 'Rimewalker talents',
@@ -135,7 +143,7 @@ const TABLE = {
   ],
 } as const;
 
-/** DATA-MODEL.md §8's two extensions, copied the same way. */
+/** DATA-MODEL.md §9's two extensions, copied the same way. */
 const EXTENSION = {
   target: 'core:class:wizard',
   talents: ['frostbound:frost-affinity'],
@@ -153,7 +161,7 @@ const SAMPLE: Record<string, unknown> = {
   spells: SPELL,
   items: ITEM,
   tables: TABLE,
-  talents: {},
+  talents: TALENT,
   extends: EXTENSION,
 };
 
@@ -385,9 +393,9 @@ describe('the report', () => {
     expect(report.split('\n')).toHaveLength(2);
   });
 
-  // DATA-MODEL.md §9 prints these two lines. They are produced here rather than written
+  // DATA-MODEL.md §10 prints these two lines. They are produced here rather than written
   // by hand, so the document and the validator cannot drift apart.
-  it('writes §9\'s line for a value outside an enum', () => {
+  it('writes §10\'s line for a value outside an enum', () => {
     const spells = [SPELL, SPELL, SPELL, SPELL, { ...SPELL, range: 'medium' }];
     const result = parsePack(envelope({ spells }));
     if (result.ok) throw new Error('expected the pack to be refused');
@@ -397,7 +405,7 @@ describe('the report', () => {
     );
   });
 
-  it('writes §9\'s line for a field that is not there', () => {
+  it('writes §10\'s line for a field that is not there', () => {
     const spells = [...Array(7).fill(SPELL), { ...SPELL, tier: undefined }];
     const result = parsePack(envelope({ spells }));
     if (result.ok) throw new Error('expected the pack to be refused');
@@ -446,7 +454,7 @@ describe('the report', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The entries. DATA-MODEL.md §§3-7.
+// The entries. DATA-MODEL.md §§3-9.
 // ---------------------------------------------------------------------------
 
 describe('spells', () => {
@@ -476,7 +484,7 @@ describe('spells', () => {
   });
 
   it('matches range and duration exactly', () => {
-    // "medium" is DATA-MODEL.md §9's own worked example of a rejected value.
+    // "medium" is DATA-MODEL.md §10's own worked example of a rejected value.
     expect(SpellEntry.safeParse(entry(SPELL, { range: 'medium' })).success).toBe(false);
     expect(SpellEntry.safeParse(entry(SPELL, { range: 'Near' })).success).toBe(false);
     expect(SpellEntry.safeParse(entry(SPELL, { duration: 'concentration' })).success).toBe(false);
@@ -735,8 +743,54 @@ describe('ancestries', () => {
   });
 });
 
+describe('talents', () => {
+  it('accepts the talent from DATA-MODEL.md §7 unchanged', () => {
+    expect(TalentEntry.safeParse(TALENT).success).toBe(true);
+  });
+
+  it.each(['id', 'name'])('refuses a talent missing %s', (field) => {
+    expect(TalentEntry.safeParse(entry(TALENT, { [field]: undefined })).success).toBe(false);
+  });
+
+  it('takes a page reference in place of the words, the way core ships', () => {
+    expect(TalentEntry.safeParse(entry(TALENT, { text: undefined })).success).toBe(true);
+    expect(TalentEntry.safeParse(entry(TALENT, { text: null })).success).toBe(true);
+    expect(TalentEntry.safeParse(entry(TALENT, { text: null, page: undefined })).success).toBe(
+      true,
+    );
+    expect(
+      TalentEntry.safeParse(entry(TALENT, { text: 't'.repeat(MAX_TEXT_LENGTH + 1) })).success,
+    ).toBe(false);
+  });
+
+  // The reason the entry exists: an extension names a talent by id, so a talent must be
+  // a thing with an id rather than only ever a row of words on a table (DATA-MODEL.md §7).
+  it('is named by an extension exactly as its own id is written', () => {
+    expect(TalentEntry.safeParse(entry(TALENT, { id: 'frost-affinity' })).success).toBe(true);
+    expect(
+      PackExtension.safeParse({
+        target: 'core:class:wizard',
+        talents: ['frostbound:frost-affinity'],
+      }).success,
+    ).toBe(true);
+  });
+
+  /**
+   * 🚫 The field the format does not have, on the entry an author is most likely to try
+   * putting it on. A talent is recorded, never applied (PRD.md principle 1), and a pack
+   * that ships `grants` is told so rather than having it silently dropped — which is the
+   * same promise `TableRow` makes, tested the same way.
+   */
+  it('refuses a talent that tries to grant something', () => {
+    expect(TalentEntry.safeParse(entry(TALENT, { grants: { attack: 1 } })).success).toBe(false);
+    expect(TalentEntry.safeParse(entry(TALENT, { classes: ['core:class:fighter'] })).success).toBe(
+      false,
+    );
+  });
+});
+
 describe('tables', () => {
-  it('accepts the table from DATA-MODEL.md §7 unchanged', () => {
+  it('accepts the table from DATA-MODEL.md §8 unchanged', () => {
     expect(TableEntry.safeParse(TABLE).success).toBe(true);
   });
 
@@ -838,7 +892,7 @@ describe('tables', () => {
 });
 
 describe('extensions', () => {
-  it('parses both of the extensions DATA-MODEL.md §8 writes', () => {
+  it('parses both of the extensions DATA-MODEL.md §9 writes', () => {
     expect(PackExtension.safeParse(EXTENSION).success).toBe(true);
     expect(PackExtension.safeParse(ROW_EXTENSION).success).toBe(true);
   });
@@ -891,6 +945,7 @@ describe('an entry inside a pack', () => {
         ancestries: [ANCESTRY],
         spells: [SPELL],
         items: [ITEM],
+        talents: [TALENT],
         tables: [TABLE],
       }),
     );
@@ -910,6 +965,9 @@ describe('an entry inside a pack', () => {
       AncestryEntry.safeParse(entry(ANCESTRY, { overrides: 'core:ancestry:dwarf' })).success,
     ).toBe(true);
     expect(TableEntry.safeParse(entry(TABLE, { overrides: 'core:table:loot' })).success).toBe(true);
+    expect(
+      TalentEntry.safeParse(entry(TALENT, { overrides: 'core:talent:grit' })).success,
+    ).toBe(true);
   });
 });
 

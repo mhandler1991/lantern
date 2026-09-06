@@ -6,7 +6,7 @@
  * render (`model/light.ts`), and the render is driven by a clock that re-reads
  * `Date.now()` rather than counting its own ticks (`state/use-light-clock.ts`). A page
  * reload and twenty minutes in a background tab are therefore the same case — both are
- * just a later `now` against the same stored `litAt` (DESIGN.md §6, DATA-MODEL.md §11).
+ * just a later `now` against the same stored `litAt` (DESIGN.md §6, DATA-MODEL.md §12).
  *
  * A light source is an item, so the picker offers what the loaded packs hold and a
  * picked row is a reference and nothing else. Only the name is read only on such a row:

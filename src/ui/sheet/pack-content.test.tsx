@@ -318,7 +318,7 @@ describe('a homebrew pack', () => {
     await addFromPack('Light', 'core:item:torch');
 
     // `storm-torch` overrides `core:item:torch`, so the reference is unchanged and the
-    // word on the row is the supplement's (DATA-MODEL.md §8).
+    // word on the row is the supplement's (DATA-MODEL.md §9).
     const [name] = rows('.row--light')[0]?.querySelectorAll('input') ?? [];
     expect(name?.value).toBe('Storm torch');
   });

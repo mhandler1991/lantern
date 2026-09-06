@@ -5,7 +5,7 @@
  * order". This hook owns the list that question is asked of: the core pack fetched on
  * mount, whatever a DM picked afterwards, each one on or off and movable up and down.
  * Reordering is nothing more than calling `resolvePacks` again with the list rearranged
- * (DATA-MODEL.md §8), so the whole of load order lives in one array here.
+ * (DATA-MODEL.md §9), so the whole of load order lives in one array here.
  *
  * Four decisions carry the module.
  *

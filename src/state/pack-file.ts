@@ -1,5 +1,5 @@
 /**
- * A pack as a file a DM picked off their disk. DATA-MODEL.md §1, §9.
+ * A pack as a file a DM picked off their disk. DATA-MODEL.md §1, §10.
  *
  * This is `state/core-pack.ts` with a file in front of it instead of a fetch, and the
  * same four steps in the same order: **bound, decode, parse, and never throw.** A pack
@@ -11,7 +11,7 @@
  * `File.size` is what the browser says about a thing on disk, and it is read *before a
  * byte is decoded*, so an enormous file is refused rather than pulled into memory to be
  * refused. The decoded length is what we are actually holding. `character-file.ts` draws
- * the same distinction for the same reason (DATA-MODEL.md §12).
+ * the same distinction for the same reason (DATA-MODEL.md §13).
  *
  * There is no DOM here and no React. Picking the file is `ui/ContentScreen.tsx`.
  */
@@ -52,7 +52,7 @@ const problem = (message: string): PackFileRead => ({
 /**
  * Read a pack out of text. Bounded first, because the cap exists to stop a large file
  * being decoded at all; then decoded, then validated — each step reporting what it found
- * in DATA-MODEL.md §9's grammar rather than throwing it.
+ * in DATA-MODEL.md §10's grammar rather than throwing it.
  */
 export function fromPackFileText(text: string): PackFileRead {
   // A UTF-16 length never exceeds the byte count it encodes to, so this is the

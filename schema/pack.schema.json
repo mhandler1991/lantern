@@ -68,10 +68,9 @@
       "items": { "$ref": "#/$defs/itemEntry" }
     },
     "talents": {
-      "description": "Counted and not yet described. DATA-MODEL.md gives a standalone talent no shape, so the app validates nothing inside these entries and nothing reads them. Leave the array out until it has a shape.",
       "type": "array",
       "maxItems": 500,
-      "items": {}
+      "items": { "$ref": "#/$defs/talentEntry" }
     },
     "tables": {
       "type": "array",
@@ -354,6 +353,20 @@
       }
     },
 
+    "talentEntry": {
+      "description": "DATA-MODEL.md §7. A named thing a class can be offered, and nothing more. A talent is not a talent table row: a row is the result a die produced, and this is a choice on offer, which is what an extension attaches to a class. Either way the sheet stores the words rather than a reference, so nothing here is read back off a character. There is no `grants` field and no list of classes.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/entryId" },
+        "name": { "$ref": "#/$defs/entryName" },
+        "text": { "$ref": "#/$defs/entryText" },
+        "page": { "$ref": "#/$defs/page" },
+        "overrides": { "$ref": "#/$defs/overrides" }
+      }
+    },
+
     "tableRoll": {
       "description": "A face, or an inclusive band of them: 2, or [3, 6]. `low` may equal `high`, and `low` may not exceed it — a rule this file cannot state, so the app reports it instead.",
       "anyOf": [
@@ -387,7 +400,7 @@
     },
 
     "tableEntry": {
-      "description": "DATA-MODEL.md §7. Ranges must not overlap and should cover the die's whole span; a gap is a warning where the lookup happens, not a refusal here.",
+      "description": "DATA-MODEL.md §8. Ranges must not overlap and should cover the die's whole span; a gap is a warning where the lookup happens, not a refusal here.",
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "name", "die", "rows"],
@@ -411,7 +424,7 @@
     },
 
     "extension": {
-      "description": "DATA-MODEL.md §8. An extension adds two things and nothing else: talents to a class, rows to a table. There is no field that edits an entry in place and none that removes anything. An extension whose target no pack defines warns and is skipped; the pack still loads.",
+      "description": "DATA-MODEL.md §9. An extension adds two things and nothing else: talents to a class, rows to a table. There is no field that edits an entry in place and none that removes anything. An extension whose target no pack defines warns and is skipped; the pack still loads.",
       "type": "object",
       "additionalProperties": false,
       "required": ["target"],

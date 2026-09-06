@@ -1,5 +1,5 @@
 /**
- * The character. DATA-MODEL.md §11 is the contract; this file is that contract, executable.
+ * The character. DATA-MODEL.md §12 is the contract; this file is that contract, executable.
  *
  * Three things this file deliberately does not do:
  *
@@ -262,7 +262,7 @@ export type Character = z.infer<typeof Character>;
 /**
  * A single thing wrong with a file, as `path — what was expected`. The shape and the
  * formatting live in `model/problems.ts`, because a payload off the wire reports its
- * problems the same way and DATA-MODEL.md §9 makes that format a contract.
+ * problems the same way and DATA-MODEL.md §10 makes that format a contract.
  */
 export type CharacterProblem = Problem;
 

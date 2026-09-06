@@ -1,4 +1,4 @@
-// A pack off a disk is hostile input (DATA-MODEL.md §9), so these tests are about the
+// A pack off a disk is hostile input (DATA-MODEL.md §10), so these tests are about the
 // four ways a file is wrong and the one way it is right — and about the order they are
 // checked in, because each step is only safe once the one before it has passed.
 //
@@ -107,7 +107,7 @@ describe('reading a pack file', () => {
     expect(read.ok).toBe(false);
     if (read.ok) return;
     // Every problem, not the first: an author fixing one refusal at a time pastes six
-    // times (DATA-MODEL.md §9).
+    // times (DATA-MODEL.md §10).
     expect(read.problems.map((problem) => problem.path)).toEqual(['id', 'version']);
   });
 

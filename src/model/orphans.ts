@@ -15,7 +15,7 @@
  * the check independent of load order, of overrides, and of how the stack was built.
  *
  * **Talents are not in here at all.** A talent stores the words rather than a reference
- * (DATA-MODEL.md §11) for exactly this case, so a talent from a pack that is off is not
+ * (DATA-MODEL.md §12) for exactly this case, so a talent from a pack that is off is not
  * degraded and must not be marked as if it were. Its `source` still counts towards
  * `packsUsed` — that is what lets the pack be re-offered — but the row keeps working.
  *
@@ -91,7 +91,7 @@ export function packsResolvedFrom(character: Character, stack: ResolvedStack): r
   }
 
   // A talent is never orphaned, but the table it came from is still a pack this sheet was
-  // built with, and DATA-MODEL.md §11 keeps `source` so that pack can be re-offered.
+  // built with, and DATA-MODEL.md §12 keeps `source` so that pack can be re-offered.
   for (const talent of character.talents) {
     if (talent.source !== null) packs.add(packOfRef(talent.source));
   }

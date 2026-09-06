@@ -1,5 +1,5 @@
 /**
- * The report itself. DATA-MODEL.md §9 — these lines are pasted back into an AI along
+ * The report itself. DATA-MODEL.md §10 — these lines are pasted back into an AI along
  * with the file that produced them, so what is asserted here is the sentence, not just
  * that something failed.
  *
@@ -46,7 +46,7 @@ describe('validate', () => {
 });
 
 describe('path, expectation and actual', () => {
-  it('writes the line DATA-MODEL.md §9 says it writes', () => {
+  it('writes the line DATA-MODEL.md §10 says it writes', () => {
     expect(lineIn({ ...HOARFROST, range: 'medium' })).toBe(
       'range — expected one of: self, close, near, far — got "medium"',
     );

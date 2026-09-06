@@ -1,5 +1,5 @@
 /**
- * The resolution stack as a sentence. DATA-MODEL.md §8:
+ * The resolution stack as a sentence. DATA-MODEL.md §9:
  *
  * ```
  * Wizard = core (32 spells, 4 talents) + Frostbound (4 spells)

@@ -5,7 +5,7 @@
   "name": "Frostbound",
   "version": "1.0.0",
   "author": "The Lantern example",
-  "description": "One of everything a pack can hold: a class, an ancestry, spells, items, a table, an extension and an override. Homebrew, invented for this file.",
+  "description": "One of everything a pack can hold: a class, an ancestry, spells, items, a talent, a table, an extension and an override. Homebrew, invented for this file.",
 
   "classes": [
     {
@@ -79,6 +79,15 @@
       "text": "A pitch-soaked torch wound in oiled cloth, made for weather that puts an ordinary one out. Overrides the core torch, so a sheet already holding a torch shows this one.",
       "page": null,
       "overrides": "core:item:torch"
+    }
+  ],
+
+  "talents": [
+    {
+      "id": "cold-forged",
+      "name": "Cold-forged",
+      "text": "Weather never counts against your attacks, and your weapon does not freeze to your hand.",
+      "page": null
     }
   ],
 

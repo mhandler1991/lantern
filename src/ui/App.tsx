@@ -50,7 +50,7 @@ const NONE = 0;
  * What became of the value that could not be read, said plainly. The two failures are
  * different facts and the player is owed the right one: their save was set aside, or an
  * *earlier* broken save was already parked and this one was not allowed over it
- * (DATA-MODEL.md §12 — the first thing to break is the likelier to be real). Either way
+ * (DATA-MODEL.md §13 — the first thing to break is the likelier to be real). Either way
  * something is there to download; when neither is true, storage refused and there is
  * nothing to offer.
  */

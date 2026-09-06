@@ -96,7 +96,7 @@ describe('the shipped core pack', () => {
    * **A table row is the one object exempt, and it is exempt because the schema makes
    * it so** — `TableRow.text` is required, so a talent table cannot exist without it.
    * Those rows carry a terse mechanical statement in our own words, which is DESIGN.md
-   * §7's "mechanics" column; the next test is what holds them to that. Every other
+   * §8's "mechanics" column; the next test is what holds them to that. Every other
    * object in the file must carry no `text` at all.
    */
   it('carries no rules text in any field, at any depth', () => {
