@@ -131,6 +131,7 @@ function Harness({ stack }: { readonly stack: ResolvedStack }): ReactElement {
       character={character}
       setCharacter={setCharacter}
       orphans={orphanReport(character, stack)}
+      stack={stack}
     />
   );
 }
@@ -193,11 +194,19 @@ function firstInput(row: HTMLElement): HTMLInputElement {
   return input;
 }
 
-function fieldLabelled(label: string): HTMLInputElement {
+/** The control a label points at, whichever kind of control it turned out to be. */
+function controlLabelled(label: string): HTMLElement {
   const found = [...container.querySelectorAll('label')].find(
     (element) => element.textContent === label,
   );
-  const input = found === undefined ? null : document.getElementById(found.htmlFor);
+  const control = found === undefined ? null : document.getElementById(found.htmlFor);
+  if (!(control instanceof HTMLElement)) throw new Error(`no control labelled ${label}`);
+
+  return control;
+}
+
+function fieldLabelled(label: string): HTMLInputElement {
+  const input = controlLabelled(label);
   if (!(input instanceof HTMLInputElement)) throw new Error(`no input labelled ${label}`);
 
   return input;
@@ -280,12 +289,33 @@ describe('a pack turned off', () => {
 });
 
 describe('the pack back on', () => {
-  it('marks nothing and makes every row editable again', async () => {
+  it('marks nothing, and reads every row back in the pack\'s own words', async () => {
     await mount(WITH_FROSTBOUND);
 
     expect(rows('.row--orphaned')).toHaveLength(0);
-    expect(fieldLabelled('Ancestry').readOnly).toBe(false);
-    expect(rows('.row--item').every((row) => !firstInput(row).readOnly)).toBe(true);
+    expect(rowContaining('.row--item', 'Rimeblade')).toBeDefined();
+
+    // The ancestry is a picker again, sitting on the reference the sheet already held.
+    const ancestry = controlLabelled('Ancestry');
+    expect(ancestry).toBeInstanceOf(HTMLSelectElement);
+    if (ancestry instanceof HTMLSelectElement) {
+      expect(ancestry.value).toBe('frostbound:ancestry:thawborn');
+      expect(ancestry.disabled).toBe(false);
+    }
+  });
+
+  it('keeps a name the pack answers for read only, and the row itself live', async () => {
+    await mount(WITH_FROSTBOUND);
+    const row = rowContaining('.row--item', 'Rimeblade');
+    const [name, quantity] = row.querySelectorAll('input');
+
+    // A typed name would be discarded the moment the pack answered for it again, which
+    // is the same reason an orphaned row's name is read only (DATA-MODEL.md §11).
+    expect(name?.readOnly).toBe(true);
+    expect(quantity?.readOnly).toBe(false);
+
+    // The row the player typed in themselves is theirs to rename, packs or no packs.
+    expect(firstInput(rowContaining('.row--item', 'Rope')).readOnly).toBe(false);
   });
 });
 

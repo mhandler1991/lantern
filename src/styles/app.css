@@ -786,3 +786,28 @@ body {
   line-height: var(--leading-snug);
   overflow-wrap: anywhere;
 }
+
+/* ---------------------------------------------------------------------------
+ * Pack content on a row
+ * ------------------------------------------------------------------------ */
+
+/* A fact a loaded pack supplies about a row — a spell's tier and the DC that follows
+   from it. Beside the row like the orphan mark and read the same way: something the
+   packs say rather than something the player wrote. DESIGN.md §5. */
+.provenance--fact {
+  align-self: center;
+}
+
+/* The picker that adds a row from a pack. It sits in the row of buttons under a list,
+   so it takes only the width it needs rather than the column a field would. */
+.field--pick {
+  flex: 0 1 var(--width-field-short);
+}
+
+/* A field a pack answers for: the name of a referenced row, and what one of it weighs.
+   Flat paper, because the value is the pack's rather than the player's — the same
+   reading the orphan mark gives, and for the same reason (DATA-MODEL.md §11). */
+.row .field__input:read-only {
+  background-color: var(--surface-page-low);
+  box-shadow: none;
+}

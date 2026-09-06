@@ -35,6 +35,7 @@ import type {
   KnownSpell,
   Light,
   Quest,
+  Ref,
   Talent,
 } from '../model/character';
 import { newRowId } from './new-character';
@@ -105,23 +106,28 @@ export function removeRow<T extends Row>(rows: T[], id: string): T[] {
 // ---------------------------------------------------------------------------
 
 /**
- * A row added by hand has no `ref`: nothing referenced it into being. Its name and its
- * slot cost are the player's own, which is what makes the sheet usable with no packs
- * loaded at all (PRD.md principle 6). A picker will set `ref` from Phase 2.
+ * A row added by hand has no `ref`: nothing referenced it into being, so its name and
+ * its slot cost are the player's own — which is what makes the sheet usable with no
+ * packs loaded at all (PRD.md principle 6).
+ *
+ * A row added from a picker is the other half: it carries the reference and **nothing
+ * else**. The name stays empty because `name` is a fallback and never a cache, and the
+ * slots stay at zero because a loaded pack's answer wins and the row's own number is
+ * never read while one does (DATA-MODEL.md §11).
  */
-export function newItem(): CarriedItem {
+export function newItem(ref: Ref | null = null): CarriedItem {
   return {
     id: newRowId(),
-    ref: null,
+    ref,
     name: '',
-    slots: DEFAULT_ITEM_SLOTS,
+    slots: ref === null ? DEFAULT_ITEM_SLOTS : NONE,
     qty: DEFAULT_ITEM_QUANTITY,
     equipped: false,
   };
 }
 
-export function newSpell(): KnownSpell {
-  return { id: newRowId(), ref: null, name: '' };
+export function newSpell(ref: Ref | null = null): KnownSpell {
+  return { id: newRowId(), ref, name: '' };
 }
 
 /** `source` and `rolled` stay null: this one was written in, not rolled for. */
@@ -129,11 +135,17 @@ export function newTalent(): Talent {
   return { id: newRowId(), text: '', source: null, rolled: null };
 }
 
-/** Unlit. `litAt` is set to the clock when the player lights it, never counted down. */
-export function newLight(): Light {
+/**
+ * Unlit. `litAt` is set to the clock when the player lights it, never counted down.
+ *
+ * `minutes` is the row's own however it was added: nothing in a pack says how long a
+ * light burns (DATA-MODEL.md §4), so a torch picked off a pack list starts at the same
+ * default a typed-in one does and stays the player's to change.
+ */
+export function newLight(ref: Ref | null = null): Light {
   return {
     id: newRowId(),
-    ref: null,
+    ref,
     name: '',
     litAt: null,
     minutes: DEFAULT_LIGHT_MINUTES,

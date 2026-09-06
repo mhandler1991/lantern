@@ -1,8 +1,8 @@
 /**
- * The three files DATA-MODEL.md §10 ships for authors, tested against the code they
- * claim to describe. All three fail the same way if nobody watches them: they keep
- * describing last month's schema, and the person they mislead is the one who cannot
- * read `model/pack.ts` to check.
+ * The four files DATA-MODEL.md §10 ships for authors, tested against the code they claim
+ * to describe. All four fail the same way if nobody watches them: they keep describing
+ * last month's schema, and the person they mislead is the one who cannot read
+ * `model/pack.ts` to check.
  *
  * **`schema/pack.schema.json`.** A hand-written mirror of `Pack`, because a generated
  * one carries no descriptions and an undescribed schema is a worse prompt. It is held
@@ -19,6 +19,12 @@
  * the real `resolvePacks` alongside core, the way `state/core-pack.test.ts` does with
  * the shipped core pack. It is the file people copy first, so it must parse, resolve,
  * and demonstrate each operation it claims to.
+ *
+ * **`packs/broken-pack.json`.** The same file with a mistake in every entry, kept so the
+ * error report can be *seen* rather than described — §9 promises lines precise enough to
+ * paste back into an AI, and a promise nobody has read the output of is a promise. Held
+ * to its paths one by one: a schema change that stopped naming one of these would be a
+ * report that had quietly got vaguer.
  */
 
 import { readFileSync } from 'node:fs';
@@ -37,7 +43,7 @@ import {
   Stat,
   WeaponType,
 } from './enums';
-import { Pack, parsePack } from './pack';
+import { Pack, parsePack, reportProblems } from './pack';
 import { normalizeRef, resolvePacks } from './pack-resolver';
 
 /** The repository root. `import.meta.url` is an `http:` URL under jsdom, not a file one. */
@@ -368,5 +374,73 @@ describe('packs/example-pack.json', () => {
     ];
 
     expect(referenced.filter((reference) => !stack.byRef.has(reference))).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The pack that is wrong on purpose. DATA-MODEL.md §9, §10.
+// ---------------------------------------------------------------------------
+
+describe('packs/broken-pack.json', () => {
+  const parsed = parsePack(JSON.parse(read('packs', 'broken-pack.json')) as Json);
+
+  /** Every mistake in the file, and the path each one has to be reported against. */
+  const EXPECTED_PATHS: readonly string[] = [
+    'classes[0].hitDie',
+    'classes[0].armor[0]',
+    'classes[0].hp',
+    'ancestries[0]',
+    'spells[0].tier',
+    'spells[0].range',
+    'items[0].id',
+    'items[0].slots',
+    'items[0].cost.currency',
+    'items[0].armor',
+    'tables[0].rows[0].roll',
+  ];
+
+  it('is refused, because a pack that loaded would prove nothing', () => {
+    expect(parsed.ok).toBe(false);
+  });
+
+  it('names every mistake in it, at the exact path holding it', () => {
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+
+    expect(parsed.problems.map((problem) => problem.path)).toEqual(EXPECTED_PATHS);
+  });
+
+  it('reports all of them at once, so an author pastes once rather than eleven times', () => {
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+
+    const report = reportProblems(parsed.problems, 'Brokenwood');
+
+    expect(report).toContain(`${EXPECTED_PATHS.length} problems in "Brokenwood":`);
+  });
+
+  it('says what was expected and what was there, on every line', () => {
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+
+    for (const problem of parsed.problems) {
+      // The three grammars §9 allows, and nothing else: an expectation and the value
+      // that failed it, a field that is not there, or a field that should not be.
+      expect(problem.message).toMatch(
+        /^(expected .+ — got .+|missing required field: .+|unknown field — .+)$/,
+      );
+    }
+  });
+
+  it('leaves the enum problems readable as the list to choose from', () => {
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+
+    const byPath = new Map(parsed.problems.map((problem) => [problem.path, problem.message]));
+
+    expect(byPath.get('classes[0].hitDie')).toBe(
+      'expected one of: d4, d6, d8, d10, d12, d20, d100 — got "d7"',
+    );
+    expect(byPath.get('items[0].cost.currency')).toBe('expected one of: gp, sp, cp — got "ep"');
   });
 });

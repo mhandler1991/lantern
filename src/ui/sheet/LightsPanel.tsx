@@ -8,10 +8,12 @@
  * reload and twenty minutes in a background tab are therefore the same case — both are
  * just a later `now` against the same stored `litAt` (DESIGN.md §6, DATA-MODEL.md §11).
  *
- * A light whose pack is off is marked, and only its name is read only: `minutes` is the
- * row's own number and nothing in a pack answers for it, so it stays editable — and so
- * does lighting it. A torch a player cannot light because a supplement was turned off
- * would be the app blocking play rather than warning about it (PRD.md principle 4).
+ * A light source is an item, so the picker offers what the loaded packs hold and a
+ * picked row is a reference and nothing else. Only the name is read only on such a row:
+ * `minutes` is the row's own number — nothing in a pack says how long a light burns
+ * (DATA-MODEL.md §4) — so it stays editable whether the pack is on or off, and so does
+ * lighting it. A torch a player cannot light because a supplement was turned off would
+ * be the app blocking play rather than warning about it (PRD.md principle 4).
  *
  * The bar is `aria-hidden`: it draws the same fact the countdown beside it already says
  * in words, and a per-second live region would announce a torch over the top of
@@ -24,7 +26,9 @@ import { computeBurn } from '../../model/light';
 import { packOfRef } from '../../model/orphans';
 import { appendRow, isAtLimit, newLight, removeRow, updateRow } from '../../state/character-edits';
 import { useLightClock } from '../../state/use-light-clock';
+import { displayName } from '../choices';
 import {
+  AddFromPack,
   AddRowButton,
   EmptyNote,
   NumberField,
@@ -33,8 +37,8 @@ import {
   RemoveRowButton,
   TextField,
 } from '../fields';
-import { describeBurn, orphanLabel } from '../format';
-import type { OrphanProps, PanelProps } from './sheet-props';
+import { describeBurn } from '../format';
+import type { ContentProps, OrphanProps, PanelProps } from './sheet-props';
 
 /** Nothing carried yet. A floor, not a business rule. */
 const NONE = 0;
@@ -43,7 +47,9 @@ export function LightsPanel({
   character,
   setCharacter,
   orphans,
-}: PanelProps & OrphanProps): ReactElement {
+  stack,
+  choices,
+}: PanelProps & OrphanProps & ContentProps): ReactElement {
   const full = isAtLimit(character.lights, MAX_LIGHTS);
   const now = useLightClock(character.lights);
 
@@ -56,7 +62,7 @@ export function LightsPanel({
           {character.lights.map((light) => {
             const burn = computeBurn(light, now);
             const isOrphaned = orphans.rows.has(light.id);
-            const label = orphanLabel(light.name, light.ref);
+            const label = displayName(stack, light.ref, light.name);
 
             return (
               <li
@@ -67,9 +73,9 @@ export function LightsPanel({
                   label="Light source"
                   hideLabel
                   placeholder="Torch"
-                  value={isOrphaned ? label : light.name}
+                  value={label}
                   maxLength={MAX_NAME_LENGTH}
-                  readOnly={isOrphaned}
+                  readOnly={light.ref !== null}
                   onChange={(name) =>
                     setCharacter((previous) => ({
                       ...previous,
@@ -140,6 +146,19 @@ export function LightsPanel({
             }))
           }
         />
+        {choices.items.length > NONE && (
+          <AddFromPack
+            label="Add a light from a pack"
+            choices={choices.items}
+            disabled={full}
+            onAdd={(ref) =>
+              setCharacter((previous) => ({
+                ...previous,
+                lights: appendRow(previous.lights, newLight(ref), MAX_LIGHTS),
+              }))
+            }
+          />
+        )}
       </div>
     </Panel>
   );

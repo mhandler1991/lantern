@@ -402,6 +402,7 @@ Four things ship together, and all four are in the repository:
 | `schema/pack.schema.json` | JSON Schema (draft 2020-12), for models and editors | Hand written, so it carries descriptions a generated one would not — and held to `model/pack.ts` by generating a schema from the Zod one and requiring the committed file to carry every constraint it expresses, with the same fields and the same required lists |
 | `docs/authoring-prompt.md` | The prompt to paste, the paste-the-errors loop, and what to check before loading | Its enum lists are compared against `model/enums.ts` member by member |
 | `packs/example-pack.json` | One of everything, at the repository root because nothing fetches it at runtime | Parsed by the real `parsePack` and resolved against core, with every reference in it required to resolve |
+| `packs/broken-pack.json` | The same file with a mistake in every entry, so the error report can be seen rather than described — load it to watch §9 work | Its eleven paths are asserted one by one; a report that stopped naming one of them would have quietly got vaguer |
 | The in-app validator | `ui/ProblemReport.tsx` — the whole block, heading and all, behind one **Copy the problems** button | A player picking lines out of a paragraph pastes half the problem |
 
 `src/model/pack-authoring.test.ts` is the last column, executable. The example pack
@@ -498,6 +499,24 @@ reference, so once it is off there is nothing left to derive it from. So the rec
 written while the pack can still be seen, and an id the app cannot check is an id it does
 not get to drop. A recorded pack that *is* loaded and answers for nothing falls away, so
 the warning stays true rather than accumulating packs the player stopped using.
+
+**A loaded pack drives every picker on the sheet.** `src/ui/choices.ts` turns the
+resolved stack into the option lists — ancestry, class, gear, light and spells — and the
+sheet falls back to a box the player types in wherever a stack offers nothing, which is
+also the whole of the no-packs case (PRD.md principle 6). Two entries sharing a name
+carry the pack that supplied them, and only those: ids are namespaced, so two Skalds are
+two options rather than a collision.
+
+Spells are the one list narrowed by the sheet, because a spell names its classes (§3). A
+character with no class, or one from a pack that is off, is offered every spell loaded —
+an empty picker reads as a missing pack.
+
+**Picking sets the reference and nothing else.** The row is `{ ref, name: "" }` and an
+item's own `slots` stays at zero, because a loaded pack's answer wins over both. That is
+why a referenced row's name and slot cost are read only **whether the pack is on or
+off**: they are fields a pack answers for, and a typed value would be discarded the
+moment it came back. What the player owns stays live either way — quantity, equipped,
+the minutes on a light, lighting it, and dropping the row.
 
 **Turning a pack off marks rows; it never touches them.** `orphanReport` answers which
 rows carry a reference no enabled pack resolves, and the sheet renders those rows with the
