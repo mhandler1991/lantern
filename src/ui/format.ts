@@ -59,3 +59,13 @@ export function describeBurn(burn: Burn): string {
   if (burn.isSpent) return 'burnt out';
   return `${formatDuration(burn.remainingMs)} left`;
 }
+
+/**
+ * What to print in a row whose pack is not loaded. The player's own words if there are
+ * any, and otherwise the reference itself — a row that reads as an empty box has been
+ * lost as far as anyone looking at the sheet can tell, and nothing here is lost
+ * (DATA-MODEL.md §5). Text, always: a reference came out of a pack (CLAUDE.md §2.6).
+ */
+export function orphanLabel(name: string, reference: string | null): string {
+  return name !== '' ? name : (reference ?? '');
+}

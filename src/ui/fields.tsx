@@ -57,6 +57,15 @@ export function Warning({ children }: { readonly children: ReactNode }): ReactEl
 }
 
 /**
+ * A row whose pack is not loaded, said in the fewest words that name the pack to turn
+ * back on. The mark is beside the row rather than instead of it: the row itself stays
+ * exactly where it was (PRD.md principle 4, DESIGN.md §5).
+ */
+export function OrphanMark({ pack }: { readonly pack: string }): ReactElement {
+  return <span className="provenance provenance--orphan">needs {pack}</span>;
+}
+
+/**
  * `maxLength` is optional for one reason only: a field whose `onChange` normalises what
  * was typed is already bounded, and a raw cap on top of it truncates the wrong thing —
  * a room code pasted as `ABC-DEF` loses its last character to a `maxLength` of six
@@ -146,6 +155,7 @@ export function NumberField({
   max,
   onChange,
   hideLabel = false,
+  readOnly = false,
 }: {
   readonly label: string;
   readonly value: number;
@@ -153,6 +163,7 @@ export function NumberField({
   readonly max: number;
   readonly onChange: (value: number) => void;
   readonly hideLabel?: boolean;
+  readonly readOnly?: boolean;
 }): ReactElement {
   const id = useId();
 
@@ -171,6 +182,7 @@ export function NumberField({
         inputMode="numeric"
         min={min}
         max={max}
+        readOnly={readOnly}
         value={draft ?? String(value)}
         onChange={(event) => {
           const typed = event.target.value;
@@ -189,16 +201,23 @@ export function NumberField({
   );
 }
 
+/**
+ * `readOnly` on a checkbox is `disabled`, deliberately: the HTML attribute of that name
+ * does nothing to a checkbox — it still toggles — and a control that says it is read only
+ * while changing under the pointer is worse than one that is plainly out of reach.
+ */
 export function CheckField({
   label,
   checked,
   onChange,
   hideLabel = false,
+  readOnly = false,
 }: {
   readonly label: string;
   readonly checked: boolean;
   readonly onChange: (checked: boolean) => void;
   readonly hideLabel?: boolean;
+  readonly readOnly?: boolean;
 }): ReactElement {
   const id = useId();
 
@@ -209,6 +228,7 @@ export function CheckField({
         className="field__check"
         type="checkbox"
         checked={checked}
+        disabled={readOnly}
         onChange={(event) => onChange(event.target.checked)}
       />
       <label className={hideLabel ? 'field__label visually-hidden' : 'field__label'} htmlFor={id}>

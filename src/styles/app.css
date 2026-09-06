@@ -273,6 +273,25 @@ body {
   padding-bottom: var(--space-0);
 }
 
+/* A row whose pack is not loaded. Marked by the paper going flat rather than by a
+   colour: the row is not an error and not a warning, it is content the app cannot
+   currently explain, and it is still the player's (DESIGN.md §5). */
+.row--orphaned .field__input {
+  border-style: dashed;
+  background-color: var(--surface-page-low);
+  box-shadow: none;
+  color: var(--text-secondary);
+}
+
+.row--orphaned .field__check:disabled {
+  opacity: 0.6;
+}
+
+.provenance--orphan {
+  align-self: center;
+  color: var(--state-caution);
+}
+
 .row--ability {
   align-items: center;
   border-bottom: none;

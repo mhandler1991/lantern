@@ -4,6 +4,10 @@
  * Ancestry and class are typed in. From Phase 2 a pack drives a picker here and sets
  * `ref` alongside the name; until then, and forever for a table running homebrew with
  * no pack at all, the words the player types are the whole record (PRD.md principle 6).
+ *
+ * A `ref` no loaded pack answers for keeps its box and reads as the reference, marked
+ * and read only — a character does not stop being a Frostbound ancestry because the
+ * supplement was turned off (DESIGN.md §5).
  */
 
 import type { ReactElement } from 'react';
@@ -11,8 +15,10 @@ import { useId } from 'react';
 import { MAX_CHARACTER_LEVEL, MAX_CHARACTER_NAME_LENGTH, MAX_NAME_LENGTH, MAX_XP, MIN_CHARACTER_LEVEL } from '../../constants';
 import type { Alignment } from '../../model/character';
 import type { LevelProgress } from '../../model/derived';
-import { NumberField, Panel, TextField } from '../fields';
-import type { PanelProps } from './sheet-props';
+import { packOfRef } from '../../model/orphans';
+import { NumberField, OrphanMark, Panel, TextField } from '../fields';
+import { orphanLabel } from '../format';
+import type { OrphanProps, PanelProps } from './sheet-props';
 
 /** Nothing owed. A floor, not a business rule. */
 const NONE = 0;
@@ -22,9 +28,11 @@ const ALIGNMENTS: readonly Alignment[] = ['lawful', 'neutral', 'chaotic'];
 export function IdentityPanel({
   character,
   setCharacter,
+  orphans,
   progress,
-}: PanelProps & { readonly progress: LevelProgress }): ReactElement {
+}: PanelProps & OrphanProps & { readonly progress: LevelProgress }): ReactElement {
   const alignmentId = useId();
+  const { isAncestryOrphaned, isClassOrphaned } = orphans;
 
   return (
     <Panel title="Character">
@@ -37,16 +45,26 @@ export function IdentityPanel({
         />
         <TextField
           label="Ancestry"
-          value={character.ancestry.name}
+          value={
+            isAncestryOrphaned
+              ? orphanLabel(character.ancestry.name, character.ancestry.ref)
+              : character.ancestry.name
+          }
           maxLength={MAX_NAME_LENGTH}
+          readOnly={isAncestryOrphaned}
           onChange={(name) =>
             setCharacter((previous) => ({ ...previous, ancestry: { ...previous.ancestry, name } }))
           }
         />
         <TextField
           label="Class"
-          value={character.class.name}
+          value={
+            isClassOrphaned
+              ? orphanLabel(character.class.name, character.class.ref)
+              : character.class.name
+          }
           maxLength={MAX_NAME_LENGTH}
+          readOnly={isClassOrphaned}
           onChange={(name) =>
             setCharacter((previous) => ({ ...previous, class: { ...previous.class, name } }))
           }
@@ -90,6 +108,17 @@ export function IdentityPanel({
           onChange={(xp) => setCharacter((previous) => ({ ...previous, xp }))}
         />
       </div>
+
+      {(isAncestryOrphaned || isClassOrphaned) && (
+        <p className="row row--orphaned">
+          {isAncestryOrphaned && character.ancestry.ref !== null && (
+            <OrphanMark pack={packOfRef(character.ancestry.ref)} />
+          )}
+          {isClassOrphaned && character.class.ref !== null && (
+            <OrphanMark pack={packOfRef(character.class.ref)} />
+          )}
+        </p>
+      )}
 
       {/* Recorded, never acted on: advancing a level is the player's move. */}
       <p className="readout">

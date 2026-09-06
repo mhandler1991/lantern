@@ -8,6 +8,11 @@
  * reload and twenty minutes in a background tab are therefore the same case — both are
  * just a later `now` against the same stored `litAt` (DESIGN.md §6, DATA-MODEL.md §11).
  *
+ * A light whose pack is off is marked, and only its name is read only: `minutes` is the
+ * row's own number and nothing in a pack answers for it, so it stays editable — and so
+ * does lighting it. A torch a player cannot light because a supplement was turned off
+ * would be the app blocking play rather than warning about it (PRD.md principle 4).
+ *
  * The bar is `aria-hidden`: it draws the same fact the countdown beside it already says
  * in words, and a per-second live region would announce a torch over the top of
  * everything else on the sheet.
@@ -16,16 +21,29 @@
 import type { ReactElement } from 'react';
 import { MAX_LIGHT_MINUTES, MAX_LIGHTS, MAX_NAME_LENGTH } from '../../constants';
 import { computeBurn } from '../../model/light';
+import { packOfRef } from '../../model/orphans';
 import { appendRow, isAtLimit, newLight, removeRow, updateRow } from '../../state/character-edits';
 import { useLightClock } from '../../state/use-light-clock';
-import { AddRowButton, EmptyNote, NumberField, Panel, RemoveRowButton, TextField } from '../fields';
-import { describeBurn } from '../format';
-import type { PanelProps } from './sheet-props';
+import {
+  AddRowButton,
+  EmptyNote,
+  NumberField,
+  OrphanMark,
+  Panel,
+  RemoveRowButton,
+  TextField,
+} from '../fields';
+import { describeBurn, orphanLabel } from '../format';
+import type { OrphanProps, PanelProps } from './sheet-props';
 
 /** Nothing carried yet. A floor, not a business rule. */
 const NONE = 0;
 
-export function LightsPanel({ character, setCharacter }: PanelProps): ReactElement {
+export function LightsPanel({
+  character,
+  setCharacter,
+  orphans,
+}: PanelProps & OrphanProps): ReactElement {
   const full = isAtLimit(character.lights, MAX_LIGHTS);
   const now = useLightClock(character.lights);
 
@@ -37,15 +55,21 @@ export function LightsPanel({ character, setCharacter }: PanelProps): ReactEleme
         <ul className="rows">
           {character.lights.map((light) => {
             const burn = computeBurn(light, now);
+            const isOrphaned = orphans.rows.has(light.id);
+            const label = orphanLabel(light.name, light.ref);
 
             return (
-              <li key={light.id} className="row row--light">
+              <li
+                key={light.id}
+                className={isOrphaned ? 'row row--light row--orphaned' : 'row row--light'}
+              >
                 <TextField
                   label="Light source"
                   hideLabel
                   placeholder="Torch"
-                  value={light.name}
+                  value={isOrphaned ? label : light.name}
                   maxLength={MAX_NAME_LENGTH}
+                  readOnly={isOrphaned}
                   onChange={(name) =>
                     setCharacter((previous) => ({
                       ...previous,
@@ -90,7 +114,7 @@ export function LightsPanel({ character, setCharacter }: PanelProps): ReactEleme
                   <span className="light__remaining">{describeBurn(burn)}</span>
                 </div>
                 <RemoveRowButton
-                  label={`Remove ${light.name === '' ? 'this light' : light.name}`}
+                  label={`Remove ${label === '' ? 'this light' : label}`}
                   onClick={() =>
                     setCharacter((previous) => ({
                       ...previous,
@@ -98,6 +122,7 @@ export function LightsPanel({ character, setCharacter }: PanelProps): ReactEleme
                     }))
                   }
                 />
+                {isOrphaned && light.ref !== null && <OrphanMark pack={packOfRef(light.ref)} />}
               </li>
             );
           })}

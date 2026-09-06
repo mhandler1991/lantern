@@ -11,6 +11,12 @@
  * room is optional and so are packs, and PRD.md principle 6 says the app has to work
  * alone with neither. There are no dice yet, and the sheet does not need them.
  *
+ * Packs are the one thing above the sheet that can change what the sheet *means*, so
+ * this is where the two meet: the orphan report is computed here and handed down, and
+ * every edit passes through `updatePacksUsed` so the sheet's record of what it depends
+ * on is written while the packs are still loaded to be seen. Turning a pack off warns
+ * and marks; it never touches a row (PRD.md principle 4, DESIGN.md §5).
+ *
  * The character file sits above the sheet for the opposite reason: it is not optional.
  * A character lives in this browser and nowhere else (DESIGN.md §8), so export is the
  * only mitigation there is against losing one, and a mitigation nobody can see is not
@@ -18,8 +24,9 @@
  */
 
 import type { ReactElement } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import '../styles/app.css';
+import { orphanReport, updatePacksUsed } from '../model/orphans';
 import { itemLookup } from '../model/pack-resolver';
 import { toPublicCharacter } from '../net/projection';
 import { usePacks } from '../state/use-packs';
@@ -31,11 +38,37 @@ import { Lobby } from './Lobby';
 import { Portability } from './Portability';
 import { ProblemReport } from './ProblemReport';
 import { CharacterSheet } from './sheet/CharacterSheet';
+import type { SetCharacter } from './sheet/sheet-props';
+
+/** Nothing missing. A floor, not a business rule. */
+const NONE = 0;
 
 export function App(): ReactElement {
-  const { character, setCharacter, load, lastSave } = usePersistentCharacter();
+  const { character, setCharacter: writeCharacter, load, lastSave } = usePersistentCharacter();
   const room = useRoom();
   const packs = usePacks();
+
+  /**
+   * Every edit, with the sheet's pack record brought up to date on the way through.
+   *
+   * A wrapper rather than an effect: `packsUsed` is stored state being kept honest, and
+   * an effect that wrote it would be deriving state in one (CLAUDE.md §6). It costs
+   * nothing when nothing moved — `updatePacksUsed` returns the same object.
+   */
+  const setCharacter = useCallback<SetCharacter>(
+    (update) =>
+      writeCharacter((previous) =>
+        updatePacksUsed(typeof update === 'function' ? update(previous) : update, packs.stack),
+      ),
+    [writeCharacter, packs.stack],
+  );
+
+  /**
+   * Which rows point at content no loaded pack answers for. Derived on read, never
+   * stored: it is a fact about the packs that are on right now, and a stored one would
+   * be wrong the moment a pack was turned back on.
+   */
+  const orphans = useMemo(() => orphanReport(character, packs.stack), [character, packs.stack]);
 
   /**
    * What peers may see, derived on read and never stored (DESIGN.md §2). Memoised
@@ -87,6 +120,14 @@ export function App(): ReactElement {
           </p>
         )}
 
+        {orphans.missingPacks.length > NONE && (
+          <p className="notice" role="status">
+            This character uses content from{' '}
+            {orphans.missingPacks.join(', ')} — not loaded right now. Those rows are kept
+            on the sheet, marked, and read-only until the pack is back.
+          </p>
+        )}
+
         {lastSave !== null && !lastSave.ok && lastSave.reason === 'invalid' && (
           <div className="notice notice--danger" role="alert">
             <p>The last change could not be saved, because the sheet did not validate:</p>
@@ -105,7 +146,7 @@ export function App(): ReactElement {
         <div className="portability">
           <Portability character={character} setCharacter={setCharacter} />
         </div>
-        <CharacterSheet character={character} setCharacter={setCharacter} />
+        <CharacterSheet character={character} setCharacter={setCharacter} orphans={orphans} />
       </main>
     </div>
   );

@@ -510,6 +510,23 @@ the result and costs nothing.
 `packsUsed` lets the app warn when a character needs a pack that is not loaded, and
 render those items as orphaned rather than losing them.
 
+It is **stamped on every edit**, in `src/model/orphans.ts`, and the rule is one line: what
+this sheet depends on right now, plus every id already recorded whose pack is *not
+loaded*. Most of it is derivable from the references on the sheet, but the case the field
+exists for is not — a pack that *overrode* `core:item:torch` leaves no trace in the
+reference, so once it is off there is nothing left to derive it from. So the record is
+written while the pack can still be seen, and an id the app cannot check is an id it does
+not get to drop. A recorded pack that *is* loaded and answers for nothing falls away, so
+the warning stays true rather than accumulating packs the player stopped using.
+
+**Turning a pack off marks rows; it never touches them.** `orphanReport` answers which
+rows carry a reference no enabled pack resolves, and the sheet renders those rows with the
+reference in place of the missing name, marked with the pack to turn back on. The fields a
+pack answers for — a name, an item's `slots` — go read only, because a loaded pack's value
+wins and a typed one would be discarded the moment it came back. What the player owns
+stays live: quantity, equipped, lighting a torch, and removing the row. Talents are
+untouched by any of it, which is what storing their `text` bought.
+
 Talents store the **text** and the **source**, because that text may come from a pack
 that is later turned off. The sheet must survive that.
 
