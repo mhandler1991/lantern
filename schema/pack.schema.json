@@ -1,0 +1,435 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mhandler1991/lantern/schema/pack.schema.json",
+  "title": "Lantern content pack",
+  "description": "A content pack for Lantern, a Shadowdark RPG companion app. DATA-MODEL.md §1 is the contract and src/model/pack.ts is that contract executable; this file is the same shape for models and editors. Every id inside a pack is written bare and namespaced by the pack id on load, so `hoarfrost` in pack `frostbound` becomes `frostbound:hoarfrost`. Nothing here is ever evaluated: `1d8` is a notation a die roller reads, never an expression.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "formatVersion", "id", "name", "version"],
+  "properties": {
+    "format": {
+      "description": "Always \"lantern-pack\". It rejects unrelated JSON on the first field rather than deep inside an array.",
+      "type": "string",
+      "const": "lantern-pack"
+    },
+    "formatVersion": {
+      "description": "The pack format this file is written against. Currently 1.",
+      "type": "number",
+      "const": 1
+    },
+    "id": {
+      "description": "The pack's own id. It namespaces every id inside the pack, which is why two packs can both define a Skald without colliding.",
+      "type": "string",
+      "maxLength": 32,
+      "pattern": "^[a-z0-9-]{2,32}$",
+      "examples": ["frostbound"]
+    },
+    "name": {
+      "description": "What the content screen calls this pack.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60,
+      "examples": ["Frostbound"]
+    },
+    "version": {
+      "description": "Compared for equality only — it answers \"is this the pack I already have\". Semver is the convention; anything starting with a digit is accepted, so 1.2.0, 1.2.0-beta.1 and 2026.09 all pass and v1 does not.",
+      "type": "string",
+      "maxLength": 32,
+      "pattern": "^[0-9][0-9A-Za-z.+-]*$",
+      "examples": ["1.2.0"]
+    },
+    "author": {
+      "description": "Optional. Absent and null mean the same thing here and everywhere else in this file.",
+      "$ref": "#/$defs/author"
+    },
+    "description": {
+      "description": "Optional. One or two sentences, shown beside the pack in the content screen.",
+      "$ref": "#/$defs/description"
+    },
+    "classes": {
+      "description": "Optional, like every content array — a pack of four spells has one array and a pack with none at all is still a valid pack.",
+      "type": "array",
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/classEntry" }
+    },
+    "ancestries": {
+      "type": "array",
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/ancestryEntry" }
+    },
+    "spells": {
+      "type": "array",
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/spellEntry" }
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/itemEntry" }
+    },
+    "talents": {
+      "description": "Counted and not yet described. DATA-MODEL.md gives a standalone talent no shape, so the app validates nothing inside these entries and nothing reads them. Leave the array out until it has a shape.",
+      "type": "array",
+      "maxItems": 500,
+      "items": {}
+    },
+    "tables": {
+      "type": "array",
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/tableEntry" }
+    },
+    "extends": {
+      "description": "Additions to something another pack defined. An extension never collides; replacing something is `overrides`, which is the operation that warns.",
+      "type": "array",
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/extension" }
+    }
+  },
+
+  "$defs": {
+    "entryId": {
+      "description": "An id inside this pack, written bare: `hoarfrost`, never `frostbound:hoarfrost`. The pack id is added on load.",
+      "type": "string",
+      "maxLength": 48,
+      "pattern": "^[a-z0-9-]{1,48}$"
+    },
+
+    "entryRef": {
+      "description": "How one entry names another, in one to three segments: `dagger` in this pack, `core:dagger` with the kind implied by the field this reference sits in, or `core:item:dagger` written out in full. All three are accepted.",
+      "type": "string",
+      "maxLength": 146,
+      "pattern": "^[a-z0-9-]{1,48}(?::[a-z0-9-]{1,48}){0,2}$"
+    },
+
+    "ref": {
+      "description": "The full `pack:kind:id` form and only that. Used where no field supplies the missing segments — an extension's target, and `overrides`. Kinds are class, ancestry, spell, item, talent and table.",
+      "type": "string",
+      "maxLength": 146,
+      "pattern": "^[a-z0-9-]{1,48}:[a-z0-9-]{1,48}:[a-z0-9-]{1,48}$"
+    },
+
+    "entryName": {
+      "description": "Free text. One of exactly three fields that allow it — `name`, `text` and `description` — and the only one an entry must have.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+    },
+
+    "entryText": {
+      "description": "Free text, optional everywhere it appears. Absent and null both mean \"this pack does not carry the words\". Nothing in this repository ships rules text; a pack a table wrote for itself may.",
+      "anyOf": [{ "type": "string", "maxLength": 1000 }, { "type": "null" }]
+    },
+
+    "author": {
+      "anyOf": [{ "type": "string", "maxLength": 60 }, { "type": "null" }]
+    },
+
+    "description": {
+      "anyOf": [{ "type": "string", "maxLength": 300 }, { "type": "null" }]
+    },
+
+    "page": {
+      "description": "A page in the book this entry came from, shown when `text` is absent. Optional.",
+      "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 9999 }, { "type": "null" }]
+    },
+
+    "overrides": {
+      "description": "Replace an entry another pack defined, keeping its reference and its position in the list. This is the one operation that collides on purpose, so it warns; the last pack loaded wins.",
+      "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }]
+    },
+
+    "stat": {
+      "type": "string",
+      "enum": ["str", "dex", "con", "int", "wis", "cha"]
+    },
+
+    "range": {
+      "description": "A band, never a number of feet.",
+      "type": "string",
+      "enum": ["self", "close", "near", "far"]
+    },
+
+    "duration": {
+      "type": "string",
+      "enum": ["instant", "focus", "round", "minute", "hour", "day", "permanent"]
+    },
+
+    "tier": {
+      "description": "A spell tier, 1 to 5. A number in the JSON, not a string.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+
+    "die": {
+      "description": "A single die, as a class's hit die names one.",
+      "type": "string",
+      "enum": ["d4", "d6", "d8", "d10", "d12", "d20", "d100"]
+    },
+
+    "dieNotation": {
+      "description": "How a table names its dice, with an optional count in front: `2d6`, `1d20`, `d100`. No count means one die, and at most 10 dice.",
+      "type": "string",
+      "maxLength": 8,
+      "pattern": "^(0?[1-9]|10)?d(4|6|8|10|12|20|100)$"
+    },
+
+    "damageNotation": {
+      "description": "What a weapon deals: one notation, or two separated by `/` for a weapon used in one hand or two. Never an expression — `1d8` and `1d4/1d8` pass, `1d8 + level/2` is refused and nothing would evaluate it if it were not.",
+      "type": "string",
+      "maxLength": 17,
+      "pattern": "^(0?[1-9]|10)?d(4|6|8|10|12|20|100)(/(0?[1-9]|10)?d(4|6|8|10|12|20|100))?$"
+    },
+
+    "armorType": {
+      "type": "string",
+      "enum": ["none", "light", "medium", "heavy", "shield"]
+    },
+
+    "weaponType": {
+      "type": "string",
+      "enum": ["melee", "ranged", "both"]
+    },
+
+    "currency": {
+      "type": "string",
+      "enum": ["gp", "sp", "cp"]
+    },
+
+    "entryTag": {
+      "description": "A short closed-vocabulary label, shaped like an id and deliberately not free text — `versatile`, `two-handed`. A property that needs explaining goes in `text`.",
+      "type": "string",
+      "maxLength": 48,
+      "pattern": "^[a-z0-9-]{1,48}$"
+    },
+
+    "spellEntry": {
+      "description": "DATA-MODEL.md §3. The spell is the source of truth for which lists it is on, so adding spells to an existing class needs no extension at all.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "tier", "classes", "range", "duration"],
+      "properties": {
+        "id": { "$ref": "#/$defs/entryId" },
+        "name": { "$ref": "#/$defs/entryName" },
+        "tier": { "$ref": "#/$defs/tier" },
+        "classes": {
+          "description": "The classes whose lists this spell is on. A spell on no list is allowed; a picker simply never offers it.",
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/entryRef" }
+        },
+        "range": { "$ref": "#/$defs/range" },
+        "duration": { "$ref": "#/$defs/duration" },
+        "text": { "$ref": "#/$defs/entryText" },
+        "page": { "$ref": "#/$defs/page" },
+        "overrides": { "$ref": "#/$defs/overrides" }
+      }
+    },
+
+    "itemCost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": { "type": "integer", "minimum": 0, "maximum": 999999 },
+        "currency": { "$ref": "#/$defs/currency" }
+      }
+    },
+
+    "weaponBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "damage", "properties"],
+      "properties": {
+        "type": { "$ref": "#/$defs/weaponType" },
+        "damage": { "$ref": "#/$defs/damageNotation" },
+        "properties": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/entryTag" }
+        }
+      }
+    },
+
+    "armorBlock": {
+      "description": "`ac` is the class this armour sets, or the bonus a shield adds. `addDex` false is how heavy armour is expressed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "ac", "addDex"],
+      "properties": {
+        "type": { "$ref": "#/$defs/armorType" },
+        "ac": { "type": "integer", "minimum": 0, "maximum": 99 },
+        "addDex": { "type": "boolean" }
+      }
+    },
+
+    "itemEntry": {
+      "description": "DATA-MODEL.md §4. `weapon` and `armor` are mutually exclusive in practice and not enforced to be — a shield that also hits is somebody's homebrew, not a malformed file.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "slots", "cost"],
+      "properties": {
+        "id": { "$ref": "#/$defs/entryId" },
+        "name": { "$ref": "#/$defs/entryName" },
+        "slots": {
+          "description": "What one of it costs to carry. A sheet multiplies by quantity.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "cost": { "$ref": "#/$defs/itemCost" },
+        "weapon": {
+          "anyOf": [{ "$ref": "#/$defs/weaponBlock" }, { "type": "null" }]
+        },
+        "armor": {
+          "anyOf": [{ "$ref": "#/$defs/armorBlock" }, { "type": "null" }]
+        },
+        "text": { "$ref": "#/$defs/entryText" },
+        "page": { "$ref": "#/$defs/page" },
+        "overrides": { "$ref": "#/$defs/overrides" }
+      }
+    },
+
+    "spellcastingBlock": {
+      "description": "Null or absent for a non-caster.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stat", "highestTierByLevel"],
+      "properties": {
+        "stat": { "$ref": "#/$defs/stat" },
+        "highestTierByLevel": {
+          "description": "Indexed by level − 1, one entry per level. A shorter list is accepted and reads as \"no tier yet\" past its end.",
+          "type": "array",
+          "maxItems": 10,
+          "items": { "$ref": "#/$defs/tier" }
+        }
+      }
+    },
+
+    "classEntry": {
+      "description": "DATA-MODEL.md §5. XP thresholds are uniform across classes, so there is no per-class progression to write.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "hitDie", "weapons", "armor", "talentTable"],
+      "properties": {
+        "id": { "$ref": "#/$defs/entryId" },
+        "name": { "$ref": "#/$defs/entryName" },
+        "hitDie": { "$ref": "#/$defs/die" },
+        "weapons": {
+          "description": "Items this class may use. One naming an item no loaded pack defines warns and renders as plain text; it never fails the pack.",
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/entryRef" }
+        },
+        "armor": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/armorType" }
+        },
+        "spellcasting": {
+          "anyOf": [{ "$ref": "#/$defs/spellcastingBlock" }, { "type": "null" }]
+        },
+        "talentTable": { "$ref": "#/$defs/entryRef" },
+        "text": { "$ref": "#/$defs/entryText" },
+        "page": { "$ref": "#/$defs/page" },
+        "overrides": { "$ref": "#/$defs/overrides" }
+      }
+    },
+
+    "ancestryEntry": {
+      "description": "DATA-MODEL.md §6. The smallest entry there is.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/entryId" },
+        "name": { "$ref": "#/$defs/entryName" },
+        "talent": {
+          "description": "The words describing this ancestry's knack. Recorded, never applied — nothing in the app reads it.",
+          "$ref": "#/$defs/entryText"
+        },
+        "text": { "$ref": "#/$defs/entryText" },
+        "page": { "$ref": "#/$defs/page" },
+        "overrides": { "$ref": "#/$defs/overrides" }
+      }
+    },
+
+    "tableRoll": {
+      "description": "A face, or an inclusive band of them: 2, or [3, 6]. `low` may equal `high`, and `low` may not exceed it — a rule this file cannot state, so the app reports it instead.",
+      "anyOf": [
+        { "type": "integer", "minimum": 1, "maximum": 1000 },
+        {
+          "type": "array",
+          "prefixItems": [
+            { "type": "integer", "minimum": 1, "maximum": 1000 },
+            { "type": "integer", "minimum": 1, "maximum": 1000 }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      ]
+    },
+
+    "tableRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roll", "text"],
+      "properties": {
+        "roll": { "$ref": "#/$defs/tableRoll" },
+        "text": {
+          "description": "What the roll produced. A row with nothing to say is not a row. There is no `grants` field, deliberately: a result lands on a sheet as words and the app never applies it.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    },
+
+    "tableEntry": {
+      "description": "DATA-MODEL.md §7. Ranges must not overlap and should cover the die's whole span; a gap is a warning where the lookup happens, not a refusal here.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "die", "rows"],
+      "properties": {
+        "id": { "$ref": "#/$defs/entryId" },
+        "name": { "$ref": "#/$defs/entryName" },
+        "die": { "$ref": "#/$defs/dieNotation" },
+        "rerollable": {
+          "description": "Whether this table offers a reroll before the result is kept. Absent or null means false.",
+          "type": ["boolean", "null"]
+        },
+        "rows": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/tableRow" }
+        },
+        "text": { "$ref": "#/$defs/entryText" },
+        "page": { "$ref": "#/$defs/page" },
+        "overrides": { "$ref": "#/$defs/overrides" }
+      }
+    },
+
+    "extension": {
+      "description": "DATA-MODEL.md §8. An extension adds two things and nothing else: talents to a class, rows to a table. There is no field that edits an entry in place and none that removes anything. An extension whose target no pack defines warns and is skipped; the pack still loads.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target"],
+      "properties": {
+        "target": { "$ref": "#/$defs/ref" },
+        "talents": {
+          "description": "Talent references to offer a class. Recorded and never resolved.",
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/entryRef" }
+        },
+        "rows": {
+          "description": "Rows to add to a table.",
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/tableRow" }
+        }
+      }
+    }
+  }
+}

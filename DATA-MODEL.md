@@ -395,44 +395,24 @@ to describe it, and every line renders as a text node.
 Most people will not read a schema. They will paste a template and their notes into a
 chat window, and **making that path work well is most of the adoption.**
 
-Ship all of:
+Four things ship together, and all four are in the repository:
 
-1. `schema/pack.schema.json` — JSON Schema, for models and editors
-2. `docs/authoring-prompt.md` — the template below
-3. `packs/example-pack.json` — one of everything
-4. The in-app validator, with copy-pasteable errors — the whole block, heading and all,
-   behind one button. A player picking lines out of a paragraph pastes half the problem.
+| File | What it is | What keeps it honest |
+|---|---|---|
+| `schema/pack.schema.json` | JSON Schema (draft 2020-12), for models and editors | Hand written, so it carries descriptions a generated one would not — and held to `model/pack.ts` by generating a schema from the Zod one and requiring the committed file to carry every constraint it expresses, with the same fields and the same required lists |
+| `docs/authoring-prompt.md` | The prompt to paste, the paste-the-errors loop, and what to check before loading | Its enum lists are compared against `model/enums.ts` member by member |
+| `packs/example-pack.json` | One of everything, at the repository root because nothing fetches it at runtime | Parsed by the real `parsePack` and resolved against core, with every reference in it required to resolve |
+| The in-app validator | `ui/ProblemReport.tsx` — the whole block, heading and all, behind one **Copy the problems** button | A player picking lines out of a paragraph pastes half the problem |
+
+`src/model/pack-authoring.test.ts` is the last column, executable. The example pack
+omits `talents` for the same reason `pack.ts` leaves it `unknown`: an entry nobody has
+described is not an entry to copy.
 
 ### The prompt template
 
-```
-You are generating a content pack for Lantern, a Shadowdark RPG companion app.
-
-Output ONLY valid JSON. No commentary, no markdown fences.
-
-Rules:
-- format is "lantern-pack", formatVersion is 1
-- ids are lowercase a-z0-9- and are NOT prefixed with the pack id
-- Every content array is optional; omit what you do not need
-- Enums are exact:
-    stat: str dex con int wis cha
-    range: self close near far
-    duration: instant focus round minute hour day permanent
-    die: d4 d6 d8 d10 d12 d20 d100
-    armorType: none light medium heavy shield
-    weaponType: melee ranged both
-    currency: gp sp cp
-- Table `roll` is a number or an inclusive [low, high] range.
-  Ranges must not overlap and must cover the whole die.
-- No formulas. "1d8" is fine, and "1d4/1d8" for a weapon used in one hand or two;
-  "1d8 + level/2" is not.
-- Reference another entry as `id` in this pack, or `pack:id`, or `pack:kind:id`.
-- No HTML in any field.
-- Do not copy text from a published rulebook you do not have the rights to.
-
-Here is the schema: [paste schema/pack.schema.json]
-Here is my content: [paste your notes]
-```
+`docs/authoring-prompt.md` §2, and it lives there rather than here because it is written
+to be copied. A second copy in this document would be the one somebody pastes after the
+enums have moved.
 
 ### Advice worth giving authors
 
