@@ -39,6 +39,18 @@ export const CHARACTER_FILE_TYPE = 'application/json';
 /** What the file picker offers by default. Both spellings: browsers disagree on which. */
 export const CHARACTER_FILE_ACCEPT = 'application/json,.json';
 
+/**
+ * What a recovered quarantined value is called on disk (issue #89).
+ *
+ * Fixed rather than slugged from a name, because the whole reason the value is parked is
+ * that nothing in it could be read — there is no name to ask for. It keeps the format
+ * prefix so it sorts with the exports, and `.json` so the import field above picks it up
+ * without the player having to know that `accept` is only a hint. The extension is a
+ * claim about what the file was *meant* to be; the bytes are whatever was stored, and a
+ * value that is not JSON at all still comes out under this name rather than not at all.
+ */
+export const REJECTED_CHARACTER_FILE_NAME = `${CHARACTER_FORMAT}-rejected.json`;
+
 /** A file with nothing in it. A floor, not a business rule. */
 const EMPTY = 0;
 

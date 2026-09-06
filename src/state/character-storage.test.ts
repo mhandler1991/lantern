@@ -11,6 +11,7 @@ import {
   clearStoredCharacter,
   loadCharacter,
   migrateCharacterDocument,
+  readRejectedCharacter,
   saveCharacter,
 } from './character-storage';
 import { createCharacter } from './new-character';
@@ -156,6 +157,94 @@ describe('a browser that will not let us look', () => {
     const result = saveCharacter(vess, blocked);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('storage');
+  });
+
+  it('offers nothing back, because nothing could be read to offer', () => {
+    const read = readRejectedCharacter(blocked);
+    expect(read.ok).toBe(false);
+    if (!read.ok) expect(read.reason).toBe('unavailable');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Offering it back — issue #89
+// ---------------------------------------------------------------------------
+
+describe('the quarantined value', () => {
+  it('is flagged as quarantined when this value is the one that was set aside', () => {
+    localStorage.setItem(CHARACTER_KEY, '{ not json at all');
+
+    const load = loadCharacter();
+
+    expect(load.kind === 'rejected' && load.kept).toBe(true);
+    expect(load.kind === 'rejected' && load.quarantined).toBe(true);
+  });
+
+  // `kept` cannot stand in for `quarantined`: an earlier copy is parked and untouched,
+  // and it is still a value the player is owed a way back to.
+  it('is flagged as quarantined when an earlier value is already parked', () => {
+    localStorage.setItem(REJECTED_CHARACTER_KEY, 'the first thing that broke');
+    localStorage.setItem(CHARACTER_KEY, 'the second thing that broke');
+
+    const load = loadCharacter();
+
+    expect(load.kind === 'rejected' && load.kept).toBe(false);
+    expect(load.kind === 'rejected' && load.quarantined).toBe(true);
+  });
+
+  it('is not claimed as quarantined when the browser refused the copy', () => {
+    const readable: StorageDriver = {
+      getItem: (key) => (key === CHARACTER_KEY ? '{ not json at all' : null),
+      setItem() {
+        throw new DOMException('quota', 'QuotaExceededError');
+      },
+      removeItem: () => undefined,
+    };
+
+    const load = loadCharacter(readable);
+
+    expect(load.kind === 'rejected' && load.kept).toBe(false);
+    expect(load.kind === 'rejected' && load.quarantined).toBe(false);
+  });
+
+  // The acceptance criterion in one test: what is handed back is what was stored, and a
+  // value that never was JSON is handed back the same way as one that was.
+  it.each([
+    ['is not JSON at all', '{ not json at all'],
+    ['is JSON but not ours', '{"format":"something-else","name":"Vess"}'],
+    ['is not even text-shaped', '\u0000\ufeff  ragged\r\n\ttext '],
+  ])('is handed back byte for byte when it %s', (_label, raw) => {
+    localStorage.setItem(CHARACTER_KEY, raw);
+    loadCharacter();
+
+    const read = readRejectedCharacter();
+
+    expect(read.ok).toBe(true);
+    if (read.ok) expect(read.text).toBe(raw);
+  });
+
+  it('reports an empty key as empty rather than as an empty character', () => {
+    const read = readRejectedCharacter();
+    expect(read).toEqual({ ok: false, reason: 'empty' });
+  });
+
+  it('is never written to by reading it — the copy survives every look', () => {
+    const raw = '{ not json at all';
+    localStorage.setItem(CHARACTER_KEY, raw);
+    loadCharacter();
+
+    const writes: string[] = [];
+    const watched: StorageDriver = {
+      getItem: (key) => localStorage.getItem(key),
+      setItem: (key) => writes.push(key),
+      removeItem: (key) => writes.push(key),
+    };
+
+    readRejectedCharacter(watched);
+    readRejectedCharacter(watched);
+
+    expect(writes).toEqual([]);
+    expect(localStorage.getItem(REJECTED_CHARACTER_KEY)).toBe(raw);
   });
 });
 
