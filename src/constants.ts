@@ -222,6 +222,14 @@ export const MAX_EXTENDS_PER_PACK = 200;
 export const MAX_TAGS_PER_ENTRY = 32;
 
 /**
+ * Talent references one extension may add to a class (DATA-MODEL.md §8). It matches the
+ * sheet's own `MAX_TALENTS` rather than deriving from it, because that constant is
+ * declared below and a module-level `const` cannot reference one declared after it: no
+ * extension needs to offer a class more talents than a character could ever hold.
+ */
+export const MAX_TALENT_REFS_PER_EXTENSION = 100;
+
+/**
  * How many dice a table may name in one notation — `2d6` is two, `d100` is one
  * (DATA-MODEL.md §7). Ten is far past anything a table rolls on and keeps the span a
  * row may name small enough to reason about.
