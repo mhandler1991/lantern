@@ -75,6 +75,7 @@ library or network problem from one of ours in about ten seconds.
 | [`DATA-MODEL.md`](DATA-MODEL.md) | Pack and character schemas, validation, authoring with an AI |
 | [`CLAUDE.md`](CLAUDE.md) | Development standards |
 | [`DEPLOY.md`](DEPLOY.md) | GitHub Pages hosting, base paths, the deploy workflow |
+| [`docs/authoring-prompt.md`](docs/authoring-prompt.md) | Writing a content pack, with or without an AI |
 | [`docs/workflow.md`](docs/workflow.md) | Branching, commands, CI, deploy, the sync loop |
 | [`docs/rationale.md`](docs/rationale.md) | Why the rules are the way they are — reference only |
 
@@ -87,8 +88,14 @@ rest **for their own table** as a JSON pack, which also covers homebrew and thir
 material.
 
 Packs go to the peers in the room and nowhere else. There is no directory, no sharing,
-and nothing hosted. See [`DATA-MODEL.md`](DATA-MODEL.md) for the format and an AI
-authoring template.
+and nothing hosted.
+
+- [`docs/authoring-prompt.md`](docs/authoring-prompt.md) — the prompt to paste, and what
+  to do when the app refuses the file
+- [`schema/pack.schema.json`](schema/pack.schema.json) — the JSON Schema, for a model or
+  an editor
+- [`packs/example-pack.json`](packs/example-pack.json) — one of everything, to copy
+- [`DATA-MODEL.md`](DATA-MODEL.md) — the full contract
 
 **You are responsible for having the rights to anything you load.**
 

@@ -1,0 +1,111 @@
+{
+  "format": "lantern-pack",
+  "formatVersion": 1,
+  "id": "frostbound",
+  "name": "Frostbound",
+  "version": "1.0.0",
+  "author": "The Lantern example",
+  "description": "One of everything a pack can hold: a class, an ancestry, spells, items, a table, an extension and an override. Homebrew, invented for this file.",
+
+  "classes": [
+    {
+      "id": "rimewalker",
+      "name": "Rimewalker",
+      "hitDie": "d6",
+      "weapons": ["core:item:dagger", "core:item:staff", "rimeblade"],
+      "armor": ["none", "light"],
+      "spellcasting": {
+        "stat": "wis",
+        "highestTierByLevel": [1, 1, 2, 2, 3, 3, 4, 4, 5, 5]
+      },
+      "talentTable": "rimewalker-talents",
+      "text": "Walks the ice roads and comes back. Casts on wisdom, and carries little.",
+      "page": null
+    }
+  ],
+
+  "ancestries": [
+    {
+      "id": "frostborn",
+      "name": "Frostborn",
+      "talent": "Born in the long winter. Cold weather never counts as harsh going for you.",
+      "page": null
+    }
+  ],
+
+  "spells": [
+    {
+      "id": "hoarfrost",
+      "name": "Hoarfrost",
+      "tier": 2,
+      "classes": ["core:wizard", "rimewalker"],
+      "range": "near",
+      "duration": "focus",
+      "text": "Frost creeps over every surface you can see. Footing there is treacherous while you hold it.",
+      "page": null
+    },
+    {
+      "id": "glacial-step",
+      "name": "Glacial step",
+      "tier": 1,
+      "classes": ["rimewalker"],
+      "range": "self",
+      "duration": "round",
+      "text": "You cross ice, snow and still water as though it were dry road.",
+      "page": null
+    }
+  ],
+
+  "items": [
+    {
+      "id": "rimeblade",
+      "name": "Rimeblade",
+      "slots": 1,
+      "cost": { "amount": 90, "currency": "gp" },
+      "weapon": {
+        "type": "melee",
+        "damage": "1d4/1d8",
+        "properties": ["versatile"]
+      },
+      "armor": null,
+      "text": "A blade of clouded ice that does not melt. It is cold to hold and colder to be hit by.",
+      "page": null
+    },
+    {
+      "id": "storm-torch",
+      "name": "Storm torch",
+      "slots": 1,
+      "cost": { "amount": 2, "currency": "gp" },
+      "text": "A pitch-soaked torch wound in oiled cloth, made for weather that puts an ordinary one out. Overrides the core torch, so a sheet already holding a torch shows this one.",
+      "page": null,
+      "overrides": "core:item:torch"
+    }
+  ],
+
+  "tables": [
+    {
+      "id": "rimewalker-talents",
+      "name": "Rimewalker talents",
+      "die": "2d6",
+      "rerollable": false,
+      "rows": [
+        { "roll": 2, "text": "Choose any result on this table" },
+        { "roll": [3, 6], "text": "Your light sources burn a quarter longer than anyone else's" },
+        { "roll": [7, 9], "text": "+1 to spellcasting checks made in open winter weather" },
+        { "roll": [10, 11], "text": "+1 to constitution" }
+      ],
+      "page": null
+    }
+  ],
+
+  "extends": [
+    {
+      "target": "core:class:fighter",
+      "talents": ["cold-forged"]
+    },
+    {
+      "target": "frostbound:table:rimewalker-talents",
+      "rows": [{ "roll": 12, "text": "Choose any two results above" }]
+    }
+  ]
+}
