@@ -230,10 +230,9 @@ Random tables are first class. Talents, loot, monsters, creation, quirks — all
 that ships one is told so rather than having it silently ignored. That is deliberate
 (`PRD.md` principle 1).
 
-`src/model/pack.ts` is §§1-7 executable, and `pack.test.ts` parses the examples above
-verbatim — the same arrangement §11 has with `character.ts`. Two arrays are still only
-counted: `talents`, which this document gives no shape, and `extends`, whose `target`
-means nothing without the resolution that applies it.
+`src/model/pack.ts` is §§1-8 executable, and `pack.test.ts` parses the examples above
+verbatim — the same arrangement §11 has with `character.ts`. One array is still only
+counted: `talents`, which this document gives no shape.
 
 ## 8. Extends
 
@@ -244,6 +243,14 @@ means nothing without the resolution that applies it.
 ]
 ```
 
+An extension adds two things and nothing else: `talents` to a class, and `rows` to a
+table. There is no field that edits an entry in place and none that removes anything —
+replacing is `overrides`, which is the operation that warns.
+
+`target` is the full `pack:kind:id` form and only that. Everywhere else a reference may
+leave segments implied because the field supplies them; an extension may point at any
+kind in any pack, so it is as strict as a character sheet (§1).
+
 Extensions apply in **load order**, so the pack list is reorderable and the resulting
 stack is shown in the UI:
 
@@ -251,8 +258,40 @@ stack is shown in the UI:
 Wizard = core (32 spells, 4 talents) + Frostbound (4 spells) + Cursed Scroll 1 (2 talents)
 ```
 
+That line is `sources` on a resolved entry, rendered: every pack that contributed to it,
+in order, with what it added.
+
 An extension whose `target` no pack defines **warns and is skipped**. It does not fail
-the pack.
+the pack. Neither does an addition the target has no room for — `rows` aimed at a class,
+`talents` aimed at a table — nor a talent the class is already offered.
+
+### Resolution
+
+`src/model/pack-resolver.ts`. `resolvePacks(packs)` takes the loaded packs **in load
+order** and returns one stack: an array per kind, a `byRef` index a stored reference
+resolves through, a summary per pack, and warnings. Reordering the list is calling it
+again with the list rearranged.
+
+It runs in two passes — every definition and override first, then every extension. A
+pack may therefore extend a pack loaded after it, and moving a pack up the list changes
+the *order* additions land in, never whether they land at all.
+
+Resolution never fails and never refuses a pack (`PRD.md` principle 4). Every fault is a
+warning in the same `path — what happened` shape a malformed pack reports (§9), so a
+resolution fault and a schema fault paste back in one block:
+
+| Fault | What happens |
+|---|---|
+| Two entries in one pack claim an id | Warns; the later one wins |
+| Two loaded packs share a pack id | Warns once, not once per entry |
+| `overrides` a target no pack defines | Warns; kept at the target's reference, so a character holding it still resolves |
+| `overrides` across kinds | Warns; kept as a definition of its own |
+| Two packs override the same entry | Both warn; the last loaded wins |
+| `extends` a target no pack defines | Warns; that extension is skipped, the pack loads |
+
+An override replaces in place: the entry keeps the reference **and the list position** of
+what it replaced, so turning a supplement on never reshuffles a list somebody was
+reading.
 
 ---
 

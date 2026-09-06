@@ -23,11 +23,11 @@
  * §5, §7). 🚫 Nothing in this repository ships rules text.
  *
  * Scope: this file validates **the envelope and the entries inside it** — spells, items,
- * classes, ancestries and tables, DATA-MODEL.md §§3-7. Two arrays are still counted
- * rather than described: `talents`, which DATA-MODEL.md gives no shape, and `extends`,
- * whose shape only means anything alongside the resolution that applies it (#22).
- * Resolving define/extend/override across loaded packs is #22 as well; nothing here
- * looks at a second pack.
+ * classes, ancestries, tables and extensions, DATA-MODEL.md §§3-8. One array is still
+ * counted rather than described: `talents`, which DATA-MODEL.md gives no shape.
+ * Nothing here looks at a second pack — applying an extension, resolving an override
+ * and namespacing an id are `model/pack-resolver.ts`, which reads what this file
+ * produced.
  */
 
 import * as z from 'zod';
@@ -60,6 +60,7 @@ import {
   MAX_TABLE_ROLL,
   MAX_TABLE_ROWS,
   MAX_TAGS_PER_ENTRY,
+  MAX_TALENT_REFS_PER_EXTENSION,
   MAX_TEXT_LENGTH,
   MIN_PACK_ITEM_SLOTS,
   MIN_TABLE_ROLL,
@@ -101,6 +102,19 @@ export type EntryId = z.infer<typeof EntryId>;
 /** The full form of a cross-pack reference — `core:class:wizard`. */
 export const Ref = z.string().max(MAX_REF_LENGTH).regex(REF_PATTERN);
 export type Ref = z.infer<typeof Ref>;
+
+/**
+ * The middle segment of a reference: which array of a pack the thing lives in. Singular,
+ * because that is how DATA-MODEL.md §1 writes it — `core:item:dagger`, not `core:items`.
+ *
+ * `talent` is listed and nothing defines one. DATA-MODEL.md gives talents no shape, so
+ * an extension's `talents` list is a set of references the app records and never
+ * resolves (PRD.md principle 1 — record, do not adjudicate). Leaving the kind out would
+ * make those references unwritable; listing it keeps them expressible against the day
+ * the array is described.
+ */
+export const EntryKind = z.enum(['class', 'ancestry', 'spell', 'item', 'talent', 'table']);
+export type EntryKind = z.infer<typeof EntryKind>;
 
 /**
  * What one entry writes when it points at another. Three forms, all of which appear in
@@ -379,17 +393,41 @@ export const TableEntry = z.strictObject({
 export type TableEntry = z.infer<typeof TableEntry>;
 
 // ---------------------------------------------------------------------------
+// Extensions. DATA-MODEL.md §8.
+// ---------------------------------------------------------------------------
+
+/**
+ * Adding to something another pack defined: talents to a class, rows to a table.
+ *
+ * **`target` is the full `pack:kind:id` form and only that.** Everywhere else a
+ * reference may leave segments implied, because the field it sits in supplies them — a
+ * class's `weapons` can only mean an item. An extension has no such field: it may point
+ * at any kind in any pack, so it is the one place inside a pack that is as strict as a
+ * character sheet (DATA-MODEL.md §1).
+ *
+ * Both additions are optional and neither is required, so an extension that adds
+ * nothing parses. It is a stub an author is part way through writing, and refusing the
+ * pack over it is what PRD.md principle 4 forbids; resolution simply applies nothing.
+ *
+ * 🚫 There is no way to *remove* anything, and no field that edits an entry in place.
+ * An extension adds; replacing is `overrides`, which is the operation that warns.
+ */
+export const PackExtension = z.strictObject({
+  target: Ref,
+  talents: z.array(EntryRef).max(MAX_TALENT_REFS_PER_EXTENSION).optional(),
+  rows: z.array(TableRow).max(MAX_TABLE_ROWS).optional(),
+});
+export type PackExtension = z.infer<typeof PackExtension>;
+
+// ---------------------------------------------------------------------------
 // Content arrays
 // ---------------------------------------------------------------------------
 
 /**
- * Two arrays the envelope still only counts.
- *
- * `talents` has no shape in DATA-MODEL.md to be executable against, and `extends` (§8)
- * is one half of a pair whose other half is resolution — an extension's `target` only
- * means something once there is a stack of loaded packs to look it up in (#22). Both
- * stay `unknown` rather than becoming a permissive object, because "not described yet"
- * and "described loosely" must not look the same in this file.
+ * The one array the envelope still only counts. `talents` has no shape in
+ * DATA-MODEL.md to be executable against, so it stays `unknown` rather than becoming a
+ * permissive object: "not described yet" and "described loosely" must not look the same
+ * in this file.
  */
 const UndescribedEntry = z.unknown();
 
@@ -429,7 +467,7 @@ export const Pack = z.strictObject({
   tables: contentArray(TableEntry),
 
   /** Additions to something another pack defined. Never collides. DATA-MODEL.md §8. */
-  extends: z.array(UndescribedEntry).max(MAX_EXTENDS_PER_PACK).optional(),
+  extends: z.array(PackExtension).max(MAX_EXTENDS_PER_PACK).optional(),
 });
 export type Pack = z.infer<typeof Pack>;
 

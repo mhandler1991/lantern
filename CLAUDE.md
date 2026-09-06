@@ -98,7 +98,8 @@ src/
 ├── model/                # pure. no React, no DOM.
 │   ├── character.ts      # types + the schema boundary
 │   ├── derived.ts        # AC, slots, modifiers, XP, spell DC — computed on read
-│   ├── pack.ts           # types + resolution (define/extend/override)
+│   ├── pack.ts           # types + the schema boundary for a pack
+│   ├── pack-resolver.ts  # resolution across loaded packs (define/extend/override)
 │   ├── light.ts          # burn-down from litAt and the clock
 │   ├── dice.ts           # rolling, rejection sampling
 │   └── tables.ts         # table lookup
