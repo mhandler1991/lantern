@@ -111,6 +111,122 @@ export function TextField({
   );
 }
 
+/**
+ * A picker over loaded pack content, and the way out of it.
+ *
+ * The options are what the packs that are on actually hold (`ui/choices.ts`), and the
+ * value is a reference rather than a word — picking sets `ref` and the label is read
+ * back out of the stack every render, so nothing here copies a pack's text onto a sheet
+ * (DATA-MODEL.md §11).
+ *
+ * The first option is always the way out: a table running homebrew with no pack for it
+ * types the name in, and the app has to stay usable with no packs at all (PRD.md
+ * principle 6). It is `''` rather than a word of its own so an unchosen field and a
+ * typed-in one are the same empty state the character schema already has.
+ *
+ * 🚫 Never rendered when there is nothing to offer. A select holding one option that
+ * says "nothing" is a control that lies about being one; the caller falls back to a
+ * plain field instead.
+ */
+export function ChoiceField({
+  label,
+  value,
+  choices,
+  ownWordsLabel,
+  onChoose,
+  hideLabel = false,
+}: {
+  readonly label: string;
+  /** The reference held right now, or `null` for a row the player named themselves. */
+  readonly value: string | null;
+  readonly choices: readonly { readonly ref: string; readonly label: string }[];
+  /** What the escape hatch is called here: "Typed in", "Something else". */
+  readonly ownWordsLabel: string;
+  readonly onChoose: (ref: string | null) => void;
+  readonly hideLabel?: boolean;
+}): ReactElement {
+  const id = useId();
+
+  return (
+    <div className="field">
+      <label className={hideLabel ? 'field__label visually-hidden' : 'field__label'} htmlFor={id}>
+        {label}
+      </label>
+      <select
+        id={id}
+        className="field__input"
+        value={value ?? ''}
+        onChange={(event) => onChoose(event.target.value === '' ? null : event.target.value)}
+      >
+        <option value="">{ownWordsLabel}</option>
+        {choices.map((choice) => (
+          <option key={choice.ref} value={choice.ref}>
+            {choice.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/**
+ * Adding a row from a pack: pick, then press. Two steps rather than one, because a
+ * native select fires its change event as the keyboard moves through the list, and a
+ * list that adds a row per arrow key is a list that fights the player.
+ *
+ * The pending pick is local state and is cleared once the row lands, so the control
+ * reads as ready for the next one rather than as a record of the last.
+ */
+export function AddFromPack({
+  label,
+  choices,
+  disabled,
+  onAdd,
+}: {
+  readonly label: string;
+  readonly choices: readonly { readonly ref: string; readonly label: string }[];
+  /** True at the list's cap. The picker stays readable; only the press is refused. */
+  readonly disabled: boolean;
+  readonly onAdd: (ref: string) => void;
+}): ReactElement {
+  const id = useId();
+  const [picked, setPicked] = useState('');
+
+  return (
+    <>
+      <div className="field field--pick">
+        <label className="field__label visually-hidden" htmlFor={id}>
+          {label}
+        </label>
+        <select
+          id={id}
+          className="field__input"
+          value={picked}
+          onChange={(event) => setPicked(event.target.value)}
+        >
+          <option value="">{label}</option>
+          {choices.map((choice) => (
+            <option key={choice.ref} value={choice.ref}>
+              {choice.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <button
+        type="button"
+        className="button button--add"
+        disabled={disabled || picked === ''}
+        onClick={() => {
+          onAdd(picked);
+          setPicked('');
+        }}
+      >
+        Add
+      </button>
+    </>
+  );
+}
+
 export function TextAreaField({
   label,
   value,

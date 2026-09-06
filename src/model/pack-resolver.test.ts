@@ -12,6 +12,7 @@ import {
   lookup,
   normalizeRef,
   resolvePacks,
+  spellcastingFor,
   spellsForClass,
   type ResolvedStack,
 } from './pack-resolver';
@@ -465,5 +466,45 @@ describe('the stack as derived values read it', () => {
     expect(itemLookup(stack)('frostbound:item:rimeblade')).toBeNull();
     expect(itemLookup(stack)('core:class:wizard')).toBeNull();
     expect(itemLookup(resolvePacks([]))('core:item:dagger')).toBeNull();
+  });
+});
+
+describe('the spellcasting a class supplies', () => {
+  const caster = loaded({
+    id: 'frostbound',
+    name: 'Frostbound',
+    classes: [
+      {
+        id: 'rimewalker',
+        name: 'Rimewalker',
+        hitDie: 'd6',
+        weapons: [],
+        armor: ['none'],
+        spellcasting: { stat: 'wis', highestTierByLevel: [1, 1, 2] },
+        talentTable: 'rimewalker-talents',
+      },
+    ],
+  });
+
+  it('is the block the pack wrote, for a class a loaded pack defines', () => {
+    expect(spellcastingFor(resolvePacks([caster]), 'frostbound:class:rimewalker')).toEqual({
+      stat: 'wis',
+      highestTierByLevel: [1, 1, 2],
+    });
+  });
+
+  it('is null for a class that does not cast', () => {
+    expect(spellcastingFor(resolvePacks([CORE]), 'core:class:wizard')).toBeNull();
+  });
+
+  it('is null for a class no loaded pack defines, and for no class at all', () => {
+    const stack = resolvePacks([CORE]);
+
+    expect(spellcastingFor(stack, 'frostbound:class:rimewalker')).toBeNull();
+    expect(spellcastingFor(stack, null)).toBeNull();
+  });
+
+  it('is null for a reference that names something that is not a class', () => {
+    expect(spellcastingFor(resolvePacks([CORE]), 'core:item:dagger')).toBeNull();
   });
 });

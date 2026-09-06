@@ -27,7 +27,7 @@
  * sheet records; this file never reads it, and never modifies a stat (PRD.md principle 1).
  */
 
-import type { ItemLookup } from './derived';
+import type { ItemLookup, SpellcastingFacts } from './derived';
 import {
   EntryKind,
   type AncestryEntry,
@@ -591,4 +591,22 @@ export function spellsForClass(stack: ResolvedStack, classRef: Ref): readonly Re
       (reference) => normalizeRef(reference, 'class', spell.packId) === classRef,
     ),
   );
+}
+
+/**
+ * The class's `spellcasting` block, as `model/derived.ts` reads it: the stat a caster
+ * rolls and the highest tier it reaches at each level (DATA-MODEL.md §5).
+ *
+ * `null` is the answer for a non-caster, for a class no loaded pack defines, and for a
+ * character who has not chosen one — three different facts that mean the same thing to a
+ * sheet, which is that there is no spellcasting to print. 🚫 It never throws.
+ */
+export function spellcastingFor(
+  stack: ResolvedStack,
+  classRef: Ref | null,
+): SpellcastingFacts | null {
+  const found = classRef === null ? undefined : stack.byRef.get(classRef);
+  if (found === undefined || found.kind !== 'class') return null;
+
+  return found.entry.spellcasting ?? null;
 }

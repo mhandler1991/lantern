@@ -6,12 +6,19 @@
  * answers. That fallback is why a sheet built with no packs still counts its gear
  * instead of reading zero forever.
  *
+ * Gear arrives two ways. **Add item** opens a blank row the player names and prices
+ * themselves; the picker beside it appends a row that is a reference and nothing else,
+ * and the name and slot cost are read back out of the pack every render (DATA-MODEL.md
+ * §11 — `name` is a fallback, never a cache).
+ *
+ * That is also why a row carrying a reference has its name and its slots read only,
+ * whether or not the pack is on: both are fields a loaded pack answers for, and a typed
+ * value would be discarded the moment it came back. What the player owns stays live —
+ * how many are carried, whether it is worn, and the button that drops it.
+ *
  * A row whose `ref` no loaded pack defines is *reported*, never dropped and never
  * guessed at — turning a pack off leaves the gear on the sheet (PRD.md principle 4).
- * Such a row is marked and its **pack-owned** fields go read only: the name and the
- * slots each, both of which a loaded pack answers for and would overwrite the moment it
- * came back. What the player owns stays live — how many are carried, whether it is worn,
- * and the button that drops it. A pack being off must not trap a row either.
+ * A pack being off must not trap a row either.
  */
 
 import type { ReactElement } from 'react';
@@ -25,7 +32,9 @@ import {
 import type { Carry } from '../../model/derived';
 import { packOfRef } from '../../model/orphans';
 import { appendRow, isAtLimit, newItem, removeRow, updateRow } from '../../state/character-edits';
+import { displayName } from '../choices';
 import {
+  AddFromPack,
   AddRowButton,
   CheckField,
   EmptyNote,
@@ -36,8 +45,7 @@ import {
   TextField,
   Warning,
 } from '../fields';
-import { orphanLabel } from '../format';
-import type { OrphanProps, PanelProps } from './sheet-props';
+import type { ContentProps, OrphanProps, PanelProps } from './sheet-props';
 
 /** Nothing carried, nothing owed. A floor, not a business rule. */
 const NONE = 0;
@@ -46,8 +54,10 @@ export function GearPanel({
   character,
   setCharacter,
   orphans,
+  stack,
+  choices,
   carry,
-}: PanelProps & OrphanProps & { readonly carry: Carry }): ReactElement {
+}: PanelProps & OrphanProps & ContentProps & { readonly carry: Carry }): ReactElement {
   const full = isAtLimit(character.items, MAX_ITEMS);
 
   return (
@@ -69,7 +79,9 @@ export function GearPanel({
         <ul className="rows">
           {character.items.map((item) => {
             const isOrphaned = orphans.rows.has(item.id);
-            const label = orphanLabel(item.name, item.ref);
+            const label = displayName(stack, item.ref, item.name);
+            // A pack answers for a referenced row's name and slot cost, on or off.
+            const isFromPack = item.ref !== null;
 
             return (
               <li
@@ -80,9 +92,9 @@ export function GearPanel({
                   label="Item"
                   hideLabel
                   placeholder="Item"
-                  value={isOrphaned ? label : item.name}
+                  value={label}
                   maxLength={MAX_NAME_LENGTH}
-                  readOnly={isOrphaned}
+                  readOnly={isFromPack}
                   onChange={(name) =>
                     setCharacter((previous) => ({
                       ...previous,
@@ -109,7 +121,7 @@ export function GearPanel({
                   value={item.slots}
                   min={NONE}
                   max={MAX_ITEM_SLOTS}
-                  readOnly={isOrphaned}
+                  readOnly={isFromPack}
                   onChange={(slots) =>
                     setCharacter((previous) => ({
                       ...previous,
@@ -155,6 +167,19 @@ export function GearPanel({
             }))
           }
         />
+        {choices.items.length > NONE && (
+          <AddFromPack
+            label="Add gear from a pack"
+            choices={choices.items}
+            disabled={full}
+            onAdd={(ref) =>
+              setCharacter((previous) => ({
+                ...previous,
+                items: appendRow(previous.items, newItem(ref), MAX_ITEMS),
+              }))
+            }
+          />
+        )}
         {full && <span className="readout">{MAX_ITEMS} rows is the most a sheet holds.</span>}
       </div>
 

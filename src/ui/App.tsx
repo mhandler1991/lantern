@@ -146,7 +146,12 @@ export function App(): ReactElement {
         <div className="portability">
           <Portability character={character} setCharacter={setCharacter} />
         </div>
-        <CharacterSheet character={character} setCharacter={setCharacter} orphans={orphans} />
+        <CharacterSheet
+          character={character}
+          setCharacter={setCharacter}
+          orphans={orphans}
+          stack={packs.stack}
+        />
       </main>
     </div>
   );

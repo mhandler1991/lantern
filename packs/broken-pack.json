@@ -1,0 +1,59 @@
+{
+  "format": "lantern-pack",
+  "formatVersion": 1,
+  "id": "brokenwood",
+  "name": "Brokenwood",
+  "version": "1.0.0",
+  "author": "The Lantern example",
+  "description": "Deliberately broken. Every entry carries a mistake an author actually makes, so the report can be read — and pasted back into an AI along with the file — to see each one named by its path.",
+  "classes": [
+    {
+      "id": "hedge-knight",
+      "name": "Hedge knight",
+      "hitDie": "d7",
+      "weapons": ["core:item:longsword"],
+      "armor": ["chain"],
+      "talentTable": "hedge-knight-talents",
+      "hp": 6,
+      "page": null
+    }
+  ],
+  "ancestries": [
+    {
+      "id": "brambleborn",
+      "talent": "Thorns never slow you.",
+      "page": null
+    }
+  ],
+  "spells": [
+    {
+      "id": "thornwall",
+      "name": "Thornwall",
+      "tier": 7,
+      "classes": ["hedge-knight"],
+      "range": "60 feet",
+      "duration": "focus",
+      "page": null
+    }
+  ],
+  "items": [
+    {
+      "id": "briar shield",
+      "name": "Briar shield",
+      "slots": "1",
+      "cost": { "amount": 12, "currency": "ep" },
+      "armor": { "type": "shield", "ac": 2 },
+      "page": null
+    }
+  ],
+  "tables": [
+    {
+      "id": "hedge-knight-talents",
+      "name": "Hedge knight talents",
+      "die": "2d6",
+      "rows": [
+        { "roll": [8, 3], "text": "A talent whose band runs backwards" }
+      ]
+    }
+  ]
+}

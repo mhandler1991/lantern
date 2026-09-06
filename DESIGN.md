@@ -313,6 +313,14 @@ nodes, never `innerHTML`. A pack arrives from another peer and is hostile input.
 **Turning a pack off never destroys a character.** Anything already in use stays on the
 sheet, marked and read only.
 
+**A pack owns the words on a row it answers for.** Picking from a pack stores a reference,
+never a copy, and the name is read back out of the stack every render — so a supplement
+that overrides an item changes what the sheet says without touching what it holds. The
+fields a pack answers for are therefore read only while it is on, for the same reason
+they are read only when it is off: a typed value would be discarded the moment the pack
+answered again. The way out is the picker's own first option, which puts the field back
+to the player's own words.
+
 ---
 
 ## 6. Visual language
