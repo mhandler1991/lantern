@@ -293,6 +293,40 @@ An override replaces in place: the entry keeps the reference **and the list posi
 what it replaced, so turning a supplement on never reshuffles a list somebody was
 reading.
 
+### Loading
+
+`src/state/use-packs.ts` owns the list resolution is asked of, and `src/ui/ContentScreen.tsx`
+is that list on screen: a picker, the load order, and the stack it resolved to.
+
+| Rule | Why |
+|---|---|
+| **Core goes in front, always** | Everything else is written against it. A homebrew pack overriding a core entry while core sat *after* it would override a target nothing had defined yet, and core would define it back over the top. |
+| **A pack replaces the pack with its id, in place** | `version` answers "is this the pack I already have" (§1). Picking Frostbound 1.2.0 over 1.1.0 is an update: it keeps its position **and its on/off state**, because both were somebody's decision. |
+| **A pack turned off keeps its place** | Turning it back on is one press and restores the order it had. It is out of the stack entirely while it is off — that is what off means. |
+| **Reordering is buttons, not a drag** | Load order decides which override wins, so it must be reachable by keyboard, and a drag would need a package. |
+| **Core is never removed** | Every other pack came from a file that can be picked again; core is fetched once on boot. Turning it off is offered instead, because that is reversible. |
+| **At `MAX_PACKS_LOADED`, nothing is dropped** | A pick that would exceed the cap is reported and refused. An *update* still lands, because it replaces rather than adds. |
+
+A picked file is read the way a character file is (§12): the file's own `size` before a
+byte is decoded, then the decoded text's length, then `JSON.parse`, then `parsePack`.
+`src/state/pack-file.ts`. Every failure is problems with paths and **nothing is
+replaced** — a malformed pack leaves every loaded pack exactly as it was.
+
+**Nothing is persisted.** `DESIGN.md` §7 — packs are room-scoped by default with an
+explicit opt-in to keep one, and that opt-in is not built. A loaded pack lasts as long as
+the tab, and the content screen says so rather than letting a DM find out after a reload.
+
+### The resolution stack, rendered
+
+`src/ui/content.ts` turns `sources` into the line §8 opens with. It is built for classes
+and tables — the two kinds anything can be *added* to. A spell or an item that was
+replaced is a one-pack story already told, because every override is a warning above the
+list.
+
+One thing `sources` cannot carry: a pack that adds spells to a class writes no extension
+at all (§3, a spell names its classes), so it never appears in that class's `sources`.
+Its count is a `spellsForClass` query, computed where the line is built.
+
 ---
 
 ## 9. Validation

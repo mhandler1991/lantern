@@ -664,3 +664,106 @@ body {
 .party__conditions .chip {
   padding-right: var(--space-3);
 }
+
+/* ---------------------------------------------------------------------------
+ * The content screen
+ *
+ * The same page-above-the-table treatment the lobby and the character file get, for a
+ * third reason: packs decide what every picker on the sheet offers, so when a DM turns
+ * one off the sheet below changes and the control that did it has to be in the same
+ * view as the consequence.
+ *
+ * Load order is the only thing in the app where a list's *order* carries meaning, so
+ * the rows are numbered by nothing and separated by hairlines — position is read from
+ * the arrangement, and the two move buttons sit at the end of every row in the same
+ * place, because a control that moves is a control that is hunted for.
+ * ------------------------------------------------------------------------ */
+
+.content {
+  max-width: var(--measure);
+  margin-bottom: var(--space-5);
+}
+
+.packs {
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+  border-top: var(--border-hairline) solid var(--rule-page);
+}
+
+.pack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-0);
+  border-bottom: var(--border-hairline) solid var(--rule-page);
+}
+
+/* A pack that is off is still in the order — it keeps its place so turning it back on
+   is one press — so it dims rather than moves. Never hidden: a list that reorders
+   itself under the hand is a list nobody trusts. */
+.pack--off .pack__name,
+.pack--off .pack__contents {
+  color: var(--text-muted);
+}
+
+.pack__identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: 1 1 var(--measure-column);
+}
+
+.pack__name {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+}
+
+.pack__version {
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  color: var(--text-muted);
+}
+
+.pack__contents {
+  flex: 1 0 100%;
+  margin: var(--space-0);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.pack__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* An arrow is a glyph, not a word, so it takes the square padding a letter would not
+   need and carries its meaning in a visually-hidden label instead. */
+.button--move {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-base);
+  line-height: var(--leading-tight);
+}
+
+/* The resolution stack. One line per entry, set in the label face because it is read as
+   a record rather than as prose, and wrapped rather than truncated: the pack name at the
+   end of the line is the whole reason to read it (DATA-MODEL.md §8). */
+.stack {
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.stack__line {
+  padding: var(--space-1) var(--space-0);
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}

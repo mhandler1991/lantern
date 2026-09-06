@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePack, reportProblems, type Pack } from './pack';
 import {
+  itemLookup,
   lookup,
   normalizeRef,
   resolvePacks,
@@ -425,5 +426,44 @@ describe('the stack the UI reads', () => {
 
     expect(report).toContain('1 problem in "the loaded packs":');
     expect(report).toContain('orphan.extends[0].target — no loaded pack defines');
+  });
+});
+
+describe('the stack as derived values read it', () => {
+  it('answers an item reference with the two facts a computation needs', () => {
+    const stack = resolvePacks([CORE]);
+
+    expect(itemLookup(stack)('core:item:dagger')).toEqual({ slots: 1, armor: null });
+  });
+
+  it('carries the armour block through, because AC is arithmetic over it', () => {
+    const armoury = loaded({
+      id: 'armoury',
+      name: 'Armoury',
+      items: [
+        {
+          id: 'chainmail',
+          name: 'Chainmail',
+          slots: 2,
+          cost: { amount: 60, currency: 'gp' },
+          armor: { type: 'medium', ac: 13, addDex: true },
+        },
+      ],
+    });
+
+    expect(itemLookup(resolvePacks([armoury]))('armoury:item:chainmail')).toEqual({
+      slots: 2,
+      armor: { type: 'medium', ac: 13, addDex: true },
+    });
+  });
+
+  it('answers null for anything no loaded pack defines, so the row’s own value stands', () => {
+    const stack = resolvePacks([CORE]);
+
+    // A pack that was turned off, a reference from a sheet built elsewhere, and a
+    // reference naming something that is not an item at all — one answer for all three.
+    expect(itemLookup(stack)('frostbound:item:rimeblade')).toBeNull();
+    expect(itemLookup(stack)('core:class:wizard')).toBeNull();
+    expect(itemLookup(resolvePacks([]))('core:item:dagger')).toBeNull();
   });
 });

@@ -91,8 +91,22 @@ async function unmount(): Promise<void> {
   });
 }
 
+/**
+ * The Character file panel rather than the whole page. The content screen reports pack
+ * problems through the same component (`ui/ProblemReport.tsx`), so "Copy the problems"
+ * is no longer a unique label on screen — and a test about importing a character that
+ * clicked the content screen's copy button would pass for the wrong reason.
+ */
+function panel(title: string): HTMLElement {
+  const found = [...container.querySelectorAll('section.panel')].find(
+    (section) => section.querySelector('.panel__title')?.textContent === title,
+  );
+  if (!(found instanceof HTMLElement)) throw new Error(`no panel titled ${title}`);
+  return found;
+}
+
 function button(label: string): HTMLButtonElement {
-  const found = [...container.querySelectorAll('button')].find(
+  const found = [...panel('Character file').querySelectorAll('button')].find(
     (element) => element.textContent?.trim() === label,
   );
   if (!found) throw new Error(`no button labelled ${label}`);
@@ -100,7 +114,7 @@ function button(label: string): HTMLButtonElement {
 }
 
 function hasButton(label: string): boolean {
-  return [...container.querySelectorAll('button')].some(
+  return [...panel('Character file').querySelectorAll('button')].some(
     (element) => element.textContent?.trim() === label,
   );
 }
