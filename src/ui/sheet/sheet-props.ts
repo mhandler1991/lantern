@@ -9,10 +9,24 @@
 
 import type { Dispatch, SetStateAction } from 'react';
 import type { Character } from '../../model/character';
+import type { OrphanReport } from '../../model/orphans';
 
 export type SetCharacter = Dispatch<SetStateAction<Character>>;
 
 export type PanelProps = {
   readonly character: Character;
   readonly setCharacter: SetCharacter;
+};
+
+/**
+ * Which of this sheet's rows point at content no loaded pack answers for. Computed once,
+ * above the sheet, for the same reason every derived value is: two panels disagreeing
+ * about whether a row is orphaned would be two answers to one question.
+ *
+ * Taken by the four panels that hold references — identity, gear, spells and light.
+ * 🚫 Not talents: a talent stores its words rather than a reference (DATA-MODEL.md §11)
+ * and keeps working with every pack off, which is what it stored them for.
+ */
+export type OrphanProps = {
+  readonly orphans: OrphanReport;
 };

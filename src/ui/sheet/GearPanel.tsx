@@ -8,6 +8,10 @@
  *
  * A row whose `ref` no loaded pack defines is *reported*, never dropped and never
  * guessed at — turning a pack off leaves the gear on the sheet (PRD.md principle 4).
+ * Such a row is marked and its **pack-owned** fields go read only: the name and the
+ * slots each, both of which a loaded pack answers for and would overwrite the moment it
+ * came back. What the player owns stays live — how many are carried, whether it is worn,
+ * and the button that drops it. A pack being off must not trap a row either.
  */
 
 import type { ReactElement } from 'react';
@@ -19,18 +23,21 @@ import {
   MAX_NAME_LENGTH,
 } from '../../constants';
 import type { Carry } from '../../model/derived';
+import { packOfRef } from '../../model/orphans';
 import { appendRow, isAtLimit, newItem, removeRow, updateRow } from '../../state/character-edits';
 import {
   AddRowButton,
   CheckField,
   EmptyNote,
   NumberField,
+  OrphanMark,
   Panel,
   RemoveRowButton,
   TextField,
   Warning,
 } from '../fields';
-import type { PanelProps } from './sheet-props';
+import { orphanLabel } from '../format';
+import type { OrphanProps, PanelProps } from './sheet-props';
 
 /** Nothing carried, nothing owed. A floor, not a business rule. */
 const NONE = 0;
@@ -38,8 +45,9 @@ const NONE = 0;
 export function GearPanel({
   character,
   setCharacter,
+  orphans,
   carry,
-}: PanelProps & { readonly carry: Carry }): ReactElement {
+}: PanelProps & OrphanProps & { readonly carry: Carry }): ReactElement {
   const full = isAtLimit(character.items, MAX_ITEMS);
 
   return (
@@ -59,69 +67,80 @@ export function GearPanel({
         <EmptyNote>Nothing carried yet.</EmptyNote>
       ) : (
         <ul className="rows">
-          {character.items.map((item) => (
-            <li key={item.id} className="row row--item">
-              <TextField
-                label="Item"
-                hideLabel
-                placeholder="Item"
-                value={item.name}
-                maxLength={MAX_NAME_LENGTH}
-                onChange={(name) =>
-                  setCharacter((previous) => ({
-                    ...previous,
-                    items: updateRow(previous.items, item.id, { name }),
-                  }))
-                }
-              />
-              <NumberField
-                label="Quantity"
-                hideLabel
-                value={item.qty}
-                min={1}
-                max={MAX_ITEM_QUANTITY}
-                onChange={(qty) =>
-                  setCharacter((previous) => ({
-                    ...previous,
-                    items: updateRow(previous.items, item.id, { qty }),
-                  }))
-                }
-              />
-              <NumberField
-                label="Slots each"
-                hideLabel
-                value={item.slots}
-                min={NONE}
-                max={MAX_ITEM_SLOTS}
-                onChange={(slots) =>
-                  setCharacter((previous) => ({
-                    ...previous,
-                    items: updateRow(previous.items, item.id, { slots }),
-                  }))
-                }
-              />
-              <CheckField
-                label="Equipped"
-                hideLabel
-                checked={item.equipped}
-                onChange={(equipped) =>
-                  setCharacter((previous) => ({
-                    ...previous,
-                    items: updateRow(previous.items, item.id, { equipped }),
-                  }))
-                }
-              />
-              <RemoveRowButton
-                label={`Remove ${item.name === '' ? 'this item' : item.name}`}
-                onClick={() =>
-                  setCharacter((previous) => ({
-                    ...previous,
-                    items: removeRow(previous.items, item.id),
-                  }))
-                }
-              />
-            </li>
-          ))}
+          {character.items.map((item) => {
+            const isOrphaned = orphans.rows.has(item.id);
+            const label = orphanLabel(item.name, item.ref);
+
+            return (
+              <li
+                key={item.id}
+                className={isOrphaned ? 'row row--item row--orphaned' : 'row row--item'}
+              >
+                <TextField
+                  label="Item"
+                  hideLabel
+                  placeholder="Item"
+                  value={isOrphaned ? label : item.name}
+                  maxLength={MAX_NAME_LENGTH}
+                  readOnly={isOrphaned}
+                  onChange={(name) =>
+                    setCharacter((previous) => ({
+                      ...previous,
+                      items: updateRow(previous.items, item.id, { name }),
+                    }))
+                  }
+                />
+                <NumberField
+                  label="Quantity"
+                  hideLabel
+                  value={item.qty}
+                  min={1}
+                  max={MAX_ITEM_QUANTITY}
+                  onChange={(qty) =>
+                    setCharacter((previous) => ({
+                      ...previous,
+                      items: updateRow(previous.items, item.id, { qty }),
+                    }))
+                  }
+                />
+                <NumberField
+                  label="Slots each"
+                  hideLabel
+                  value={item.slots}
+                  min={NONE}
+                  max={MAX_ITEM_SLOTS}
+                  readOnly={isOrphaned}
+                  onChange={(slots) =>
+                    setCharacter((previous) => ({
+                      ...previous,
+                      items: updateRow(previous.items, item.id, { slots }),
+                    }))
+                  }
+                />
+                <CheckField
+                  label="Equipped"
+                  hideLabel
+                  checked={item.equipped}
+                  onChange={(equipped) =>
+                    setCharacter((previous) => ({
+                      ...previous,
+                      items: updateRow(previous.items, item.id, { equipped }),
+                    }))
+                  }
+                />
+                <RemoveRowButton
+                  label={`Remove ${label === '' ? 'this item' : label}`}
+                  onClick={() =>
+                    setCharacter((previous) => ({
+                      ...previous,
+                      items: removeRow(previous.items, item.id),
+                    }))
+                  }
+                />
+                {isOrphaned && item.ref !== null && <OrphanMark pack={packOfRef(item.ref)} />}
+              </li>
+            );
+          })}
         </ul>
       )}
 
