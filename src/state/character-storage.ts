@@ -34,8 +34,12 @@ export const CHARACTER_KEY = `${STORAGE_PREFIX}character`;
 
 /**
  * Where a value we could not read goes before a new sheet is allowed to overwrite it.
- * It is never read back by the app; it exists so that "corrupt" means "set aside for a
- * human" rather than "gone".
+ *
+ * Nothing in the app parses it, migrates it, or writes over it. It is read back in
+ * exactly one direction: `readRejectedCharacter` hands the raw string to
+ * `ui/RecoverCharacter.tsx`, which offers it to the player as a file. "Corrupt" means
+ * "set aside for a human", and issue #89 is what gives the human a way to reach it that
+ * is not devtools.
  */
 export const REJECTED_CHARACTER_KEY = `${STORAGE_PREFIX}character.rejected`;
 
@@ -213,28 +217,67 @@ export type CharacterLoad =
   /** Nothing stored. A first visit, or a cleared browser. */
   | { readonly kind: 'empty' }
   /**
-   * Something was stored and could not be read. `kept` says whether the raw text is now
-   * safe under `REJECTED_CHARACTER_KEY`; when it is false an earlier rejected value is
-   * already parked there and was not overwritten, because the first thing to break is
+   * Something was stored and could not be read. `kept` says whether *this* raw text is
+   * now safe under `REJECTED_CHARACTER_KEY`; when it is false an earlier rejected value
+   * is already parked there and was not overwritten, because the first thing to break is
    * the likelier to be real player data.
+   *
+   * `quarantined` is the question the UI actually asks — is there anything under that
+   * key to offer back? It is true in both of those cases and false only when storage
+   * refused, so `kept` cannot stand in for it: a browser that would not take the write
+   * leaves `kept` false with nothing parked at all.
    */
   | {
       readonly kind: 'rejected';
       readonly problems: readonly CharacterProblem[];
       readonly kept: boolean;
+      readonly quarantined: boolean;
     }
   /** The browser would not let us look. Nothing is wrong with the sheet. */
   | { readonly kind: 'unavailable'; readonly failure: StorageFailure };
 
+/** What the quarantine attempt left behind. Both halves are reported to the player. */
+type Quarantine = { readonly kept: boolean; readonly quarantined: boolean };
+
+/** Storage would not answer, so there is nothing to promise the player. */
+const NO_QUARANTINE: Quarantine = { kept: false, quarantined: false };
+
 /**
  * Copy a value we could not read out of the way, so the autosave that follows cannot
- * destroy it. An existing quarantine is never overwritten.
+ * destroy it. An existing quarantine is never overwritten — but it still counts as
+ * something to offer back, which is why `quarantined` is true where `kept` is false.
  */
-function quarantine(raw: string, driver: StorageDriver | null): boolean {
+function quarantine(raw: string, driver: StorageDriver | null): Quarantine {
   const existing = readText(REJECTED_CHARACTER_KEY, driver);
-  if (!existing.ok || existing.value !== null) return false;
+  if (!existing.ok) return NO_QUARANTINE;
+  if (existing.value !== null) return { kept: false, quarantined: true };
 
-  return writeText(REJECTED_CHARACTER_KEY, raw, driver).ok;
+  const written = writeText(REJECTED_CHARACTER_KEY, raw, driver);
+  return { kept: written.ok, quarantined: written.ok };
+}
+
+export type RejectedCharacterRead =
+  /** The raw string, byte for byte as it was found. Never parsed, never repaired. */
+  | { readonly ok: true; readonly text: string }
+  /** Nothing is parked. A player who has already recovered it, or never had one. */
+  | { readonly ok: false; readonly reason: 'empty' }
+  | { readonly ok: false; readonly reason: 'unavailable'; readonly failure: StorageFailure };
+
+/**
+ * The quarantined value, for handing back to the player and for nothing else.
+ *
+ * Read-only by construction: there is no driver write anywhere on this path, so no
+ * amount of clicking the offer can overwrite or clear what is parked (issue #89). The
+ * text is returned exactly as stored — not re-serialised, not migrated, not validated —
+ * because the whole point of the copy is that this build could not read it, and a build
+ * that could not read it has no business rewriting it.
+ */
+export function readRejectedCharacter(driver = defaultStorageDriver()): RejectedCharacterRead {
+  const read = readText(REJECTED_CHARACTER_KEY, driver);
+  if (!read.ok) return { ok: false, reason: 'unavailable', failure: read.failure };
+  if (read.value === null) return { ok: false, reason: 'empty' };
+
+  return { ok: true, text: read.value };
 }
 
 /**
@@ -251,7 +294,7 @@ export function loadCharacter(driver = defaultStorageDriver()): CharacterLoad {
   const reject = (problems: readonly CharacterProblem[]): CharacterLoad => ({
     kind: 'rejected',
     problems,
-    kept: quarantine(raw, driver),
+    ...quarantine(raw, driver),
   });
 
   // A UTF-16 length is never larger than the byte count it encodes to, so this is the

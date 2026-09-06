@@ -3,9 +3,10 @@
  *
  * Everything above the sheet is a report on the state of the save, and every one of them
  * degrades rather than blocks (PRD.md principle 4): a stored character that could not be
- * read is set aside and a new sheet opens, a browser that will not let us write says so
- * and the sheet still works, and a save that failed is shown rather than swallowed. None
- * of them can stop a player using the sheet, which is the whole point of the principle.
+ * read is set aside and offered back as a file while a new sheet opens, a browser that
+ * will not let us write says so and the sheet still works, and a save that failed is
+ * shown rather than swallowed. None of them can stop a player using the sheet, which is
+ * the whole point of the principle.
  *
  * The lobby and the content screen sit above the sheet rather than in front of it: a
  * room is optional and so are packs, and PRD.md principle 6 says the app has to work
@@ -29,6 +30,7 @@ import '../styles/app.css';
 import { orphanReport, updatePacksUsed } from '../model/orphans';
 import { itemLookup } from '../model/pack-resolver';
 import { toPublicCharacter } from '../net/projection';
+import type { CharacterLoad } from '../state/character-storage';
 import { usePacks } from '../state/use-packs';
 import { usePersistentCharacter } from '../state/use-persistent-character';
 import { usePresence } from '../state/use-presence';
@@ -37,11 +39,28 @@ import { ContentScreen } from './ContentScreen';
 import { Lobby } from './Lobby';
 import { Portability } from './Portability';
 import { ProblemReport } from './ProblemReport';
+import { RecoverCharacter } from './RecoverCharacter';
 import { CharacterSheet } from './sheet/CharacterSheet';
 import type { SetCharacter } from './sheet/sheet-props';
 
 /** Nothing missing. A floor, not a business rule. */
 const NONE = 0;
+
+/**
+ * What became of the value that could not be read, said plainly. The two failures are
+ * different facts and the player is owed the right one: their save was set aside, or an
+ * *earlier* broken save was already parked and this one was not allowed over it
+ * (DATA-MODEL.md §12 — the first thing to break is the likelier to be real). Either way
+ * something is there to download; when neither is true, storage refused and there is
+ * nothing to offer.
+ */
+function quarantineNote(load: Extract<CharacterLoad, { kind: 'rejected' }>): string {
+  if (load.kept) return ' The old value has been kept aside, unchanged.';
+  if (load.quarantined) {
+    return ' An earlier unreadable save was already set aside, and has been left exactly as it is.';
+  }
+  return '';
+}
 
 export function App(): ReactElement {
   const { character, setCharacter: writeCharacter, load, lastSave } = usePersistentCharacter();
@@ -94,9 +113,10 @@ export function App(): ReactElement {
           <div className="notice notice--danger" role="alert">
             <p>
               The saved character could not be read, so this is a new one.
-              {load.kept ? ' The old value has been kept aside, unchanged.' : ''}
+              {quarantineNote(load)}
             </p>
             <ProblemReport subject="the saved character" problems={load.problems} />
+            {load.quarantined && <RecoverCharacter />}
           </div>
         )}
 

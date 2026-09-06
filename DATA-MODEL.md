@@ -546,7 +546,7 @@ forward by one migration path and cannot drift apart.
 | Key | Holds |
 |---|---|
 | `lantern:character` | The active sheet. |
-| `lantern:character.rejected` | A value the app could not read, copied aside before anything overwrote it. Never read back; it exists so "corrupt" means "set aside" rather than "gone". |
+| `lantern:character.rejected` | A value the app could not read, copied aside before anything overwrote it. Never parsed and never written over; read back only to hand the raw text to the player as a file. |
 
 ### Reading
 
@@ -562,6 +562,32 @@ forward by one migration path and cannot drift apart.
 A rejected value is **never overwritten in place by the loader**, and an existing
 rejected copy is never replaced by a later one: the first thing that broke is the likelier
 to be real player data.
+
+### Getting it back
+
+Setting a value aside is only half of "never destroy player data" — a copy nobody can
+reach is indistinguishable from a deleted one, and devtools is not a recovery path for
+the people this app is for. So a `rejected` load also reports `quarantined`, and where it
+is true the warning carries one button: **Download the old value**.
+
+`readRejectedCharacter()` is the only read of that key, and there is no write anywhere on
+the path. The bytes are handed to the browser **exactly as stored** — not re-serialised,
+not migrated, not validated. This build is the build that could not read them, and a
+build that could not read them has no business rewriting them; a value that is not JSON
+at all downloads the same way as one that is.
+
+`kept` and `quarantined` are different facts and the notice says the right one. `kept` is
+true when *this* value was the one set aside; `quarantined` is true whenever something is
+under the key, including when an earlier broken save was already parked and this one was
+not allowed over it. Both are false only when storage refused the copy, and then there is
+nothing to offer and no button.
+
+The file is `lantern-character-rejected.json` — fixed rather than slugged, because the
+reason it is parked is that no name could be read out of it. The `.json` extension is a
+claim about what the file was meant to be, and it is what lets the import field above
+pick it up: the recovered file goes back in through `readCharacterFile` like any other,
+so "download it, fix the line the problem report named, open it" is one loop rather than
+two tools.
 
 ### `formatVersion`
 
