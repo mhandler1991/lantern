@@ -165,6 +165,23 @@ export const MAX_PACK_CHUNKS = Math.ceil(MAX_PACK_BYTES / MAX_PACK_CHUNK_BYTES);
 /** How many packs may be loaded at once, core included. */
 export const MAX_PACKS_LOADED = 32;
 
+/**
+ * The pack every reference in the app is written against — `core:class:wizard`. It is
+ * the pack id inside `packs/core.json`, and the two are asserted equal on load: a core
+ * file that renamed itself would leave every stored reference on every sheet pointing
+ * at nothing, which is the silent data loss PRD.md principle 4 exists to prevent.
+ */
+export const CORE_PACK_ID = 'core';
+
+/**
+ * Where the core pack is fetched from, **relative and deliberately so**. Pages serves
+ * this app from a subpath, so it is joined to `import.meta.env.BASE_URL` at the call
+ * site and never rooted at `/` (CLAUDE.md §1, DEPLOY.md §2). A wrong runtime path
+ * throws nothing and logs nothing — the pickers are simply empty — which is exactly why
+ * the path is a constant with a test on it rather than a string in a fetch call.
+ */
+export const CORE_PACK_PATH = 'packs/core.json';
+
 // ---------------------------------------------------------------------------
 // Content packs — entries. DATA-MODEL.md §§3-8.
 // ---------------------------------------------------------------------------

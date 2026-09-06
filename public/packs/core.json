@@ -1,0 +1,233 @@
+{
+  "format": "lantern-pack",
+  "formatVersion": 1,
+  "id": "core",
+  "name": "Core",
+  "version": "0.1.0",
+  "description": "Names, mechanics and page references only. No rules text — a table that owns the book supplies the rest.",
+
+  "ancestries": [
+    { "id": "human", "name": "Human", "page": null },
+    { "id": "elf", "name": "Elf", "page": null },
+    { "id": "dwarf", "name": "Dwarf", "page": null },
+    { "id": "halfling", "name": "Halfling", "page": null },
+    { "id": "half-orc", "name": "Half-orc", "page": null },
+    { "id": "goblin", "name": "Goblin", "page": null }
+  ],
+
+  "classes": [
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "hitDie": "d8",
+      "weapons": [
+        "bastard-sword", "club", "crossbow", "dagger", "greataxe", "greatsword",
+        "javelin", "longbow", "longsword", "mace", "shortbow", "shortsword",
+        "spear", "staff", "warhammer"
+      ],
+      "armor": ["none", "light", "medium", "heavy", "shield"],
+      "spellcasting": null,
+      "talentTable": "fighter-talents",
+      "page": null
+    },
+    {
+      "id": "priest",
+      "name": "Priest",
+      "hitDie": "d6",
+      "weapons": ["club", "crossbow", "dagger", "longsword", "mace", "staff", "warhammer"],
+      "armor": ["none", "light", "medium", "heavy", "shield"],
+      "spellcasting": {
+        "stat": "wis",
+        "highestTierByLevel": [1, 1, 2, 2, 3, 3, 4, 4, 5, 5]
+      },
+      "talentTable": "priest-talents",
+      "page": null
+    },
+    {
+      "id": "thief",
+      "name": "Thief",
+      "hitDie": "d4",
+      "weapons": ["club", "crossbow", "dagger", "shortbow", "shortsword"],
+      "armor": ["none", "light"],
+      "spellcasting": null,
+      "talentTable": "thief-talents",
+      "page": null
+    },
+    {
+      "id": "wizard",
+      "name": "Wizard",
+      "hitDie": "d4",
+      "weapons": ["dagger", "staff"],
+      "armor": ["none"],
+      "spellcasting": {
+        "stat": "int",
+        "highestTierByLevel": [1, 1, 2, 2, 3, 3, 4, 4, 5, 5]
+      },
+      "talentTable": "wizard-talents",
+      "page": null
+    }
+  ],
+
+  "tables": [
+    {
+      "id": "fighter-talents",
+      "name": "Fighter talents",
+      "die": "2d6",
+      "rerollable": false,
+      "rows": [
+        { "roll": 2, "text": "Choose a talent, or add 2 points to distribute among your stats" },
+        { "roll": [3, 6], "text": "+1 to melee and ranged attacks" },
+        { "roll": [7, 9], "text": "Choose one weapon type: +1 to attack and damage with it" },
+        { "roll": [10, 11], "text": "+2 to your armor class" },
+        { "roll": 12, "text": "Choose a talent, or add 2 points to distribute among your stats" }
+      ],
+      "page": null
+    },
+    {
+      "id": "priest-talents",
+      "name": "Priest talents",
+      "die": "2d6",
+      "rerollable": false,
+      "rows": [
+        { "roll": 2, "text": "Choose a talent, or add 2 points to distribute among your stats" },
+        { "roll": [3, 6], "text": "+1 to your spellcasting checks" },
+        { "roll": [7, 9], "text": "Choose one spell you know: +1 to cast it" },
+        { "roll": [10, 11], "text": "+1 to melee or ranged attacks" },
+        { "roll": 12, "text": "Choose a talent, or add 2 points to distribute among your stats" }
+      ],
+      "page": null
+    },
+    {
+      "id": "thief-talents",
+      "name": "Thief talents",
+      "die": "2d6",
+      "rerollable": false,
+      "rows": [
+        { "roll": 2, "text": "Choose a talent, or add 2 points to distribute among your stats" },
+        { "roll": [3, 6], "text": "+2 to initiative rolls" },
+        { "roll": [7, 9], "text": "+1 to your backstab damage dice" },
+        { "roll": [10, 11], "text": "+1 to melee or ranged attacks, or +2 to stealth checks" },
+        { "roll": 12, "text": "Choose a talent, or add 2 points to distribute among your stats" }
+      ],
+      "page": null
+    },
+    {
+      "id": "wizard-talents",
+      "name": "Wizard talents",
+      "die": "2d6",
+      "rerollable": false,
+      "rows": [
+        { "roll": 2, "text": "Choose a talent, or add 2 points to distribute among your stats" },
+        { "roll": [3, 6], "text": "+1 to your spellcasting checks" },
+        { "roll": [7, 9], "text": "Choose one spell you know: +1 to cast it" },
+        { "roll": [10, 11], "text": "+2 to your armor class, or +1 to a stat of your choice" },
+        { "roll": 12, "text": "Choose a talent, or add 2 points to distribute among your stats" }
+      ],
+      "page": null
+    }
+  ],
+
+  "items": [
+    { "id": "bastard-sword", "name": "Bastard sword", "slots": 1, "cost": { "amount": 10, "currency": "gp" }, "weapon": { "type": "melee", "damage": "1d8/1d10", "properties": ["versatile"] }, "page": null },
+    { "id": "club", "name": "Club", "slots": 1, "cost": { "amount": 5, "currency": "cp" }, "weapon": { "type": "melee", "damage": "1d4", "properties": [] }, "page": null },
+    { "id": "crossbow", "name": "Crossbow", "slots": 1, "cost": { "amount": 8, "currency": "gp" }, "weapon": { "type": "ranged", "damage": "1d6", "properties": ["loading", "two-handed"] }, "page": null },
+    { "id": "dagger", "name": "Dagger", "slots": 1, "cost": { "amount": 1, "currency": "gp" }, "weapon": { "type": "melee", "damage": "1d4", "properties": ["finesse", "thrown"] }, "page": null },
+    { "id": "greataxe", "name": "Greataxe", "slots": 2, "cost": { "amount": 10, "currency": "gp" }, "weapon": { "type": "melee", "damage": "1d8", "properties": ["two-handed"] }, "page": null },
+    { "id": "greatsword", "name": "Greatsword", "slots": 2, "cost": { "amount": 12, "currency": "gp" }, "weapon": { "type": "melee", "damage": "1d12", "properties": ["two-handed"] }, "page": null },
+    { "id": "javelin", "name": "Javelin", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "weapon": { "type": "melee", "damage": "1d4", "properties": ["thrown"] }, "page": null },
+    { "id": "longbow", "name": "Longbow", "slots": 2, "cost": { "amount": 8, "currency": "gp" }, "weapon": { "type": "ranged", "damage": "1d8", "properties": ["two-handed"] }, "page": null },
+    { "id": "longsword", "name": "Longsword", "slots": 1, "cost": { "amount": 9, "currency": "gp" }, "weapon": { "type": "melee", "damage": "1d8", "properties": ["versatile"] }, "page": null },
+    { "id": "mace", "name": "Mace", "slots": 1, "cost": { "amount": 5, "currency": "gp" }, "weapon": { "type": "melee", "damage": "1d6", "properties": [] }, "page": null },
+    { "id": "shortbow", "name": "Shortbow", "slots": 1, "cost": { "amount": 6, "currency": "gp" }, "weapon": { "type": "ranged", "damage": "1d4", "properties": ["two-handed"] }, "page": null },
+    { "id": "shortsword", "name": "Shortsword", "slots": 1, "cost": { "amount": 7, "currency": "gp" }, "weapon": { "type": "melee", "damage": "1d6", "properties": [] }, "page": null },
+    { "id": "spear", "name": "Spear", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "weapon": { "type": "melee", "damage": "1d6", "properties": ["thrown", "versatile"] }, "page": null },
+    { "id": "staff", "name": "Staff", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "weapon": { "type": "melee", "damage": "1d4", "properties": ["two-handed"] }, "page": null },
+    { "id": "warhammer", "name": "Warhammer", "slots": 1, "cost": { "amount": 10, "currency": "gp" }, "weapon": { "type": "melee", "damage": "1d10", "properties": ["two-handed"] }, "page": null },
+
+    { "id": "leather-armor", "name": "Leather armor", "slots": 1, "cost": { "amount": 10, "currency": "gp" }, "armor": { "type": "light", "ac": 11, "addDex": true }, "page": null },
+    { "id": "chainmail", "name": "Chainmail", "slots": 2, "cost": { "amount": 60, "currency": "gp" }, "armor": { "type": "medium", "ac": 13, "addDex": true }, "page": null },
+    { "id": "plate-mail", "name": "Plate mail", "slots": 4, "cost": { "amount": 130, "currency": "gp" }, "armor": { "type": "heavy", "ac": 15, "addDex": false }, "page": null },
+    { "id": "shield", "name": "Shield", "slots": 1, "cost": { "amount": 10, "currency": "gp" }, "armor": { "type": "shield", "ac": 2, "addDex": false }, "page": null },
+
+    { "id": "backpack", "name": "Backpack", "slots": 0, "cost": { "amount": 2, "currency": "gp" }, "page": null },
+    { "id": "caltrops", "name": "Caltrops", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null },
+    { "id": "crowbar", "name": "Crowbar", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null },
+    { "id": "flask-of-oil", "name": "Flask of oil", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null },
+    { "id": "flint-and-steel", "name": "Flint and steel", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null },
+    { "id": "grappling-hook", "name": "Grappling hook", "slots": 1, "cost": { "amount": 1, "currency": "gp" }, "page": null },
+    { "id": "holy-water", "name": "Holy water", "slots": 1, "cost": { "amount": 25, "currency": "gp" }, "page": null },
+    { "id": "iron-spikes", "name": "Iron spikes", "slots": 1, "cost": { "amount": 1, "currency": "gp" }, "page": null },
+    { "id": "lantern", "name": "Lantern", "slots": 1, "cost": { "amount": 5, "currency": "gp" }, "page": null },
+    { "id": "mirror", "name": "Mirror", "slots": 1, "cost": { "amount": 10, "currency": "gp" }, "page": null },
+    { "id": "pole", "name": "Pole", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null },
+    { "id": "rations", "name": "Rations", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null },
+    { "id": "rope", "name": "Rope", "slots": 1, "cost": { "amount": 1, "currency": "gp" }, "page": null },
+    { "id": "torch", "name": "Torch", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null }
+  ],
+
+  "spells": [
+    { "id": "alarm", "name": "Alarm", "tier": 1, "classes": ["wizard"], "range": "near", "duration": "day", "page": null },
+    { "id": "burning-hands", "name": "Burning Hands", "tier": 1, "classes": ["wizard"], "range": "close", "duration": "instant", "page": null },
+    { "id": "charm-person", "name": "Charm Person", "tier": 1, "classes": ["wizard"], "range": "near", "duration": "day", "page": null },
+    { "id": "detect-magic", "name": "Detect Magic", "tier": 1, "classes": ["wizard"], "range": "near", "duration": "focus", "page": null },
+    { "id": "feather-fall", "name": "Feather Fall", "tier": 1, "classes": ["wizard"], "range": "self", "duration": "instant", "page": null },
+    { "id": "floating-disk", "name": "Floating Disk", "tier": 1, "classes": ["wizard"], "range": "close", "duration": "hour", "page": null },
+    { "id": "hold-portal", "name": "Hold Portal", "tier": 1, "classes": ["wizard"], "range": "near", "duration": "focus", "page": null },
+    { "id": "light", "name": "Light", "tier": 1, "classes": ["wizard", "priest"], "range": "near", "duration": "hour", "page": null },
+    { "id": "mage-armor", "name": "Mage Armor", "tier": 1, "classes": ["wizard"], "range": "self", "duration": "day", "page": null },
+    { "id": "magic-missile", "name": "Magic Missile", "tier": 1, "classes": ["wizard"], "range": "far", "duration": "instant", "page": null },
+    { "id": "protection-from-evil", "name": "Protection from Evil", "tier": 1, "classes": ["wizard", "priest"], "range": "self", "duration": "focus", "page": null },
+    { "id": "sleep", "name": "Sleep", "tier": 1, "classes": ["wizard"], "range": "near", "duration": "instant", "page": null },
+    { "id": "bless", "name": "Bless", "tier": 1, "classes": ["priest"], "range": "near", "duration": "focus", "page": null },
+    { "id": "cure-wounds", "name": "Cure Wounds", "tier": 1, "classes": ["priest"], "range": "close", "duration": "instant", "page": null },
+    { "id": "holy-weapon", "name": "Holy Weapon", "tier": 1, "classes": ["priest"], "range": "close", "duration": "day", "page": null },
+    { "id": "shield-of-faith", "name": "Shield of Faith", "tier": 1, "classes": ["priest"], "range": "self", "duration": "focus", "page": null },
+    { "id": "turn-undead", "name": "Turn Undead", "tier": 1, "classes": ["priest"], "range": "near", "duration": "instant", "page": null },
+
+    { "id": "acid-arrow", "name": "Acid Arrow", "tier": 2, "classes": ["wizard"], "range": "far", "duration": "instant", "page": null },
+    { "id": "detect-thoughts", "name": "Detect Thoughts", "tier": 2, "classes": ["wizard"], "range": "near", "duration": "focus", "page": null },
+    { "id": "invisibility", "name": "Invisibility", "tier": 2, "classes": ["wizard"], "range": "close", "duration": "focus", "page": null },
+    { "id": "knock", "name": "Knock", "tier": 2, "classes": ["wizard"], "range": "near", "duration": "instant", "page": null },
+    { "id": "levitate", "name": "Levitate", "tier": 2, "classes": ["wizard"], "range": "self", "duration": "focus", "page": null },
+    { "id": "mirror-image", "name": "Mirror Image", "tier": 2, "classes": ["wizard"], "range": "self", "duration": "focus", "page": null },
+    { "id": "misty-step", "name": "Misty Step", "tier": 2, "classes": ["wizard"], "range": "self", "duration": "instant", "page": null },
+    { "id": "web", "name": "Web", "tier": 2, "classes": ["wizard"], "range": "near", "duration": "focus", "page": null },
+    { "id": "enthrall", "name": "Enthrall", "tier": 2, "classes": ["priest"], "range": "near", "duration": "focus", "page": null },
+    { "id": "hold-person", "name": "Hold Person", "tier": 2, "classes": ["priest"], "range": "near", "duration": "focus", "page": null },
+    { "id": "silence", "name": "Silence", "tier": 2, "classes": ["priest"], "range": "far", "duration": "focus", "page": null },
+    { "id": "spiritual-weapon", "name": "Spiritual Weapon", "tier": 2, "classes": ["priest"], "range": "near", "duration": "focus", "page": null },
+    { "id": "zone-of-truth", "name": "Zone of Truth", "tier": 2, "classes": ["priest"], "range": "near", "duration": "focus", "page": null },
+
+    { "id": "counterspell", "name": "Counterspell", "tier": 3, "classes": ["wizard"], "range": "far", "duration": "instant", "page": null },
+    { "id": "dispel-magic", "name": "Dispel Magic", "tier": 3, "classes": ["wizard"], "range": "near", "duration": "instant", "page": null },
+    { "id": "fireball", "name": "Fireball", "tier": 3, "classes": ["wizard"], "range": "far", "duration": "instant", "page": null },
+    { "id": "fly", "name": "Fly", "tier": 3, "classes": ["wizard"], "range": "self", "duration": "focus", "page": null },
+    { "id": "lightning-bolt", "name": "Lightning Bolt", "tier": 3, "classes": ["wizard"], "range": "far", "duration": "instant", "page": null },
+    { "id": "water-breathing", "name": "Water Breathing", "tier": 3, "classes": ["wizard"], "range": "near", "duration": "day", "page": null },
+    { "id": "animate-dead", "name": "Animate Dead", "tier": 3, "classes": ["priest"], "range": "near", "duration": "permanent", "page": null },
+    { "id": "bestow-curse", "name": "Bestow Curse", "tier": 3, "classes": ["priest"], "range": "close", "duration": "permanent", "page": null },
+    { "id": "remove-curse", "name": "Remove Curse", "tier": 3, "classes": ["priest"], "range": "close", "duration": "instant", "page": null },
+    { "id": "sanctuary", "name": "Sanctuary", "tier": 3, "classes": ["priest"], "range": "close", "duration": "focus", "page": null },
+    { "id": "speak-with-dead", "name": "Speak with Dead", "tier": 3, "classes": ["priest"], "range": "close", "duration": "minute", "page": null },
+
+    { "id": "confusion", "name": "Confusion", "tier": 4, "classes": ["wizard"], "range": "near", "duration": "focus", "page": null },
+    { "id": "dimension-door", "name": "Dimension Door", "tier": 4, "classes": ["wizard"], "range": "far", "duration": "instant", "page": null },
+    { "id": "polymorph", "name": "Polymorph", "tier": 4, "classes": ["wizard"], "range": "near", "duration": "focus", "page": null },
+    { "id": "scrying", "name": "Scrying", "tier": 4, "classes": ["wizard"], "range": "self", "duration": "focus", "page": null },
+    { "id": "wall-of-fire", "name": "Wall of Fire", "tier": 4, "classes": ["wizard"], "range": "near", "duration": "focus", "page": null },
+    { "id": "banishment", "name": "Banishment", "tier": 4, "classes": ["priest"], "range": "near", "duration": "instant", "page": null },
+    { "id": "death-ward", "name": "Death Ward", "tier": 4, "classes": ["priest"], "range": "close", "duration": "day", "page": null },
+    { "id": "divination", "name": "Divination", "tier": 4, "classes": ["priest"], "range": "self", "duration": "instant", "page": null },
+    { "id": "true-seeing", "name": "True Seeing", "tier": 4, "classes": ["priest"], "range": "close", "duration": "focus", "page": null },
+
+    { "id": "cloudkill", "name": "Cloudkill", "tier": 5, "classes": ["wizard"], "range": "far", "duration": "focus", "page": null },
+    { "id": "cone-of-cold", "name": "Cone of Cold", "tier": 5, "classes": ["wizard"], "range": "near", "duration": "instant", "page": null },
+    { "id": "passwall", "name": "Passwall", "tier": 5, "classes": ["wizard"], "range": "near", "duration": "hour", "page": null },
+    { "id": "telekinesis", "name": "Telekinesis", "tier": 5, "classes": ["wizard"], "range": "far", "duration": "focus", "page": null },
+    { "id": "teleport", "name": "Teleport", "tier": 5, "classes": ["wizard"], "range": "self", "duration": "instant", "page": null },
+    { "id": "commune", "name": "Commune", "tier": 5, "classes": ["priest"], "range": "self", "duration": "instant", "page": null },
+    { "id": "flame-strike", "name": "Flame Strike", "tier": 5, "classes": ["priest"], "range": "far", "duration": "instant", "page": null },
+    { "id": "heal", "name": "Heal", "tier": 5, "classes": ["priest"], "range": "close", "duration": "instant", "page": null },
+    { "id": "raise-dead", "name": "Raise Dead", "tier": 5, "classes": ["priest"], "range": "close", "duration": "instant", "page": null }
+  ]
+}
