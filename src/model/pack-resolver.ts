@@ -27,6 +27,7 @@
  * sheet records; this file never reads it, and never modifies a stat (PRD.md principle 1).
  */
 
+import type { ItemLookup } from './derived';
 import {
   EntryKind,
   type AncestryEntry,
@@ -559,6 +560,24 @@ export function lookup(
   fromPack: PackId,
 ): ResolvedEntry | undefined {
   return stack.byRef.get(normalizeRef(reference, kind, fromPack));
+}
+
+/**
+ * The stack as `model/derived.ts` reads it: a reference in, the two facts an AC or a
+ * slot count needs out, and `null` for anything no loaded pack defines.
+ *
+ * A sheet stores the full `pack:kind:id` form and nothing else (DATA-MODEL.md §1), so
+ * there is nothing to imply here and no `kind` argument to take — an unresolved
+ * reference is answered `null` and the row's own value stands (`derived.ts`: a loaded
+ * pack's answer wins, the row is the fallback). 🚫 It never throws and never blocks.
+ */
+export function itemLookup(stack: ResolvedStack): ItemLookup {
+  return (reference) => {
+    const found = stack.byRef.get(reference);
+    if (found === undefined || found.kind !== 'item') return null;
+
+    return { slots: found.entry.slots, armor: found.entry.armor ?? null };
+  };
 }
 
 /**

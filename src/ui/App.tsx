@@ -7,9 +7,9 @@
  * and the sheet still works, and a save that failed is shown rather than swallowed. None
  * of them can stop a player using the sheet, which is the whole point of the principle.
  *
- * The lobby sits above the sheet rather than in front of it: a room is optional, and
- * PRD.md principle 6 says the app has to work alone with no room and no packs at all.
- * There are no packs and no dice yet, and the sheet does not need either.
+ * The lobby and the content screen sit above the sheet rather than in front of it: a
+ * room is optional and so are packs, and PRD.md principle 6 says the app has to work
+ * alone with neither. There are no dice yet, and the sheet does not need them.
  *
  * The character file sits above the sheet for the opposite reason: it is not optional.
  * A character lives in this browser and nowhere else (DESIGN.md §8), so export is the
@@ -20,29 +20,31 @@
 import type { ReactElement } from 'react';
 import { useMemo } from 'react';
 import '../styles/app.css';
-import type { ItemLookup } from '../model/derived';
+import { itemLookup } from '../model/pack-resolver';
 import { toPublicCharacter } from '../net/projection';
+import { usePacks } from '../state/use-packs';
 import { usePersistentCharacter } from '../state/use-persistent-character';
 import { usePresence } from '../state/use-presence';
 import { useRoom } from '../state/use-room';
+import { ContentScreen } from './ContentScreen';
 import { Lobby } from './Lobby';
 import { Portability } from './Portability';
 import { ProblemReport } from './ProblemReport';
 import { CharacterSheet } from './sheet/CharacterSheet';
 
-/** No pack is loaded until Phase 2, so no reference resolves — the same state as the sheet. */
-const NO_PACKS: ItemLookup = () => null;
-
 export function App(): ReactElement {
   const { character, setCharacter, load, lastSave } = usePersistentCharacter();
   const room = useRoom();
+  const packs = usePacks();
 
   /**
    * What peers may see, derived on read and never stored (DESIGN.md §2). Memoised
    * because it is the presence hook's input and a new object every render would rebuild
-   * the roster every render.
+   * the roster every render — and it depends on the packs as well as the sheet, because
+   * a reference resolves to an item's armour only while the pack defining it is on.
    */
-  const projection = useMemo(() => toPublicCharacter(character, NO_PACKS), [character]);
+  const items = useMemo(() => itemLookup(packs.stack), [packs.stack]);
+  const projection = useMemo(() => toPublicCharacter(character, items), [character, items]);
   const presence = usePresence(projection);
 
   return (
@@ -96,6 +98,9 @@ export function App(): ReactElement {
       <main>
         <div className="lobby">
           <Lobby room={room} presence={presence} />
+        </div>
+        <div className="content">
+          <ContentScreen packs={packs} />
         </div>
         <div className="portability">
           <Portability character={character} setCharacter={setCharacter} />
