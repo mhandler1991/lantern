@@ -264,6 +264,15 @@ export const MAX_TABLE_ROLL = MAX_TABLE_DIE_COUNT * MAX_DIE_SIDES;
 /** A die face is numbered from one, so no roll on any table is lower. */
 export const MIN_TABLE_ROLL = 1;
 
+/**
+ * How many times a `rerollable` table offers to throw the result away (DATA-MODEL.md
+ * §8). One: the flag exists so a table can say *take it or roll again*, and a second
+ * offer turns that into rolling until the row is liked, which is a different thing and
+ * not one any table asks for. 🚫 It bounds the offer, never the player — nothing stops
+ * anybody rolling on the table again from the top.
+ */
+export const MAX_TABLE_REROLLS = 1;
+
 /** `100d100` is seven characters. Bounded before the notation is picked apart. */
 export const MAX_DIE_NOTATION_LENGTH = 8;
 
