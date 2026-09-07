@@ -227,9 +227,12 @@ describe('extend', () => {
   const rimeblade = { roll: [19, 20], text: 'A rimeblade' };
   const frostTalent = { roll: 2, text: 'Frost affinity' };
 
+  // It defines the talent it offers, the way `packs/example-pack.json` does: an
+  // extension naming a talent nothing defines is its own case, below.
   const frost = loaded({
     id: 'frostbound',
     name: 'Frostbound',
+    talents: [{ id: 'frost-affinity', name: 'Frost affinity' }],
     extends: [
       { target: 'core:table:loot-minor', rows: [rimeblade] },
       { target: 'core:class:wizard', talents: ['frost-affinity'] },
@@ -320,6 +323,7 @@ describe('extend', () => {
     const twice = loaded({
       id: 'twice',
       name: 'Twice',
+      talents: [{ id: 'gift', name: 'A gift' }],
       extends: [{ target: 'core:class:wizard', talents: ['gift', 'gift'] }],
     });
 
@@ -358,6 +362,103 @@ describe('extend', () => {
     });
 
     expect(resolvePacks([CORE, nothing]).classes[0]?.sources).toHaveLength(1);
+  });
+});
+
+describe('talents', () => {
+  const talent = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    name,
+    ...extra,
+  });
+
+  const frostbound = loaded({
+    id: 'frostbound',
+    name: 'Frostbound',
+    talents: [talent('cold-forged', 'Cold forged')],
+    extends: [{ target: 'core:class:wizard', talents: ['cold-forged'] }],
+  });
+
+  it('defines a talent into the stack, namespaced like every other kind', () => {
+    const stack = resolvePacks([CORE, frostbound]);
+
+    expect(stack.talents.map((one) => one.ref)).toEqual(['frostbound:talent:cold-forged']);
+    expect(stack.byRef.get('frostbound:talent:cold-forged')?.entry.name).toBe('Cold forged');
+    expect(stack.byRef.get('frostbound:talent:cold-forged')?.kind).toBe('talent');
+    expect(stack.warnings).toEqual([]);
+  });
+
+  it('resolves the reference an extension put on a class', () => {
+    const stack = resolvePacks([CORE, frostbound]);
+    const offered = stack.classes[0]?.talents ?? [];
+
+    expect(offered).toEqual(['frostbound:talent:cold-forged']);
+    expect(offered.map((reference) => stack.byRef.get(reference)?.entry.name)).toEqual([
+      'Cold forged',
+    ]);
+  });
+
+  it('replaces a talent by id and warns, the way every other kind does', () => {
+    const cursed = loaded({
+      id: 'cursed-scroll',
+      name: 'Cursed Scroll 1',
+      talents: [
+        talent('deep-forged', 'Deep forged', { overrides: 'frostbound:talent:cold-forged' }),
+      ],
+    });
+
+    const stack = resolvePacks([CORE, frostbound, cursed]);
+
+    expect(stack.byRef.get('frostbound:talent:cold-forged')?.entry.name).toBe('Deep forged');
+    expect(stack.byRef.has('cursed-scroll:talent:deep-forged')).toBe(false);
+    // The class was offered a reference, and the reference is what an override replaces:
+    // the class now offers the Cursed Scroll's talent without being extended again.
+    expect(stack.classes[0]?.talents).toEqual(['frostbound:talent:cold-forged']);
+    expect(stack.warnings.map((one) => one.path)).toEqual(['cursed-scroll.talents[0].overrides']);
+  });
+
+  it('warns when one pack defines a talent id twice, and keeps the later entry', () => {
+    const twice = loaded({
+      id: 'frostbound',
+      name: 'Frostbound',
+      talents: [talent('cold-forged', 'Cold forged'), talent('cold-forged', 'Cold forged, revised')],
+    });
+
+    const stack = resolvePacks([twice]);
+
+    expect(stack.talents).toHaveLength(1);
+    expect(stack.talents[0]?.entry.name).toBe('Cold forged, revised');
+    expect(stack.warnings.map((one) => one.path)).toEqual(['frostbound.talents[1].id']);
+  });
+
+  it('warns about a talent no pack defines, and offers it anyway', () => {
+    const dangling = loaded({
+      id: 'dangling',
+      name: 'Dangling',
+      extends: [{ target: 'core:class:wizard', talents: ['frost-affinity'] }],
+    });
+
+    const stack = resolvePacks([CORE, dangling]);
+
+    // PRD.md principle 4: the reference is what a sheet would show, so losing it would
+    // cost the class a talent it was offered.
+    expect(stack.classes[0]?.talents).toEqual(['dangling:talent:frost-affinity']);
+    expect(stack.classes[0]?.sources.at(-1)?.talentsAdded).toBe(1);
+    expect(stack.warnings.map((one) => one.path)).toEqual(['dangling.extends[0].talents[0]']);
+    expect(stack.warnings[0]?.message).toContain('no loaded pack defines');
+  });
+
+  it('tells an extension that a talent is not something to extend', () => {
+    const confused = loaded({
+      id: 'confused',
+      name: 'Confused',
+      extends: [{ target: 'frostbound:talent:cold-forged', talents: ['cold-forged'] }],
+    });
+
+    const stack = resolvePacks([CORE, frostbound, confused]);
+
+    expect(stack.warnings.map((one) => one.path)).toEqual(['confused.extends[0].talents']);
+    expect(stack.warnings[0]?.message).toContain('is a talent');
   });
 });
 

@@ -260,10 +260,11 @@ ways to say one thing is one of them going quietly out of date. A pack's own cla
 exception — it gets its own talents through an extension naming it, which works because
 resolution applies every definition before any extension (§9).
 
-📌 **Resolution does not place talents in the stack yet.** `pack.ts` validates the array
-and `pack-resolver.ts` still treats an extension's `talents` as references it records
-without checking (#127). Defining a talent is legal, described and parsed; nothing reads
-it until that lands.
+A talent is in the stack like every other kind: `pack-resolver.ts` collects the array,
+namespaces each id, warns on a duplicate or an override, and answers
+`frostbound:talent:cold-forged` from `byRef`. An extension naming a talent no pack defines
+is **warned about and offered anyway** — the class keeps the reference, because that is
+what a sheet would show (`PRD.md` principle 4).
 
 ## 8. Tables
 
@@ -355,6 +356,7 @@ resolution fault and a schema fault paste back in one block:
 | `overrides` across kinds | Warns; kept as a definition of its own |
 | Two packs override the same entry | Both warn; the last loaded wins |
 | `extends` a target no pack defines | Warns; that extension is skipped, the pack loads |
+| `extends` names a talent no pack defines | Warns; the class is offered it anyway, and it reads as its reference |
 
 An override replaces in place: the entry keeps the reference **and the list position** of
 what it replaced, so turning a supplement on never reshuffles a list somebody was

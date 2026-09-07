@@ -444,7 +444,7 @@
       "properties": {
         "target": { "$ref": "#/$defs/ref" },
         "talents": {
-          "description": "Talent references to offer a class. Recorded and never resolved.",
+          "description": "Talent references to offer a class. One a loaded pack defines resolves to it; one nothing defines warns and is offered anyway, reading as its reference.",
           "type": "array",
           "maxItems": 100,
           "items": { "$ref": "#/$defs/entryRef" }
