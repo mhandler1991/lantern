@@ -7,12 +7,20 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_LIGHT_MINUTES, MAX_LIGHT_MINUTES } from '../constants';
 import type { Light } from './character';
-import { anyBurning, computeBurn } from './light';
+import type { ItemLookup } from './derived';
+import { anyBurning, burnMinutes, computeBurn, packBurnMinutes } from './light';
 
 const MINUTE = 60_000;
 
 /** A moment with no significance beyond being a long way from zero. */
 const LIT_AT = 1_735_689_600_000;
+
+/** No pack loaded, so every row is read against the `minutes` it stored. */
+const NO_PACKS: ItemLookup = () => null;
+
+/** A pack that says the torch it defines burns for a quarter of an hour. */
+const BRIEF_TORCH: ItemLookup = (ref) =>
+  ref === 'core:item:torch' ? { slots: 1, armor: null, light: { minutes: 15 } } : null;
 
 function torch(overrides: Partial<Light> = {}): Light {
   return {
@@ -31,7 +39,7 @@ function torch(overrides: Partial<Light> = {}): Light {
 
 describe('an unlit light', () => {
   it('has burned nothing and has all of itself left', () => {
-    const burn = computeBurn(torch({ litAt: null }), LIT_AT + 10 * MINUTE);
+    const burn = computeBurn(torch({ litAt: null }), LIT_AT + 10 * MINUTE, NO_PACKS);
 
     expect(burn.isLit).toBe(false);
     expect(burn.isBurning).toBe(false);
@@ -44,7 +52,7 @@ describe('an unlit light', () => {
 
 describe('a burning light', () => {
   it('has spent exactly the time that has passed', () => {
-    const burn = computeBurn(torch(), LIT_AT + 20 * MINUTE);
+    const burn = computeBurn(torch(), LIT_AT + 20 * MINUTE, NO_PACKS);
 
     expect(burn.elapsedMs).toBe(20 * MINUTE);
     expect(burn.remainingMs).toBe(40 * MINUTE);
@@ -53,7 +61,7 @@ describe('a burning light', () => {
   });
 
   it('reads full at the moment it is struck', () => {
-    const burn = computeBurn(torch(), LIT_AT);
+    const burn = computeBurn(torch(), LIT_AT, NO_PACKS);
 
     expect(burn.remainingMs).toBe(DEFAULT_LIGHT_MINUTES * MINUTE);
     expect(burn.percentRemaining).toBe(100);
@@ -63,25 +71,25 @@ describe('a burning light', () => {
   it('is still burning with a millisecond left, and out one millisecond later', () => {
     const lastMoment = LIT_AT + DEFAULT_LIGHT_MINUTES * MINUTE - 1;
 
-    expect(computeBurn(torch(), lastMoment).isBurning).toBe(true);
-    expect(computeBurn(torch(), lastMoment + 1).isBurning).toBe(false);
-    expect(computeBurn(torch(), lastMoment + 1).isSpent).toBe(true);
+    expect(computeBurn(torch(), lastMoment, NO_PACKS).isBurning).toBe(true);
+    expect(computeBurn(torch(), lastMoment + 1, NO_PACKS).isBurning).toBe(false);
+    expect(computeBurn(torch(), lastMoment + 1, NO_PACKS).isSpent).toBe(true);
   });
 
   it('counts the same time whether it is read once or a thousand times', () => {
     const at = LIT_AT + 37 * MINUTE;
-    const once = computeBurn(torch(), at);
+    const once = computeBurn(torch(), at, NO_PACKS);
 
-    for (let i = 0; i < 1_000; i += 1) computeBurn(torch(), LIT_AT + i);
+    for (let i = 0; i < 1_000; i += 1) computeBurn(torch(), LIT_AT + i, NO_PACKS);
 
-    expect(computeBurn(torch(), at)).toEqual(once);
+    expect(computeBurn(torch(), at, NO_PACKS)).toEqual(once);
   });
 
   it('does not write to the light it was handed', () => {
     const light = torch();
     const before = { ...light };
 
-    computeBurn(light, LIT_AT + 30 * MINUTE);
+    computeBurn(light, LIT_AT + 30 * MINUTE, NO_PACKS);
 
     expect(light).toEqual(before);
   });
@@ -95,13 +103,13 @@ describe('a light read against an odd clock', () => {
   // Twenty minutes in a background tab is not twenty ticks that never fired — it is one
   // later reading of the clock, and this is the case that proves it.
   it('spends the whole gap a backgrounded tab skipped', () => {
-    const burn = computeBurn(torch({ minutes: MAX_LIGHT_MINUTES }), LIT_AT + 20 * MINUTE);
+    const burn = computeBurn(torch({ minutes: MAX_LIGHT_MINUTES }), LIT_AT + 20 * MINUTE, NO_PACKS);
 
     expect(burn.elapsedMs).toBe(20 * MINUTE);
   });
 
   it('runs out rather than owing time, however long the tab was away', () => {
-    const burn = computeBurn(torch(), LIT_AT + 100 * 24 * 60 * MINUTE);
+    const burn = computeBurn(torch(), LIT_AT + 100 * 24 * 60 * MINUTE, NO_PACKS);
 
     expect(burn.remainingMs).toBe(0);
     expect(burn.percentRemaining).toBe(0);
@@ -111,7 +119,7 @@ describe('a light read against an odd clock', () => {
   // A machine correcting itself over NTP, or a character exported on a laptop that is
   // ten minutes fast. A torch is never longer for having been lit in the future.
   it('treats a clock that moved backwards as no time passed', () => {
-    const burn = computeBurn(torch(), LIT_AT - 10 * MINUTE);
+    const burn = computeBurn(torch(), LIT_AT - 10 * MINUTE, NO_PACKS);
 
     expect(burn.elapsedMs).toBe(0);
     expect(burn.remainingMs).toBe(DEFAULT_LIGHT_MINUTES * MINUTE);
@@ -125,19 +133,82 @@ describe('a light read against an odd clock', () => {
 
 describe('the proportion left', () => {
   it('is the fraction of the burn that remains', () => {
-    expect(computeBurn(torch(), LIT_AT + 15 * MINUTE).percentRemaining).toBe(75);
-    expect(computeBurn(torch(), LIT_AT + 30 * MINUTE).percentRemaining).toBe(50);
+    expect(computeBurn(torch(), LIT_AT + 15 * MINUTE, NO_PACKS).percentRemaining).toBe(75);
+    expect(computeBurn(torch(), LIT_AT + 30 * MINUTE, NO_PACKS).percentRemaining).toBe(50);
   });
 
   it('never leaves the track in either direction', () => {
-    expect(computeBurn(torch(), LIT_AT + 600 * MINUTE).percentRemaining).toBe(0);
-    expect(computeBurn(torch(), LIT_AT - 600 * MINUTE).percentRemaining).toBe(100);
+    expect(computeBurn(torch(), LIT_AT + 600 * MINUTE, NO_PACKS).percentRemaining).toBe(0);
+    expect(computeBurn(torch(), LIT_AT - 600 * MINUTE, NO_PACKS).percentRemaining).toBe(100);
   });
 
   // The schema will not admit it, but the division is there and a number that prints as
   // NaN across a row is worse than an empty bar.
   it('reads empty rather than NaN for a light of no duration', () => {
-    expect(computeBurn(torch({ minutes: 0 }), LIT_AT + MINUTE).percentRemaining).toBe(0);
+    expect(computeBurn(torch({ minutes: 0 }), LIT_AT + MINUTE, NO_PACKS).percentRemaining).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Whose number the burn is
+// ---------------------------------------------------------------------------
+
+// The rule `derived.ts` already follows for slots, applied to time: a loaded pack's
+// answer wins and the row's own number is the fallback. The silent wrong answer here is
+// a torch reading an hour because the pack that shortened it was never asked.
+describe('how long a source burns', () => {
+  it('is the row\'s own minutes when it points at nothing', () => {
+    expect(burnMinutes(torch(), BRIEF_TORCH)).toBe(DEFAULT_LIGHT_MINUTES);
+    expect(packBurnMinutes(torch(), BRIEF_TORCH)).toBeNull();
+  });
+
+  it('is the loaded pack\'s minutes for a row that points at its item', () => {
+    const picked = torch({ ref: 'core:item:torch' });
+
+    expect(burnMinutes(picked, BRIEF_TORCH)).toBe(15);
+    expect(packBurnMinutes(picked, BRIEF_TORCH)).toBe(15);
+  });
+
+  it('falls back to the row when the pack is turned off', () => {
+    const picked = torch({ ref: 'core:item:torch' });
+
+    expect(burnMinutes(picked, NO_PACKS)).toBe(DEFAULT_LIGHT_MINUTES);
+    expect(packBurnMinutes(picked, NO_PACKS)).toBeNull();
+  });
+
+  it('falls back to the row for an item that says nothing about light', () => {
+    const sword: ItemLookup = () => ({ slots: 1, armor: null, light: null });
+    const picked = torch({ ref: 'core:item:bastard-sword' });
+
+    expect(burnMinutes(picked, sword)).toBe(DEFAULT_LIGHT_MINUTES);
+    expect(packBurnMinutes(picked, sword)).toBeNull();
+  });
+
+  it('burns the pack\'s time rather than the row\'s, and runs out on it', () => {
+    const picked = torch({ ref: 'core:item:torch' });
+
+    expect(computeBurn(picked, LIT_AT + 10 * MINUTE, BRIEF_TORCH).remainingMs).toBe(5 * MINUTE);
+    expect(computeBurn(picked, LIT_AT + 20 * MINUTE, BRIEF_TORCH).isSpent).toBe(true);
+
+    // The same row, the same moment, with the pack off: still burning on its own hour.
+    expect(computeBurn(picked, LIT_AT + 20 * MINUTE, NO_PACKS).isBurning).toBe(true);
+  });
+
+  it('does not write the pack\'s number onto the row it was handed', () => {
+    const picked = torch({ ref: 'core:item:torch' });
+    const before = { ...picked };
+
+    computeBurn(picked, LIT_AT + 10 * MINUTE, BRIEF_TORCH);
+
+    expect(picked).toEqual(before);
+    expect(picked.minutes).toBe(DEFAULT_LIGHT_MINUTES);
+  });
+
+  it('answers whether anything is alight on the pack\'s time too', () => {
+    const picked = [torch({ ref: 'core:item:torch' })];
+
+    expect(anyBurning(picked, LIT_AT + 20 * MINUTE, BRIEF_TORCH)).toBe(false);
+    expect(anyBurning(picked, LIT_AT + 20 * MINUTE, NO_PACKS)).toBe(true);
   });
 });
 
@@ -147,19 +218,19 @@ describe('the proportion left', () => {
 
 describe('whether anything is still alight', () => {
   it('is false for no lights at all', () => {
-    expect(anyBurning([], LIT_AT)).toBe(false);
+    expect(anyBurning([], LIT_AT, NO_PACKS)).toBe(false);
   });
 
   it('is false when every light is unlit', () => {
-    expect(anyBurning([torch({ litAt: null })], LIT_AT)).toBe(false);
+    expect(anyBurning([torch({ litAt: null })], LIT_AT, NO_PACKS)).toBe(false);
   });
 
   // The distinction the clock depends on: lit is not the same question as burning.
   it('is false when the only lit source has already burned out', () => {
     const spent = [torch()];
 
-    expect(anyBurning(spent, LIT_AT + 30 * MINUTE)).toBe(true);
-    expect(anyBurning(spent, LIT_AT + 90 * MINUTE)).toBe(false);
+    expect(anyBurning(spent, LIT_AT + 30 * MINUTE, NO_PACKS)).toBe(true);
+    expect(anyBurning(spent, LIT_AT + 90 * MINUTE, NO_PACKS)).toBe(false);
   });
 
   it('is true while any one of several is still going', () => {
@@ -168,6 +239,6 @@ describe('whether anything is still alight', () => {
       torch({ id: 'r_b', minutes: MAX_LIGHT_MINUTES }),
     ];
 
-    expect(anyBurning(lights, LIT_AT + 90 * MINUTE)).toBe(true);
+    expect(anyBurning(lights, LIT_AT + 90 * MINUTE, NO_PACKS)).toBe(true);
   });
 });

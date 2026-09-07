@@ -9,6 +9,7 @@
 
 import type { Dispatch, SetStateAction } from 'react';
 import type { Character } from '../../model/character';
+import type { ItemLookup } from '../../model/derived';
 import type { OrphanReport } from '../../model/orphans';
 import type { Stat } from '../../model/character';
 import type { ResolvedStack } from '../../model/pack-resolver';
@@ -50,6 +51,18 @@ export type StackProps = {
 
 export type ContentProps = StackProps & {
   readonly choices: SheetChoices;
+};
+
+/**
+ * The stack as a question about one item: what a pack says a reference's slots, armour
+ * and burn time are. Built once above the sheet like every other derived thing, because
+ * two panels reading an item through two lookups is two answers to one question.
+ *
+ * Panels take it where a *number* a pack supplies has to reach a row — light does, and
+ * gear does not: gear's pack numbers have already been added up into `carry`.
+ */
+export type ItemsProps = {
+  readonly items: ItemLookup;
 };
 
 /**

@@ -8,12 +8,13 @@
  * reload and twenty minutes in a background tab are therefore the same case — both are
  * just a later `now` against the same stored `litAt` (DESIGN.md §6, DATA-MODEL.md §12).
  *
- * A light source is an item, so the picker offers what the loaded packs hold and a
- * picked row is a reference and nothing else. Only the name is read only on such a row:
- * `minutes` is the row's own number — nothing in a pack says how long a light burns
- * (DATA-MODEL.md §4) — so it stays editable whether the pack is on or off, and so does
- * lighting it. A torch a player cannot light because a supplement was turned off would
- * be the app blocking play rather than warning about it (PRD.md principle 4).
+ * A light source is an item, so the picker offers the items a loaded pack says give
+ * light (DATA-MODEL.md §4) and a picked row is a reference and nothing else. Both of the
+ * numbers on such a row then come from the pack: the name, and how long it burns — so
+ * both boxes are read only while a pack answers, and both go back to the row's own words
+ * and the row's own `minutes` the moment it is turned off. What never changes is that it
+ * can be lit: a torch a player cannot light because a supplement was turned off would be
+ * the app blocking play rather than warning about it (PRD.md principle 4).
  *
  * The bar is `aria-hidden`: it draws the same fact the countdown beside it already says
  * in words, and a per-second live region would announce a torch over the top of
@@ -21,8 +22,8 @@
  */
 
 import type { ReactElement } from 'react';
-import { MAX_LIGHT_MINUTES, MAX_LIGHTS, MAX_NAME_LENGTH } from '../../constants';
-import { computeBurn } from '../../model/light';
+import { MAX_LIGHT_MINUTES, MAX_LIGHTS, MAX_NAME_LENGTH, MIN_LIGHT_MINUTES } from '../../constants';
+import { computeBurn, packBurnMinutes } from '../../model/light';
 import { packOfRef } from '../../model/orphans';
 import { appendRow, isAtLimit, newLight, removeRow, updateRow } from '../../state/character-edits';
 import { useLightClock } from '../../state/use-light-clock';
@@ -38,7 +39,7 @@ import {
   TextField,
 } from '../fields';
 import { describeBurn } from '../format';
-import type { ContentProps, OrphanProps, PanelProps } from './sheet-props';
+import type { ContentProps, ItemsProps, OrphanProps, PanelProps } from './sheet-props';
 
 /** Nothing carried yet. A floor, not a business rule. */
 const NONE = 0;
@@ -49,9 +50,10 @@ export function LightsPanel({
   orphans,
   stack,
   choices,
-}: PanelProps & OrphanProps & ContentProps): ReactElement {
+  items,
+}: PanelProps & OrphanProps & ContentProps & ItemsProps): ReactElement {
   const full = isAtLimit(character.lights, MAX_LIGHTS);
-  const now = useLightClock(character.lights);
+  const now = useLightClock(character.lights, items);
 
   return (
     <Panel title="Light">
@@ -60,9 +62,10 @@ export function LightsPanel({
       ) : (
         <ul className="rows">
           {character.lights.map((light) => {
-            const burn = computeBurn(light, now);
+            const burn = computeBurn(light, now, items);
             const isOrphaned = orphans.rows.has(light.id);
             const label = displayName(stack, light.ref, light.name);
+            const packMinutes = packBurnMinutes(light, items);
 
             return (
               <li
@@ -86,9 +89,10 @@ export function LightsPanel({
                 <NumberField
                   label="Minutes"
                   hideLabel
-                  value={light.minutes}
-                  min={1}
+                  value={packMinutes ?? light.minutes}
+                  min={MIN_LIGHT_MINUTES}
                   max={MAX_LIGHT_MINUTES}
+                  readOnly={packMinutes !== null}
                   onChange={(minutes) =>
                     setCharacter((previous) => ({
                       ...previous,
@@ -146,10 +150,10 @@ export function LightsPanel({
             }))
           }
         />
-        {choices.items.length > NONE && (
+        {choices.lights.length > NONE && (
           <AddFromPack
             label="Add a light from a pack"
-            choices={choices.items}
+            choices={choices.lights}
             disabled={full}
             onAdd={(ref) =>
               setCharacter((previous) => ({

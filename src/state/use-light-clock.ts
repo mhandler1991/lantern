@@ -29,16 +29,21 @@
 import { useEffect, useState } from 'react';
 import { LIGHT_TICK_MS } from '../constants';
 import type { Light } from '../model/character';
+import type { ItemLookup } from '../model/derived';
 import { anyBurning } from '../model/light';
 
 /**
  * The moment to read `lights` against. Advances while any of them is alight and holds
  * still otherwise — a frozen clock over a sheet with nothing burning is not stale, it
  * is a sheet with nothing burning.
+ *
+ * The lookup is what says how long each source burns (`model/light.ts`), so it decides
+ * the one question this hook asks: a torch whose pack gives it ten minutes stops the
+ * interval fifty minutes before the same row read against its own default would.
  */
-export function useLightClock(lights: readonly Light[]): number {
+export function useLightClock(lights: readonly Light[], lookup: ItemLookup): number {
   const [now, setNow] = useState<number>(() => Date.now());
-  const isBurning = anyBurning(lights, now);
+  const isBurning = anyBurning(lights, now, lookup);
 
   useEffect(() => {
     if (!isBurning) return;

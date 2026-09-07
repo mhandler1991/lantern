@@ -53,6 +53,17 @@ const FROSTBOUND = pack({
   ],
 });
 
+/** A pack whose items say which of them burn, and one that plainly does not. */
+const LAMPS = pack({
+  id: 'lamps',
+  name: 'Lamps',
+  items: [
+    { id: 'storm-torch', name: 'Storm torch', slots: 1, cost: { amount: 2, currency: 'gp' }, light: { minutes: 90 } },
+    { id: 'bastard-sword', name: 'Bastard sword', slots: 1, cost: { amount: 10, currency: 'gp' } },
+    { id: 'lantern', name: 'Lantern', slots: 1, cost: { amount: 5, currency: 'gp' }, light: { minutes: 60 } },
+  ],
+});
+
 const BOTH = resolvePacks([CORE, FROSTBOUND]);
 const ONLY_CORE = resolvePacks([CORE]);
 const NOTHING = resolvePacks([]);
@@ -106,6 +117,36 @@ describe('the spells a picker offers', () => {
 
   it('offers everything loaded when the class is from a pack that is off', () => {
     expect(sheetChoices(ONLY_CORE, 'frostbound:class:rimewalker').spells).toHaveLength(2);
+  });
+});
+
+describe('the lights a picker offers', () => {
+  it('is the items that say they give light, and not the sword beside them', () => {
+    const choices = sheetChoices(resolvePacks([LAMPS]), null);
+
+    expect(choices.lights.map((choice) => choice.label)).toEqual(['Storm torch', 'Lantern']);
+    expect(choices.items).toHaveLength(3);
+  });
+
+  it('keeps load order, so turning a pack on never reshuffles the list', () => {
+    const choices = sheetChoices(resolvePacks([CORE, LAMPS]), null);
+
+    // Core's torch says nothing about light, so it is not on the list — but the two
+    // that do are still in the order the stack holds them.
+    expect(choices.lights.map((choice) => choice.label)).toEqual(['Storm torch', 'Lantern']);
+  });
+
+  it('offers every item while nothing loaded says anything about light', () => {
+    const choices = sheetChoices(ONLY_CORE, null);
+
+    // A homebrew torch in a pack written before the block existed is still a torch, and
+    // an unpickable one would be the app losing content (PRD.md principle 4).
+    expect(choices.lights).toEqual(choices.items);
+    expect(choices.lights.map((choice) => choice.label)).toEqual(['Torch']);
+  });
+
+  it('is empty with no packs loaded, so the field falls back to a box to type in', () => {
+    expect(sheetChoices(NOTHING, null).lights).toEqual([]);
   });
 });
 

@@ -89,6 +89,7 @@ describe('toPublicCharacter', () => {
     const absurd: ItemLookup = () => ({
       slots: 1,
       armor: { type: 'medium', ac: 10_000, addDex: false },
+      light: null,
     });
     const armored: Character = {
       ...character,

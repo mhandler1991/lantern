@@ -15,6 +15,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_TICK_MS } from '../constants';
 import type { Character, Light } from '../model/character';
+import type { ItemLookup } from '../model/derived';
 import { computeBurn } from '../model/light';
 import { loadCharacter, saveCharacter } from './character-storage';
 import { newLight } from './character-edits';
@@ -29,11 +30,14 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const MINUTE = 60_000;
 
+/** No pack loaded: every row burns for the `minutes` it stored. */
+const NO_PACKS: ItemLookup = () => null;
+
 /** The clock the hook reported on the most recent render. */
 let latest: number | null = null;
 
 function Probe({ lights }: { readonly lights: readonly Light[] }): ReactElement {
-  latest = useLightClock(lights);
+  latest = useLightClock(lights, NO_PACKS);
   return <span>{latest}</span>;
 }
 
@@ -191,7 +195,7 @@ describe('a torch lit before the page was reloaded', () => {
 
     const reopened = reload();
     const app = await mount(reopened.lights);
-    const burn = computeBurn(onlyLight(reopened), clock());
+    const burn = computeBurn(onlyLight(reopened), clock(), NO_PACKS);
 
     expect(burn.elapsedMs).toBe(20 * MINUTE);
     expect(burn.remainingMs).toBe(40 * MINUTE);
@@ -209,7 +213,7 @@ describe('a torch lit before the page was reloaded', () => {
     const reopened = reload();
     const app = await mount(reopened.lights);
 
-    expect(computeBurn(onlyLight(reopened), clock()).isSpent).toBe(true);
+    expect(computeBurn(onlyLight(reopened), clock(), NO_PACKS).isSpent).toBe(true);
     await app.unmount();
   });
 

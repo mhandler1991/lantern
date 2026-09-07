@@ -56,10 +56,17 @@ export type ArmorFacts = {
   readonly addDex: boolean;
 };
 
-/** The only two things a derived value asks of an item. Packs carry far more. */
+/** DATA-MODEL.md §4 — the `light` block of an item entry. */
+export type LightFacts = {
+  readonly minutes: number;
+};
+
+/** The three things a derived value asks of an item. Packs carry far more. */
 export type ItemFacts = {
   readonly slots: number;
   readonly armor: ArmorFacts | null;
+  /** `null` for an item that does not say it burns. `model/light.ts` reads this one. */
+  readonly light: LightFacts | null;
 };
 
 /** Resolves a sheet's reference to pack content. `null` means no loaded pack has it. */

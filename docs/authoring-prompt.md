@@ -52,6 +52,9 @@ Rules:
 - A talent is `{ "id": ..., "name": ... }` with optional `text` and `page`, and
   nothing else. There is no `grants` field anywhere in the format: the app records
   a talent, it never applies one.
+- An item that gives light says so: `"light": { "minutes": 60 }`, how long one
+  burns from new. Nothing else marks an item as a light source, and an item
+  without the block is never offered as one.
 - No formulas. "1d8" is fine, and "1d4/1d8" for a weapon used in one hand or two;
   "1d8 + level/2" is not.
 - Reference another entry as `id` in this pack, or `pack:id`, or `pack:kind:id`.
@@ -83,6 +86,7 @@ things account for most refusals:
 | `"tier": "2"` | `"tier": 2` — a number, not a string |
 | `"range": "60 feet"` | `"range": "near"` — a band, from the list |
 | `"damage": "1d8 + your level"` | `"damage": "1d8"` — nothing is ever evaluated |
+| a torch with no `light` block | `"light": { "minutes": 60 }` — otherwise it is just an item |
 
 And one that is not an error but is usually a mistake: **`overrides` collides on purpose.**
 Leave it out unless you mean to replace something. Two packs can both define a Skald and

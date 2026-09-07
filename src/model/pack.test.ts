@@ -34,6 +34,7 @@ import {
   MAX_COIN,
   MAX_ENTRIES_PER_ARRAY,
   MAX_EXTENDS_PER_PACK,
+  MAX_LIGHT_MINUTES,
   MAX_NAME_LENGTH,
   MAX_PACK_ITEM_SLOTS,
   MAX_PAGE_NUMBER,
@@ -43,6 +44,7 @@ import {
   MAX_TAGS_PER_ENTRY,
   MAX_TALENT_REFS_PER_EXTENSION,
   MAX_TEXT_LENGTH,
+  MIN_LIGHT_MINUTES,
   PACK_AUTHOR_MAX_LENGTH,
   PACK_DESCRIPTION_MAX_LENGTH,
   PACK_ID_MAX_LENGTH,
@@ -562,7 +564,7 @@ describe('items', () => {
     expect(ItemEntry.safeParse(entry(ITEM, { cost: '90gp' })).success).toBe(false);
   });
 
-  it.each(['weapon', 'armor'])('leaves the %s block absent or null', (block) => {
+  it.each(['weapon', 'armor', 'light'])('leaves the %s block absent or null', (block) => {
     expect(ItemEntry.safeParse(entry(ITEM, { [block]: undefined })).success).toBe(true);
     expect(ItemEntry.safeParse(entry(ITEM, { [block]: null })).success).toBe(true);
   });
@@ -582,6 +584,37 @@ describe('items', () => {
     expect(ItemEntry.safeParse(entry(ITEM, { armor: { type: 'light', ac: 12 } })).success).toBe(
       false,
     );
+  });
+
+  it('reads the light block DATA-MODEL.md §4 shows, and nothing beside it', () => {
+    expect(ItemEntry.safeParse(entry(ITEM, { light: { minutes: 60 } })).success).toBe(true);
+    for (const minutes of [MIN_LIGHT_MINUTES, MAX_LIGHT_MINUTES]) {
+      expect(ItemEntry.safeParse(entry(ITEM, { light: { minutes } })).success).toBe(true);
+    }
+
+    // A light of no duration is not a light source, and a light that outlasts a day is
+    // a sun. Both are the row's bounds, held here so a pack cannot walk around them.
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { light: { minutes: MIN_LIGHT_MINUTES - 1 } })).success,
+    ).toBe(false);
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { light: { minutes: MAX_LIGHT_MINUTES + 1 } })).success,
+    ).toBe(false);
+    expect(ItemEntry.safeParse(entry(ITEM, { light: { minutes: 60.5 } })).success).toBe(false);
+    expect(ItemEntry.safeParse(entry(ITEM, { light: { minutes: '60' } })).success).toBe(false);
+    expect(ItemEntry.safeParse(entry(ITEM, { light: {} })).success).toBe(false);
+
+    // The block is `minutes` and nothing else — a radius or a colour is a field the app
+    // would carry and never read.
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { light: { minutes: 60, radius: 'near' } })).success,
+    ).toBe(false);
+  });
+
+  it('lets one item burn and hit, because that is homebrew rather than a malformed file', () => {
+    expect(
+      ItemEntry.safeParse(entry(ITEM, { weapon: ITEM.weapon, light: { minutes: 30 } })).success,
+    ).toBe(true);
   });
 
   it.each(['1d8', 'd6', '2d6', '1d4/1d8', '1d100'])('takes %s as damage', (damage) => {

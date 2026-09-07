@@ -81,7 +81,7 @@ function equipped(ref: string): Character['items'][number] {
 }
 
 function armor(over: Partial<ArmorFacts>): ItemFacts {
-  return { slots: 1, armor: { type: 'light', ac: 12, addDex: true, ...over } };
+  return { slots: 1, armor: { type: 'light', ac: 12, addDex: true, ...over }, light: null };
 }
 
 /** A lookup over a plain table. Anything absent resolves to null, as a pack that is
@@ -240,7 +240,7 @@ describe('armour class', () => {
   it('ignores an equipped item that is not armour', () => {
     const result = computeArmorClass(
       character({ items: [equipped('core:item:shortsword')] }),
-      lookup({ 'core:item:shortsword': { slots: 1, armor: null } }),
+      lookup({ 'core:item:shortsword': { slots: 1, armor: null, light: null } }),
     );
 
     expect(result.ac).toBe(UNARMORED_AC);
@@ -288,14 +288,14 @@ describe('carry slots', () => {
   it('multiplies an item cost by the quantity in the row', () => {
     const result = computeCarry(
       character({ items: [carried('core:item:arrow-bundle', { qty: 3 })] }),
-      lookup({ 'core:item:arrow-bundle': { slots: 2, armor: null } }),
+      lookup({ 'core:item:arrow-bundle': { slots: 2, armor: null, light: null } }),
     );
 
     expect(result.itemSlots).toBe(6);
   });
 
   it('rounds a stackable up per row, so one of it still fills a slot', () => {
-    const rations: ItemFacts = { slots: 1 / 3, armor: null };
+    const rations: ItemFacts = { slots: 1 / 3, armor: null, light: null };
 
     const one = computeCarry(
       character({ items: [carried('core:item:rations')] }),
@@ -318,7 +318,7 @@ describe('carry slots', () => {
   it('counts an item a pack declares weightless as nothing', () => {
     const result = computeCarry(
       character({ items: [carried('core:item:ring', { qty: 5 })] }),
-      lookup({ 'core:item:ring': { slots: 0, armor: null } }),
+      lookup({ 'core:item:ring': { slots: 0, armor: null, light: null } }),
     );
 
     expect(result.itemSlots).toBe(0);
@@ -354,7 +354,7 @@ describe('carry slots', () => {
         stats: { ...BASE.stats, str: 12 },
         items: [carried('core:item:crate', { qty: 12 })],
       }),
-      lookup({ 'core:item:crate': { slots: 1, armor: null } }),
+      lookup({ 'core:item:crate': { slots: 1, armor: null, light: null } }),
     );
 
     expect(result.used).toBe(12);
@@ -368,7 +368,7 @@ describe('carry slots', () => {
         stats: { ...BASE.stats, str: 12 },
         items: [carried('core:item:crate', { qty: 13 })],
       }),
-      lookup({ 'core:item:crate': { slots: 1, armor: null } }),
+      lookup({ 'core:item:crate': { slots: 1, armor: null, light: null } }),
     );
 
     expect(result.isEncumbered).toBe(true);
@@ -381,7 +381,7 @@ describe('carry slots', () => {
         gold: { gp: COINS_PER_SLOT, sp: 0, cp: 0 },
         items: [carried('core:item:crate', { qty: MIN_CARRY_SLOTS })],
       }),
-      lookup({ 'core:item:crate': { slots: 1, armor: null } }),
+      lookup({ 'core:item:crate': { slots: 1, armor: null, light: null } }),
     );
 
     expect(result.used).toBe(MIN_CARRY_SLOTS + 1);

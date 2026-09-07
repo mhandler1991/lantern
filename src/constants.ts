@@ -403,6 +403,9 @@ export const DEFAULT_ITEM_QUANTITY = 1;
  */
 export const DEFAULT_LIGHT_MINUTES = 60;
 
+/** A light that burns for no time at all is not a light source. A floor, and a limit. */
+export const MIN_LIGHT_MINUTES = 1;
+
 /** A light that burns longer than a session is not a light source, it is a sun. */
 export const MAX_LIGHT_MINUTES = 24 * 60;
 
