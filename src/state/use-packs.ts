@@ -29,14 +29,17 @@
  * have one write clobber the other through a stale closure. The reducer is pure and
  * exported, so those transitions are tested without a component at all.
  *
- * **Nothing is persisted.** DESIGN.md §7 — packs are room-scoped by default, with an
- * explicit opt-in to keep one, and that opt-in is not built yet. So a loaded pack lasts
- * as long as the tab, and the content screen says so out loud rather than letting a DM
- * discover it after a reload.
+ * **A pack is kept only if it was asked for.** DESIGN.md §7 — packs are room-scoped by
+ * default, with an explicit opt-in to keep one. So a loaded pack lasts as long as the
+ * tab unless a DM presses Keep, and then `state/pack-storage.ts` holds it with its place
+ * in the load order and its on/off state. The restore happens in the reducer's
+ * initialiser rather than in an effect: a list that fills in one frame after an empty
+ * one reads as data loss, and CLAUDE.md §6 keeps effects for synchronising with the
+ * outside world — which the *write* genuinely is.
  */
 
-import { useCallback, useEffect, useMemo, useReducer } from 'react';
-import { MAX_PACKS_LOADED } from '../constants';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import { MAX_KEPT_PACKS, MAX_PACKS_LOADED } from '../constants';
 import type { Pack, PackId, PackProblem } from '../model/pack';
 import type { ResolvedStack } from '../model/pack-resolver';
 import { resolvePacks } from '../model/pack-resolver';
@@ -44,6 +47,10 @@ import type { CorePackResult } from './core-pack';
 import { loadCorePack } from './core-pack';
 import type { PickedPackFile } from './pack-file';
 import { readPackFile } from './pack-file';
+import type { KeptPack, KeptPacksLoad, KeptPacksSave } from './pack-storage';
+import { fitsKeptPacks, loadKeptPacks, saveKeptPacks } from './pack-storage';
+import type { StorageDriver } from './storage';
+import { defaultStorageDriver } from './storage';
 
 /** An empty list, and the first position in one. Neither is a rule of the game. */
 const NONE = 0;
@@ -67,6 +74,11 @@ export type LoadedPack = {
   readonly source: PackSource;
   /** A pack turned off keeps its place in the order, so turning it back on is one press. */
   readonly isEnabled: boolean;
+  /**
+   * Stored, so it comes back on the next visit. Off by default and never true of core,
+   * which is fetched on boot and has no file to remember (DESIGN.md §7).
+   */
+  readonly isKept: boolean;
 };
 
 /** How the pack the app ships with is getting on. */
@@ -97,10 +109,27 @@ export type PackPick =
   /** At `MAX_PACKS_LOADED`. Nothing was replaced and nothing was dropped. */
   | { readonly kind: 'full'; readonly name: string };
 
+/**
+ * What the last press of Keep did. A refusal is the bound being reached, and it names
+ * which one: the pack is still loaded either way (PRD.md principle 4).
+ */
+export type KeepReport =
+  | { readonly kind: 'idle' }
+  | {
+      readonly kind: 'refused';
+      readonly name: string;
+      readonly reason: 'count' | 'size';
+    };
+
 export type PacksState = {
   readonly loaded: readonly LoadedPack[];
   readonly core: CoreState;
   readonly pick: PackPick;
+  /** What boot found in storage. Shown when it found something it could not read. */
+  readonly restore: KeptPacksLoad;
+  /** The result of the last write, or null before one has happened. */
+  readonly store: KeptPacksSave | null;
+  readonly keep: KeepReport;
 };
 
 export type PacksAction =
@@ -111,21 +140,59 @@ export type PacksAction =
   | { readonly type: 'read-loaded'; readonly name: string; readonly pack: Pack }
   | { readonly type: 'toggle'; readonly id: PackId }
   | { readonly type: 'move'; readonly id: PackId; readonly by: number }
-  | { readonly type: 'remove'; readonly id: PackId };
+  | { readonly type: 'remove'; readonly id: PackId }
+  | { readonly type: 'keep'; readonly id: PackId }
+  | { readonly type: 'stored'; readonly result: KeptPacksSave };
 
+/** Nothing loaded and nothing stored — a first visit, and what a test starts from. */
 export const INITIAL_PACKS: PacksState = {
   loaded: [],
   core: { kind: 'loading' },
   pick: { kind: 'idle' },
+  restore: { entries: [], problems: [], kept: false, quarantined: false, failure: null },
+  store: null,
+  keep: { kind: 'idle' },
 };
+
+/**
+ * Boot, storage included. A kept pack comes back in the position it was stored in and
+ * with the on/off state it had, because both were decisions somebody made — and core is
+ * placed in front of all of them when its fetch lands (`place`, below).
+ */
+export function initialPacks(driver: StorageDriver | null): PacksState {
+  const restore = loadKeptPacks(driver);
+
+  return {
+    ...INITIAL_PACKS,
+    loaded: restore.entries.map((entry) => ({
+      pack: entry.pack,
+      source: { kind: 'file', name: entry.name },
+      isEnabled: entry.isEnabled,
+      isKept: true,
+    })),
+    restore,
+  };
+}
+
+/** The kept packs of a load order, in order, as they are stored. */
+export function keptPacks(loaded: readonly LoadedPack[]): readonly KeptPack[] {
+  return loaded
+    .filter((held) => held.isKept)
+    .map((held) => ({
+      name: held.source.kind === 'file' ? held.source.name : '',
+      isEnabled: held.isEnabled,
+      pack: held.pack,
+    }));
+}
 
 /**
  * Put a pack in the list: over the one with its id if there is one, otherwise at the end
  * — or at the front, which is core's case and only core's.
  *
- * A replacement keeps the existing entry's `isEnabled`. Turning a pack off is a decision
- * about the pack, not about the version, and a DM who loads a fix for a supplement they
- * had turned off has not asked for it back on.
+ * A replacement keeps the existing entry's `isEnabled` **and its `isKept`**. Both are
+ * decisions about the pack rather than about the version: a DM who loads a fix for a
+ * supplement they had turned off has not asked for it back on, and one who had asked for
+ * it to be kept has not asked for that to be forgotten.
  */
 function place(
   list: readonly LoadedPack[],
@@ -136,11 +203,16 @@ function place(
 
   if (index !== MISSING) {
     return list.map((held, position) =>
-      position === index ? { ...entry, isEnabled: held.isEnabled } : held,
+      position === index ? { ...entry, isEnabled: held.isEnabled, isKept: held.isKept } : held,
     );
   }
 
   return at === 'front' ? [entry, ...list] : [...list, entry];
+}
+
+/** Mark one pack kept or not. Its place in the order and its on/off state are untouched. */
+function setKept(list: readonly LoadedPack[], id: PackId, isKept: boolean): readonly LoadedPack[] {
+  return list.map((held) => (held.pack.id === id ? { ...held, isKept } : held));
 }
 
 /** Swap a pack with its neighbour. At either end there is no neighbour and nothing moves. */
@@ -167,7 +239,11 @@ export function packsReducer(state: PacksState, action: PacksAction): PacksState
       return {
         ...state,
         core: { kind: 'ready' },
-        loaded: place(state.loaded, { pack: action.pack, source: { kind: 'core' }, isEnabled: true }, 'front'),
+        loaded: place(
+          state.loaded,
+          { pack: action.pack, source: { kind: 'core' }, isEnabled: true, isKept: false },
+          'front',
+        ),
       };
 
     case 'core-failed':
@@ -189,10 +265,13 @@ export function packsReducer(state: PacksState, action: PacksAction): PacksState
       return {
         loaded: place(
           state.loaded,
-          { pack: action.pack, source: { kind: 'file', name: action.name }, isEnabled: true },
+          { pack: action.pack, source: { kind: 'file', name: action.name }, isEnabled: true, isKept: false },
           'end',
         ),
         core: state.core,
+        restore: state.restore,
+        store: state.store,
+        keep: state.keep,
         pick: {
           kind: 'loaded',
           name: action.name,
@@ -216,6 +295,31 @@ export function packsReducer(state: PacksState, action: PacksAction): PacksState
 
     case 'remove':
       return { ...state, loaded: state.loaded.filter((held) => held.pack.id !== action.id) };
+
+    case 'keep': {
+      const held = state.loaded.find((entry) => entry.pack.id === action.id) ?? null;
+
+      // Core is fetched on boot and there is no file to remember, so it is not offered
+      // the opt-in and cannot be given it by an action either.
+      if (held === null || held.source.kind === 'core') return state;
+
+      if (held.isKept) return { ...state, loaded: setKept(state.loaded, action.id, false), keep: { kind: 'idle' } };
+
+      // Both bounds are checked here rather than at the write, so a refusal is a
+      // sentence a DM can act on instead of a store that quietly stopped growing.
+      const wanted = keptPacks(setKept(state.loaded, action.id, true));
+      if (wanted.length > MAX_KEPT_PACKS) {
+        return { ...state, keep: { kind: 'refused', name: held.pack.name, reason: 'count' } };
+      }
+      if (!fitsKeptPacks(wanted)) {
+        return { ...state, keep: { kind: 'refused', name: held.pack.name, reason: 'size' } };
+      }
+
+      return { ...state, loaded: setKept(state.loaded, action.id, true), keep: { kind: 'idle' } };
+    }
+
+    case 'stored':
+      return { ...state, store: action.result };
   }
 }
 
@@ -231,15 +335,23 @@ export type Packs = {
   readonly stack: ResolvedStack;
   readonly core: CoreState;
   readonly pick: PackPick;
+  readonly restore: KeptPacksLoad;
+  readonly store: KeptPacksSave | null;
+  readonly keep: KeepReport;
   readonly addFile: (file: PickedPackFile) => Promise<void>;
   readonly toggle: (id: PackId) => void;
   readonly moveUp: (id: PackId) => void;
   readonly moveDown: (id: PackId) => void;
   readonly remove: (id: PackId) => void;
+  /** The opt-in, both ways. Off by default and never offered for core. */
+  readonly toggleKept: (id: PackId) => void;
 };
 
-export function usePacks(load: CorePackLoader = fetchCorePack): Packs {
-  const [state, dispatch] = useReducer(packsReducer, INITIAL_PACKS);
+export function usePacks(
+  load: CorePackLoader = fetchCorePack,
+  driver: StorageDriver | null = defaultStorageDriver(),
+): Packs {
+  const [state, dispatch] = useReducer(packsReducer, driver, initialPacks);
 
   // An effect, because fetching the core pack is synchronising with the outside world —
   // which is the one job CLAUDE.md §6 says an effect is for. The cancel flag is not
@@ -279,6 +391,27 @@ export function usePacks(load: CorePackLoader = fetchCorePack): Packs {
   const moveUp = useCallback((id: PackId) => dispatch({ type: 'move', id, by: -ONE_PLACE }), []);
   const moveDown = useCallback((id: PackId) => dispatch({ type: 'move', id, by: ONE_PLACE }), []);
   const remove = useCallback((id: PackId) => dispatch({ type: 'remove', id }), []);
+  const toggleKept = useCallback((id: PackId) => dispatch({ type: 'keep', id }), []);
+
+  /** What ought to be in storage right now. Rebuilt only when the load order changes. */
+  const kept = useMemo(() => keptPacks(state.loaded), [state.loaded]);
+
+  /**
+   * Whether storage is this app's business at all yet. A browser where nothing has ever
+   * been kept is never written to and never asked to clear a key it does not have, so a
+   * DM who never pressed Keep is not told about a private-mode failure that has no
+   * bearing on anything they did.
+   */
+  const isStoring = useRef(kept.length > NONE);
+
+  // An effect, because a write *is* synchronisation with the outside world (CLAUDE.md
+  // §6). Dispatching the result cannot loop: `store` is not what `kept` is derived from.
+  useEffect(() => {
+    if (kept.length === NONE && !isStoring.current) return;
+
+    isStoring.current = kept.length > NONE;
+    dispatch({ type: 'stored', result: saveKeptPacks(kept, driver) });
+  }, [kept, driver]);
 
   /**
    * Derived on read and memoised, never stored (CLAUDE.md §4). A pack that is turned off
@@ -295,10 +428,14 @@ export function usePacks(load: CorePackLoader = fetchCorePack): Packs {
     stack,
     core: state.core,
     pick: state.pick,
+    restore: state.restore,
+    store: state.store,
+    keep: state.keep,
     addFile,
     toggle,
     moveUp,
     moveDown,
     remove,
+    toggleKept,
   };
 }

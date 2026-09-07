@@ -7,7 +7,7 @@
  * stack below the list is the third one, and it is the reason the panel exists rather
  * than a checkbox in a menu.
  *
- * Four things it deliberately does.
+ * Five things it deliberately does.
  *
  * **It says who is responsible.** DESIGN.md §7 — one line in the upload dialog: you are
  * responsible for having the rights to what you load. It sits beside the picker rather
@@ -17,6 +17,12 @@
  * (DATA-MODEL.md §9), so it must be changeable — but a drag is a mouse-only gesture that
  * needs a library, and CLAUDE.md §12 forbids installing one without asking. Two buttons
  * are keyboard-reachable, announce what they move, and are the same operation.
+ *
+ * **It offers to keep a pack, and never assumes.** DESIGN.md §7 — packs are room-scoped
+ * by default with an explicit opt-in, so Keep is an unticked box beside each pack rather
+ * than the default, and what it means is written above the list rather than found out
+ * after a reload. Core is not offered it: it is fetched on boot and there is no file to
+ * remember.
  *
  * **It never removes core.** Every other pack came from a file that can be picked again;
  * core is fetched once on boot, and a Remove button beside it would be a one-way door
@@ -35,6 +41,7 @@
 
 import type { ChangeEvent, ReactElement } from 'react';
 import { useId } from 'react';
+import { MAX_KEPT_PACKS, MAX_KEPT_PACKS_BYTES } from '../constants';
 import type { PackId } from '../model/pack';
 import type { PackSummary } from '../model/pack-resolver';
 import type { LoadedPack, PackSource, Packs } from '../state/use-packs';
@@ -42,6 +49,7 @@ import { PACK_FILE_ACCEPT } from '../state/pack-file';
 import { describeContents, resolutionStack, stackLineText } from './content';
 import { EmptyNote, Panel, Warning } from './fields';
 import { ProblemReport } from './ProblemReport';
+import { RecoverPacks } from './RecoverPacks';
 
 /** The first position in the list, and an empty one. Neither is a rule of the game. */
 const FIRST = 0;
@@ -64,6 +72,7 @@ function PackRow({
   onMoveUp,
   onMoveDown,
   onRemove,
+  onToggleKept,
 }: {
   readonly held: LoadedPack;
   /** The resolver's count of what it contributed, or null while it is turned off. */
@@ -74,9 +83,11 @@ function PackRow({
   readonly onMoveUp: (id: PackId) => void;
   readonly onMoveDown: (id: PackId) => void;
   readonly onRemove: (id: PackId) => void;
+  readonly onToggleKept: (id: PackId) => void;
 }): ReactElement {
   const toggleId = useId();
-  const { pack, source, isEnabled } = held;
+  const keepId = useId();
+  const { pack, source, isEnabled, isKept } = held;
 
   return (
     <li className={isEnabled ? 'pack' : 'pack pack--off'}>
@@ -100,8 +111,12 @@ function PackRow({
             checked={isEnabled}
             onChange={() => onToggle(pack.id)}
           />
-          <label className="field__label visually-hidden" htmlFor={toggleId}>
-            {`Use ${pack.name}`}
+          {/* The word shows and the pack's name does not: the row above already names
+              it, and the control still announces which pack it belongs to. Labelled
+              rather than bare because there are two checkboxes on this row now. */}
+          <label className="field__label" htmlFor={toggleId}>
+            {'Use'}
+            <span className="visually-hidden">{` ${pack.name}`}</span>
           </label>
         </div>
 
@@ -126,15 +141,31 @@ function PackRow({
         </button>
 
         {source.kind === 'file' && (
-          <button
-            type="button"
-            className="button button--remove"
-            title={`Remove ${pack.name}`}
-            onClick={() => onRemove(pack.id)}
-          >
-            <span aria-hidden="true">{'×'}</span>
-            <span className="visually-hidden">{`Remove ${pack.name}`}</span>
-          </button>
+          <>
+            <div className="field field--check">
+              <input
+                id={keepId}
+                className="field__check"
+                type="checkbox"
+                checked={isKept}
+                onChange={() => onToggleKept(pack.id)}
+              />
+              <label className="field__label" htmlFor={keepId}>
+                {'Keep'}
+                <span className="visually-hidden">{` ${pack.name}`}</span>
+              </label>
+            </div>
+
+            <button
+              type="button"
+              className="button button--remove"
+              title={`Remove ${pack.name}`}
+              onClick={() => onRemove(pack.id)}
+            >
+              <span aria-hidden="true">{'×'}</span>
+              <span className="visually-hidden">{`Remove ${pack.name}`}</span>
+            </button>
+          </>
         )}
       </div>
     </li>
@@ -143,7 +174,7 @@ function PackRow({
 
 export function ContentScreen({ packs }: { readonly packs: Packs }): ReactElement {
   const fileId = useId();
-  const { loaded, stack, core, pick } = packs;
+  const { loaded, stack, core, pick, restore, store, keep } = packs;
 
   /** Summaries by pack id. A pack that is turned off is not in the stack and has none. */
   const summaries = new Map(stack.packs.map((summary) => [summary.id, summary]));
@@ -165,7 +196,9 @@ export function ContentScreen({ packs }: { readonly packs: Packs }): ReactElemen
       <p className="readout">
         Packs carry names, mechanics and page references — the classes, ancestries, spells,
         items and tables the pickers offer. They are optional: the sheet works with none
-        loaded. Nothing is uploaded anywhere, and what you load lasts as long as this tab.
+        loaded. Nothing is uploaded anywhere, and what you load lasts as long as this tab
+        unless you tick Keep beside it — up to {MAX_KEPT_PACKS} packs come back next time,
+        in this order and turned on or off as you left them.
       </p>
 
       <div className="field field--wide">
@@ -184,6 +217,53 @@ export function ContentScreen({ packs }: { readonly packs: Packs }): ReactElemen
       <p className="readout">
         You are responsible for having the rights to whatever you load.
       </p>
+
+      {restore.problems.length > FIRST && (
+        <>
+          <Warning>
+            {restore.entries.length === FIRST
+              ? 'What this browser had stored could not be read, so no kept pack came back. '
+              : `${restore.entries.length} kept pack(s) came back; the rest of what was stored could not be read. `}
+            {restore.quarantined
+              ? 'The stored value has been set aside rather than dropped — nothing was deleted — and every problem with it is listed below:'
+              : 'This browser would not let Lantern set the stored value aside, so it is still where it was. Every problem with it is listed below:'}
+          </Warning>
+          <ProblemReport subject="the stored packs" problems={restore.problems} />
+          {restore.quarantined && <RecoverPacks />}
+        </>
+      )}
+
+      {restore.failure !== null && (
+        <Warning>
+          This browser will not let Lantern read its storage, so no kept pack could be
+          restored and none can be kept. ({restore.failure.detail}) Everything else works
+          — a pack you pick now lasts as long as this tab.
+        </Warning>
+      )}
+
+      {keep.kind === 'refused' && (
+        <Warning>
+          {keep.name} is not being kept:{' '}
+          {keep.reason === 'count'
+            ? `${MAX_KEPT_PACKS} packs are already kept, which is as many as Lantern stores.`
+            : `the kept packs would come to more than the ${MAX_KEPT_PACKS_BYTES} characters Lantern stores.`}{' '}
+          It is loaded and working — it just will not come back after a reload. Un-keep
+          another pack and tick it again.
+        </Warning>
+      )}
+
+      {store !== null && !store.ok && (
+        <Warning>
+          {store.reason === 'storage'
+            ? `This browser would not store the packs (${store.failure.detail}).`
+            : 'The packs could not be stored.'}{' '}
+          They are loaded and working — they just will not come back after a reload.
+        </Warning>
+      )}
+
+      {store !== null && !store.ok && store.reason === 'invalid' && (
+        <ProblemReport subject="the packs being kept" problems={store.problems} />
+      )}
 
       {core.kind === 'loading' && (
         <p className="readout" role="status">
@@ -257,6 +337,7 @@ export function ContentScreen({ packs }: { readonly packs: Packs }): ReactElemen
                 onMoveUp={packs.moveUp}
                 onMoveDown={packs.moveDown}
                 onRemove={packs.remove}
+                onToggleKept={packs.toggleKept}
               />
             ))}
           </ul>

@@ -534,3 +534,38 @@ export const XP_PER_LEVEL = 10;
 
 /** A spellcasting check is against this plus the spell's tier. */
 export const SPELL_DC_BASE = 10;
+
+// ---------------------------------------------------------------------------
+// Kept packs. DATA-MODEL.md §9 (Keeping a pack), §13.
+// ---------------------------------------------------------------------------
+
+/**
+ * The envelope the kept packs are stored in — its own format, distinct from a pack's,
+ * because what is stored is a *list* of packs plus the two decisions that were made
+ * about each one: where it sat in the load order and whether it was on.
+ */
+export const KEPT_PACKS_FORMAT = 'lantern-packs';
+export const KEPT_PACKS_FORMAT_VERSION = 1;
+
+/**
+ * How many packs may be kept across reloads, and how much text the whole store may come
+ * to. Both bounds exist because the loading bounds cannot serve here: `MAX_PACK_BYTES`
+ * times `MAX_PACKS_LOADED` is 64 MB against a localStorage quota of about 5, so keeping
+ * every loaded pack would fail on the day a DM finally relied on it.
+ *
+ * So the opt-in is bounded rather than the storage being gambled on: eight packs is more
+ * supplements than a table runs at once, and a megabyte of JSON is a large pack library
+ * — while leaving the character, which shares the origin, the room it needs. A pack over
+ * the bound is *refused the opt-in* and stays loaded for the tab (PRD.md principle 4);
+ * nothing is dropped and nothing is silently truncated.
+ */
+export const MAX_KEPT_PACKS = 8;
+export const MAX_KEPT_PACKS_BYTES = 1024 * 1024;
+
+/**
+ * How much of the file name a pack was picked from is stored and printed beside it. The
+ * name is the player's file system talking, not ours: it is provenance in the load
+ * order, nothing computes with it, and an unbounded one would put a path on screen and
+ * in storage that neither has room for.
+ */
+export const MAX_PACK_SOURCE_NAME_LENGTH = 120;

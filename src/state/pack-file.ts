@@ -16,13 +16,23 @@
  * There is no DOM here and no React. Picking the file is `ui/ContentScreen.tsx`.
  */
 
-import { MAX_PACK_BYTES } from '../constants';
+import { KEPT_PACKS_FORMAT, MAX_PACK_BYTES } from '../constants';
 import type { Pack, PackProblem } from '../model/pack';
 import { parsePack } from '../model/pack';
 import { describeError } from './storage';
 
 /** What the file picker offers by default. Both spellings: browsers disagree on which. */
 export const PACK_FILE_ACCEPT = 'application/json,.json';
+
+/** What a pack is, to a browser being handed one back. */
+export const PACK_FILE_TYPE = 'application/json';
+
+/**
+ * The file a quarantined pack store downloads as. Fixed rather than named after
+ * anything inside it: the reason it is parked is that this build could not read it, so
+ * there is no name in there to trust (DATA-MODEL.md §13).
+ */
+export const REJECTED_PACKS_FILE_NAME = `${KEPT_PACKS_FORMAT}-rejected.json`;
 
 /** The path a problem takes when the fault is the file rather than a field inside it. */
 const WHOLE_FILE = '(root)';

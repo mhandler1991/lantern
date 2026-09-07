@@ -17,7 +17,14 @@ import { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CORE_PACK_PATH, PACK_FORMAT, PACK_FORMAT_VERSION } from '../constants';
+import {
+  CORE_PACK_PATH,
+  KEPT_PACKS_FORMAT,
+  KEPT_PACKS_FORMAT_VERSION,
+  PACK_FORMAT,
+  PACK_FORMAT_VERSION,
+} from '../constants';
+import { KEPT_PACKS_KEY, REJECTED_PACKS_KEY } from '../state/pack-storage';
 import { App } from './App';
 
 declare global {
@@ -68,6 +75,28 @@ async function mount(): Promise<void> {
     root.render(<App />);
   });
   isMounted = true;
+}
+
+/**
+ * A reload: the tab goes away and comes back, and what survives it is storage. The same
+ * container is thrown away too, so nothing in the old tree can answer a query by accident.
+ */
+async function reload(): Promise<void> {
+  await act(async () => {
+    root.unmount();
+  });
+  container.remove();
+
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+  await mount();
+}
+
+/** Whether a checkbox is ticked, by the name it announces. */
+function isTicked(label: string): boolean {
+  const element = control(label);
+  return element instanceof HTMLInputElement && element.checked;
 }
 
 /** The Content panel, so nothing here can match the character sheet's own controls. */
@@ -269,6 +298,65 @@ describe('the content screen', () => {
     expect(order()).toEqual(['Core', 'Dangling']);
     expect(text()).toContain('no loaded pack defines core:class:skald');
     expect(text()).toContain('this is a report, not a refusal');
+  });
+
+  it('keeps a pack across a reload, in its place and with its on/off state', async () => {
+    await mount();
+    await pick(frostbound);
+
+    expect(isTicked('Keep Frostbound'), 'a pack was kept without being asked for').toBe(false);
+
+    await press('Keep Frostbound');
+    await press('Use Frostbound');
+    await reload();
+
+    // Back where it was, still turned off, and still opted in — every one of those was a
+    // decision somebody made (DATA-MODEL.md §9).
+    expect(order()).toEqual(['Core', 'Frostbound']);
+    expect(text()).toContain('Turned off');
+    expect(isTicked('Keep Frostbound')).toBe(true);
+    expect(isTicked('Use Frostbound')).toBe(false);
+  });
+
+  it('forgets a pack that was not kept, which is what room-scoped means', async () => {
+    await mount();
+    await pick(frostbound);
+    expect(order()).toEqual(['Core', 'Frostbound']);
+
+    await reload();
+
+    expect(order()).toEqual(['Core']);
+  });
+
+  it('sets a stored pack it can no longer read aside, and says so', async () => {
+    // What an older build, another tab, or a hand could have left under the key. The
+    // first pack is fine; the second is not a pack at all.
+    localStorage.setItem(
+      KEPT_PACKS_KEY,
+      JSON.stringify({
+        format: KEPT_PACKS_FORMAT,
+        formatVersion: KEPT_PACKS_FORMAT_VERSION,
+        packs: [
+          {
+            name: 'frostbound.json',
+            isEnabled: true,
+            pack: JSON.parse(frostbound) as unknown,
+          },
+          { name: 'broken.json', isEnabled: true, pack: { id: 'Bad' } },
+        ],
+      }),
+    );
+
+    await mount();
+
+    expect(order(), 'a pack that still parsed did not come back').toEqual(['Core', 'Frostbound']);
+    expect(text()).toContain('set aside');
+    expect(text()).toContain('problems in "the stored packs"');
+    expect(text()).toContain('packs[1]');
+
+    // Set aside, not dropped: the bytes are still on this machine and reachable.
+    expect(localStorage.getItem(REJECTED_PACKS_KEY)).toContain('broken.json');
+    expect(() => control('Download the stored packs')).not.toThrow();
   });
 
   it('renders every string a pack supplied as a text node', async () => {
