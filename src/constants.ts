@@ -118,6 +118,16 @@ export const MAX_REJECTION_SAMPLING_ATTEMPTS = 64;
 /** How long a result stays on screen before the overlay dismisses itself. */
 export const DICE_OVERLAY_DWELL_MS = 6_000;
 
+/**
+ * How many rolls the corner keeps in its feed.
+ *
+ * An entry is permanent in the sense that matters — the overlay dismissing itself never
+ * removes one, which is the difference between a feed and a toast (DESIGN.md §4). The
+ * feed is session memory in a tab that may be open all evening, though, so it is bounded
+ * rather than unbounded, and the oldest fall off the end.
+ */
+export const MAX_ROLL_FEED_ENTRIES = 40;
+
 // ---------------------------------------------------------------------------
 // Content packs — the envelope. DATA-MODEL.md §1.
 // ---------------------------------------------------------------------------
