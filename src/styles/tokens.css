@@ -167,6 +167,14 @@
   --width-field-number: 4.5rem;
   --width-field-short: 9rem;
 
+  /* The corner where dice happen (DESIGN.md §4). Wide enough for the handle's fields
+   * and a readable feed, narrow enough that it is a corner rather than a sidebar. */
+  --width-dice: 19rem;
+
+  /* One 2D die silhouette. The corner draws up to `MAX_DICE_PER_ROLL` of them, so this
+   * is the size at which a pool still reads as dice rather than as a wall. */
+  --size-die: 2.5rem;
+
   /* ---------------------------------------------------------------------
    * Space — a 4px base, doubling with halves where it needs them
    * ------------------------------------------------------------------ */

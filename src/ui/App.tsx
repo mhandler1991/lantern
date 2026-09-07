@@ -10,7 +10,9 @@
  *
  * The lobby and the content screen sit above the sheet rather than in front of it: a
  * room is optional and so are packs, and PRD.md principle 6 says the app has to work
- * alone with neither. There are no dice yet, and the sheet does not need them.
+ * alone with neither. The dice are the exception to that arrangement: they are fixed to
+ * a corner rather than placed in the flow, because DESIGN.md §4 makes the corner
+ * universally where dice happen — yours and, later, everyone else's.
  *
  * Packs are the one thing above the sheet that can change what the sheet *means*, so
  * this is where the two meet: the orphan report is computed here and handed down, and
@@ -38,7 +40,9 @@ import { usePersistentCharacter } from '../state/use-persistent-character';
 import { usePresence } from '../state/use-presence';
 import { useRecordedPacks } from '../state/use-recorded-packs';
 import { useRoom } from '../state/use-room';
+import { useRolls } from '../state/use-rolls';
 import { ContentScreen } from './ContentScreen';
+import { DiceOverlay } from './DiceOverlay';
 import { Lobby } from './Lobby';
 import { Portability } from './Portability';
 import { ProblemReport } from './ProblemReport';
@@ -69,6 +73,7 @@ export function App(): ReactElement {
   const { character, setCharacter: writeCharacter, load, lastSave } = usePersistentCharacter();
   const room = useRoom();
   const packs = usePacks();
+  const rolls = useRolls();
 
   /**
    * Every edit, with the sheet's pack record brought up to date on the way through.
@@ -180,6 +185,8 @@ export function App(): ReactElement {
           stack={packs.stack}
         />
       </main>
+
+      <DiceOverlay rolls={rolls} />
     </div>
   );
 }

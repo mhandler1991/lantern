@@ -811,3 +811,207 @@ body {
   background-color: var(--surface-page-low);
   box-shadow: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * The corner where dice happen. DESIGN.md §4.
+ * ------------------------------------------------------------------------ */
+
+/* Fixed to one corner rather than placed in the flow, because it is the same corner on
+   every screen at the table: a player who learns to look there for their own d20 finds
+   a peer's roll in the same place. `--z-dice` sits above the room and below a modal. */
+.dice {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: var(--z-dice);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  width: var(--width-dice);
+  max-width: calc(100% - var(--space-8));
+
+  /* The corner is a *place*, not a surface. The box is as wide as the panel even when
+     only the grip is in it, so leaving it clickable would put an invisible 19rem pane
+     over the bottom of the sheet. Each thing that is actually there takes its own
+     events back below. */
+  pointer-events: none;
+}
+
+.dice__result,
+.dice__grip,
+.dice__panel {
+  pointer-events: auto;
+}
+
+/* A result is paper, like everything else that carries content (DESIGN.md §6). It lifts
+   off the room rather than sitting on it, because it is temporary and the sheet is not. */
+.dice__result {
+  width: 100%;
+  padding: var(--space-4);
+  border: var(--border-hairline) solid var(--edge-page);
+  border-radius: var(--radius-page);
+  background-color: var(--surface-page);
+  box-shadow: var(--shadow-overlay);
+  color: var(--text-primary);
+  text-align: center;
+}
+
+/* Somebody else's roll. Out of the pointer's reach entirely, so a result arriving under
+   the cursor cannot take a click that was meant for the sheet — DESIGN.md §4, "nobody's
+   screen gets hijacked". The card also renders no control at all, so there is nothing
+   here for a keyboard to reach either. */
+.dice__result--peer {
+  pointer-events: none;
+  border-color: var(--rule-hairline);
+}
+
+.dice__who {
+  margin: var(--space-0) var(--space-0) var(--space-2);
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.dice__pool {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+/* A silhouette with a number in it. The shape is the backdrop and the number is the
+   answer, so the number is what is centred and the outline is what is behind it. */
+.die {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--size-die);
+  height: var(--size-die);
+}
+
+.die__shape {
+  position: absolute;
+  inset: var(--space-0);
+  width: 100%;
+  height: 100%;
+  fill: var(--surface-banner);
+  stroke: var(--rule-hairline);
+  stroke-width: var(--border-thick);
+}
+
+.die__value {
+  position: relative;
+  color: var(--text-on-banner);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+}
+
+.dice__total {
+  margin: var(--space-2) var(--space-0) var(--space-0);
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+}
+
+.dice__notation {
+  margin: var(--space-0);
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+}
+
+/* A table row's own words, printed and never parsed (PRD.md principle 1). */
+.dice__row {
+  margin: var(--space-3) var(--space-0) var(--space-0);
+  padding-top: var(--space-3);
+  border-top: var(--border-hairline) solid var(--rule-page);
+  text-align: left;
+}
+
+.dice__warning {
+  margin: var(--space-2) var(--space-0) var(--space-0);
+  color: var(--state-caution);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+.dice__handle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.dice__grip {
+  align-self: flex-end;
+}
+
+.dice__panel {
+  width: 100%;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: var(--space-4);
+  border: var(--border-hairline) solid var(--edge-page);
+  border-radius: var(--radius-page);
+  background-color: var(--surface-page);
+  box-shadow: var(--shadow-overlay);
+  color: var(--text-primary);
+}
+
+/* The feed. An entry lands here and stays — the overlay dismissing itself never takes
+   one away, which is the whole difference between a feed and a toast (DESIGN.md §4). */
+.dice__feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.dice__entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-hairline) solid var(--rule-page);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.dice__feed > .dice__entry:last-child {
+  padding-bottom: var(--space-0);
+  border-bottom: none;
+}
+
+.dice__entry-total {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+.dice__entry-notation {
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+}
+
+.dice__entry-row {
+  grid-column: 1 / -1;
+  color: var(--text-secondary);
+}
