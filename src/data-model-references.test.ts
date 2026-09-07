@@ -14,6 +14,12 @@
  * Checking the *number* is the whole of it. Whether a reference is about the right
  * subject is not something a test can decide.
  *
+ * Existence is not enough on its own, though, and #111 is why. Renumbering upward leaves
+ * every stale reference naming a section that still exists — old §7 pointed at what was
+ * now Talents rather than Items — so the check above passes on all of them. The section
+ * list below is the other half: number *and* title, pinned, so that a renumber fails and
+ * says which references to sweep.
+ *
  * Two forms the #111 sweep got wrong, both a case below:
  *
  * - **`§7.` and `§2.7` are different things.** A period followed by a digit is a
@@ -161,6 +167,174 @@ function unresolved(references: readonly Reference[], known: Sections): readonly
 }
 
 // ---------------------------------------------------------------------------
+// The section list
+// ---------------------------------------------------------------------------
+
+/**
+ * `DATA-MODEL.md`'s sections as they stand, pinned by number *and* title.
+ *
+ * The chore is the point. Editing this list is what a renumber costs, and the edit is
+ * the prompt: the suite fails, the author comes here, and the diff shows exactly which
+ * sections moved — which is the same thing as which references need sweeping. A rule
+ * that only checked contiguity would be silent about every part of that.
+ */
+const HEADINGS: readonly (readonly [number, string])[] = [
+  [1, 'Content packs'],
+  [2, 'Enums'],
+  [3, 'Spells'],
+  [4, 'Items'],
+  [5, 'Classes'],
+  [6, 'Ancestries'],
+  [7, 'Talents'],
+  [8, 'Tables'],
+  [9, 'Extends'],
+  [10, 'Validation'],
+  [11, 'Authoring with an AI'],
+  [12, 'Characters'],
+  [13, 'Storage'],
+];
+
+/** One `## N. Title` heading. */
+type Heading = {
+  readonly number: number;
+  readonly title: string;
+};
+
+const pinned: readonly Heading[] = HEADINGS.map(([number, title]) => ({ number, title }));
+
+/** Every `## N. Title` in the document, in the order it is written. */
+function parseHeadings(markdown: string): readonly Heading[] {
+  const headings: Heading[] = [];
+
+  for (const line of markdown.split('\n')) {
+    const heading = /^## (\d+)\.\s+(.+?)\s*$/.exec(line);
+    const number = heading?.[1];
+    const title = heading?.[2];
+
+    if (number !== undefined && title !== undefined) {
+      headings.push({ number: Number(number), title });
+    }
+  }
+
+  return headings;
+}
+
+/**
+ * Where the citations of `§from` and after live, one line per section.
+ *
+ * Everything at or after the first section that moved is suspect, because a renumber
+ * shifts a run of sections and a reference to any of them may or may not have been
+ * rewritten. Narrowing further would mean deciding what a reference is *about*, which
+ * #129 settled as something a test cannot do.
+ */
+function citations(references: readonly Reference[], from: number): readonly string[] {
+  const bySection = new Map<number, string[]>();
+
+  for (const reference of references) {
+    for (const section of reference.sections) {
+      if (section < from) continue;
+
+      const where = `${reference.file}:${reference.line}`;
+      const listed = bySection.get(section) ?? [];
+
+      if (!listed.includes(where)) listed.push(where);
+      bySection.set(section, listed);
+    }
+  }
+
+  return [...bySection.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([section, where]) => `  §${section} — ${where.join(', ')}`);
+}
+
+/**
+ * Every way the document and the list disagree, in section order, and — when any section
+ * moved — the references to sweep. Empty when they agree.
+ *
+ * A moved title and a changed title are different failures and say so differently. A
+ * renumber invalidates references silently; a rename leaves every reference pointing at
+ * the right section and costs nothing but this list.
+ */
+function drift(
+  list: readonly Heading[],
+  document: readonly Heading[],
+  references: readonly Reference[],
+): readonly string[] {
+  const listed = new Map(list.map(({ number, title }) => [number, title]));
+  const written = new Map(document.map(({ number, title }) => [number, title]));
+  const listedByTitle = new Map(list.map(({ number, title }) => [title, number]));
+  const writtenByTitle = new Map(document.map(({ number, title }) => [title, number]));
+
+  const problems: string[] = [];
+  const moved: number[] = [];
+
+  const numbers = [...new Set([...listed.keys(), ...written.keys()])].sort((a, b) => a - b);
+
+  for (const number of numbers) {
+    const was = listed.get(number);
+    const now = written.get(number);
+
+    if (was === now) continue;
+
+    if (was !== undefined && now !== undefined) {
+      const movedTo = writtenByTitle.get(was);
+
+      if (movedTo === undefined) {
+        problems.push(
+          `§${number} — the list says "${was}", the document says "${now}": renamed, not ` +
+            `renumbered. Every reference to §${number} still points at the right section; ` +
+            `only this list needs the edit.`,
+        );
+        continue;
+      }
+
+      problems.push(
+        `§${number} — the list says "${was}", the document says "${now}": "${was}" is now ` +
+          `§${movedTo}.`,
+      );
+      moved.push(number, movedTo);
+      continue;
+    }
+
+    if (now === undefined && was !== undefined) {
+      const movedTo = writtenByTitle.get(was);
+
+      if (movedTo === undefined) {
+        problems.push(`§${number} "${was}" is in the list and not in the document: it was cut.`);
+        continue;
+      }
+
+      problems.push(`§${number} "${was}" is now §${movedTo}: the document ends before §${number}.`);
+      moved.push(number, movedTo);
+      continue;
+    }
+
+    if (was === undefined && now !== undefined) {
+      const cameFrom = listedByTitle.get(now);
+
+      if (cameFrom === undefined) {
+        problems.push(`§${number} "${now}" is in the document and not in the list: add it.`);
+        continue;
+      }
+
+      problems.push(`§${number} "${now}" was §${cameFrom}: the list ends before §${number}.`);
+      moved.push(number, cameFrom);
+    }
+  }
+
+  if (moved.length > 0) {
+    const from = Math.min(...moved);
+
+    problems.push(
+      `The numbering moved at §${from}. Every citation of §${from} and after is suspect:`,
+      ...citations(references, from),
+    );
+  }
+
+  return problems;
+}
+
+// ---------------------------------------------------------------------------
 // The repository
 // ---------------------------------------------------------------------------
 
@@ -175,7 +349,8 @@ const tracked = (): readonly string[] =>
     .filter((path) => path !== '');
 
 describe(`${DOC} section references`, () => {
-  const known = parseSections(readFileSync(resolve(root, DOC), 'utf8'));
+  const markdown = readFileSync(resolve(root, DOC), 'utf8');
+  const known = parseSections(markdown);
   const references = tracked().flatMap((file) =>
     referencesIn(file, readFileSync(resolve(root, file), 'utf8'), DOC),
   );
@@ -194,6 +369,10 @@ describe(`${DOC} section references`, () => {
 
   it('has a section for every reference in the repository', () => {
     expect(unresolved(references, known)).toEqual([]);
+  });
+
+  it('has the sections its list pins, by number and by title', () => {
+    expect(drift(pinned, parseHeadings(markdown), references)).toEqual([]);
   });
 });
 
@@ -280,5 +459,103 @@ describe('reading a section reference', () => {
     expect(unresolved(referencesIn('src/model/pack.ts', source, DOC), five)).toEqual([
       'src/model/pack.ts:3 — §9 — no such section: §9',
     ]);
+  });
+});
+// ---------------------------------------------------------------------------
+// Holding the list
+// ---------------------------------------------------------------------------
+
+describe('holding the section list', () => {
+  /** A three-section document, and the list that agrees with it. */
+  const list: readonly Heading[] = [
+    { number: 1, title: 'Content packs' },
+    { number: 2, title: 'Items' },
+    { number: 3, title: 'Talents' },
+  ];
+
+  /** One citation of §1 and one of §2, so that the sweep block has something to name. */
+  const cited = [
+    ...referencesIn('src/model/pack.ts', `// ${DOC} §1`, DOC),
+    ...referencesIn('DESIGN.md', `First line.\nSecond line, see ${DOC} §2.`, DOC),
+  ];
+
+  it('passes when the document says what the list says', () => {
+    expect(drift(list, list, cited)).toEqual([]);
+  });
+
+  it('fails when a section is renumbered, and says which number changed hands', () => {
+    const renumbered: readonly Heading[] = [
+      { number: 1, title: 'Content packs' },
+      { number: 2, title: 'Enums' },
+      { number: 3, title: 'Items' },
+      { number: 4, title: 'Talents' },
+    ];
+
+    expect(drift(list, renumbered, [])).toEqual([
+      '§2 — the list says "Items", the document says "Enums": "Items" is now §3.',
+      '§3 — the list says "Talents", the document says "Items": "Talents" is now §4.',
+      '§4 "Talents" was §3: the list ends before §4.',
+      'The numbering moved at §2. Every citation of §2 and after is suspect:',
+    ]);
+  });
+
+  it('names the citations of the first section that moved, and of every one after', () => {
+    const renumbered: readonly Heading[] = [
+      { number: 1, title: 'Content packs' },
+      { number: 2, title: 'Enums' },
+      { number: 3, title: 'Items' },
+      { number: 4, title: 'Talents' },
+    ];
+
+    expect(drift(list, renumbered, cited).slice(-2)).toEqual([
+      'The numbering moved at §2. Every citation of §2 and after is suspect:',
+      '  §2 — DESIGN.md:2',
+    ]);
+  });
+
+  it('leaves the citations before the move out of the sweep', () => {
+    const renumbered: readonly Heading[] = [
+      { number: 1, title: 'Content packs' },
+      { number: 2, title: 'Items' },
+      { number: 3, title: 'Tables' },
+      { number: 4, title: 'Talents' },
+    ];
+
+    expect(drift(list, renumbered, cited).join('\n')).not.toContain('src/model/pack.ts');
+  });
+
+  it('fails differently when a section is renamed rather than renumbered', () => {
+    const renamed: readonly Heading[] = [
+      { number: 1, title: 'Content packs' },
+      { number: 2, title: 'Gear' },
+      { number: 3, title: 'Talents' },
+    ];
+
+    expect(drift(list, renamed, cited)).toEqual([
+      '§2 — the list says "Items", the document says "Gear": renamed, not renumbered. ' +
+        'Every reference to §2 still points at the right section; only this list needs the edit.',
+    ]);
+  });
+
+  it('asks for a new section to be added, and sweeps nothing', () => {
+    const added: readonly Heading[] = [...list, { number: 4, title: 'Storage' }];
+
+    expect(drift(list, added, cited)).toEqual([
+      '§4 "Storage" is in the document and not in the list: add it.',
+    ]);
+  });
+
+  it('reports a section that was cut', () => {
+    const cut: readonly Heading[] = list.slice(0, 2);
+
+    expect(drift(list, cut, cited)).toEqual([
+      '§3 "Talents" is in the list and not in the document: it was cut.',
+    ]);
+  });
+
+  it('reads a number and a title off a heading, and nothing off a subheading', () => {
+    const markdown = ['# Data model', '', '## 1. Content packs', '', '### The envelope'].join('\n');
+
+    expect(parseHeadings(markdown)).toEqual([{ number: 1, title: 'Content packs' }]);
   });
 });
