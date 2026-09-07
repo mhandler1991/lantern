@@ -130,9 +130,16 @@ export function newSpell(ref: Ref | null = null): KnownSpell {
   return { id: newRowId(), ref, name: '' };
 }
 
-/** `source` and `rolled` stay null: this one was written in, not rolled for. */
-export function newTalent(): Talent {
-  return { id: newRowId(), text: '', source: null, rolled: null };
+/**
+ * `rolled` stays null either way: this one was written in or picked, not rolled for.
+ *
+ * A talent picked off a class's list arrives with its **words** and the reference they
+ * were copied from, which is the one place on the sheet a pack's text is stored rather
+ * than read back every render (DATA-MODEL.md §12). That is what a talent is for: the
+ * pack can go off, and the paragraph the player is playing with stays put.
+ */
+export function newTalent(text = '', source: Ref | null = null): Talent {
+  return { id: newRowId(), text, source, rolled: null };
 }
 
 /**

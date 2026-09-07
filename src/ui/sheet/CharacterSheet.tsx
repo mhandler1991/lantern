@@ -123,7 +123,12 @@ export function CharacterSheet({
       </div>
 
       <div className="sheet__column">
-        <TalentsPanel character={character} setCharacter={setCharacter} />
+        <TalentsPanel
+          character={character}
+          setCharacter={setCharacter}
+          stack={stack}
+          choices={choices}
+        />
         <QuestsPanel character={character} setCharacter={setCharacter} />
         <JournalPanel character={character} setCharacter={setCharacter} />
       </div>
