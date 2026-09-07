@@ -3,6 +3,11 @@
 > The content pack format, the character format, and how to author them.
 > A pack format is a contract players' characters depend on. Changing it casually
 > breaks people's data.
+>
+> **The section numbers below are an address.** Comments across `src/`, `DESIGN.md`,
+> `schema/pack.schema.json` and `docs/authoring-prompt.md` cite them by number, and
+> `src/data-model-references.test.ts` holds every citation to a heading here. Renumbering
+> a section means renumbering its references in the same commit.
 
 ---
 
