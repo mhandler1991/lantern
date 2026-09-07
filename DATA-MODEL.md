@@ -295,10 +295,15 @@ Random tables are first class. Talents, loot, monsters, creation, quirks — all
 - Ranges must not overlap and must cover the die's full span
 - `die` accepts `2d6`, `1d20`, `d100` — count optional, defaults to 1
 - `rerollable` lets a table offer a reroll before the result is kept. Absent or `null`
-  means `false` — an omitted flag costs an author a default, never their pack
+  means `false` — an omitted flag costs an author a default, never their pack. The offer
+  is a single reroll (`MAX_TABLE_REROLLS`); rolling on the table again from the top is a
+  different act and is always available
 - Gaps and overlaps are **warnings, not refusals** (`PRD.md` principle 4). The schema
   checks that each row is well formed; coverage is checked where the lookup happens,
   `src/model/tables.ts`
+- A lookup answers with the **first** row covering the number, so an overlap still reads
+  the same on every machine at the table, and with **no row** for a face nothing covers —
+  the number rolled is still shown, and no neighbouring row is substituted for it
 
 **Table results are recorded, never applied.** There is no `grants` field, and a pack
 that ships one is told so rather than having it silently ignored. That is deliberate
