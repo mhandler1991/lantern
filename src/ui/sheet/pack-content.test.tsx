@@ -175,6 +175,7 @@ const PACK_LIST: Readonly<Record<string, string>> = {
   Gear: 'Add gear from a pack',
   Spells: 'Add a spell from a pack',
   Light: 'Add a light from a pack',
+  Talents: 'Add a talent from a pack',
 };
 
 function packList(title: string): HTMLSelectElement {
@@ -330,6 +331,28 @@ describe('a homebrew pack', () => {
     expect(panel('Spells').textContent).toContain('WIS 0');
   });
 
+  it('offers a core class the talent it extended it with, and nothing to the others', async () => {
+    await mount(WITH_FROSTBOUND);
+
+    // `example-pack.json` extends `core:class:fighter` with `cold-forged`, and core
+    // itself defines no talents at all — so the picker exists for one class only.
+    await choose(picker('Class'), 'core:class:fighter');
+    expect(optionLabels(packList('Talents'))).toEqual(['Cold-forged']);
+
+    await choose(picker('Class'), 'core:class:wizard');
+    expect(panel('Talents').querySelectorAll('select')).toHaveLength(0);
+  });
+
+  it('writes the talent\'s words on the sheet, and leaves them the player\'s to edit', async () => {
+    await mount(WITH_FROSTBOUND);
+    await choose(picker('Class'), 'core:class:fighter');
+    await addFromPack('Talents', 'frostbound:talent:cold-forged');
+
+    const words = rows('.row--talent')[0]?.querySelector('textarea');
+    expect(words?.value).toContain('Weather never counts against your attacks');
+    expect(words?.readOnly).toBe(false);
+  });
+
   it('overrides a core item without moving it, so the sheet reads the new one', async () => {
     await mount(WITH_FROSTBOUND);
     await addFromPack('Light', 'core:item:torch');
@@ -372,6 +395,20 @@ describe('that pack turned off, with a character still using it', () => {
     expect(rows('.row--item')).toHaveLength(1);
     expect(rows('.row--orphaned')).toHaveLength(1);
     expect(panel('Gear').textContent).toContain('frostbound:item:rimeblade');
+  });
+
+  it('keeps the talent\'s words, which is what the sheet stored them for', async () => {
+    await mount(WITH_FROSTBOUND);
+    await choose(picker('Class'), 'core:class:fighter');
+    await addFromPack('Talents', 'frostbound:talent:cold-forged');
+
+    await mount(ONLY_CORE);
+
+    // No reference to resolve and nothing to orphan: the paragraph is the character's
+    // (DATA-MODEL.md §12), and the picker that put it there is simply gone.
+    const words = rows('.row--talent')[0]?.querySelector('textarea');
+    expect(words?.value).toContain('Weather never counts against your attacks');
+    expect(rows('.row--talent')).toHaveLength(1);
   });
 
   it('reads a torch back at whichever pack still answers, and at the row when none does', async () => {

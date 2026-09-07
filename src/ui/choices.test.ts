@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import type { Pack } from '../model/pack';
 import { parsePack, reportProblems } from '../model/pack';
 import { resolvePacks } from '../model/pack-resolver';
-import { displayName, isFromPack, offer, sheetChoices, spellTier } from './choices';
+import { displayName, isFromPack, offer, sheetChoices, spellTier, talentWords } from './choices';
 
 function pack(fields: Record<string, unknown>): Pack {
   const result = parsePack({ format: 'lantern-pack', formatVersion: 1, version: '1.0.0', ...fields });
@@ -30,6 +30,12 @@ const CORE = pack({
     { id: 'light', name: 'Light', tier: 1, classes: ['wizard'], range: 'near', duration: 'focus' },
     { id: 'mend', name: 'Mend', tier: 2, classes: ['core:priest'], range: 'close', duration: 'instant' },
   ],
+  // No `text`, which is what core actually ships (DESIGN.md §5): a name and a page.
+  talents: [
+    { id: 'grit', name: 'Grit', page: 27 },
+    { id: 'nimble', name: 'Nimble' },
+  ],
+  extends: [{ target: 'core:class:wizard', talents: ['grit', 'nimble'] }],
 });
 
 const FROSTBOUND = pack({
@@ -50,6 +56,17 @@ const FROSTBOUND = pack({
   ],
   spells: [
     { id: 'hoarfrost', name: 'Hoarfrost', tier: 2, classes: ['rimewalker'], range: 'near', duration: 'focus' },
+  ],
+  // The same word as a core talent, from another pack — a Skald problem, not a collision.
+  talents: [
+    { id: 'cold-forged', name: 'Cold-forged', text: 'Weather never counts against you.' },
+    { id: 'grit', name: 'Grit', text: 'You shrug off the cold.' },
+  ],
+  extends: [
+    { target: 'core:class:wizard', talents: ['cold-forged', 'grit'] },
+    // A reference no pack defines. The resolver warns and the class keeps it; a picker
+    // has no words to copy from it, so it is not offered (PRD.md principle 4).
+    { target: 'frostbound:class:rimewalker', talents: ['thaw'] },
   ],
 });
 
@@ -85,6 +102,7 @@ describe('the options a picker offers', () => {
     expect(choices.classes).toEqual([]);
     expect(choices.items).toEqual([]);
     expect(choices.spells).toEqual([]);
+    expect(choices.talents).toEqual([]);
   });
 
   it('names the pack only where two entries share a word', () => {
@@ -117,6 +135,65 @@ describe('the spells a picker offers', () => {
 
   it('offers everything loaded when the class is from a pack that is off', () => {
     expect(sheetChoices(ONLY_CORE, 'frostbound:class:rimewalker').spells).toHaveLength(2);
+  });
+});
+
+describe('the talents a picker offers', () => {
+  it('is what extensions gave the chosen class, and only that class', () => {
+    expect(sheetChoices(ONLY_CORE, 'core:class:wizard').talents.map((choice) => choice.ref)).toEqual(
+      ['core:talent:grit', 'core:talent:nimble'],
+    );
+    expect(sheetChoices(ONLY_CORE, 'core:class:thief').talents).toEqual([]);
+  });
+
+  it('is empty for a character with no class, rather than every talent loaded', () => {
+    // Unlike spells: a talent reaches a class because an extension named it, so an
+    // unchosen class has been offered nothing. The free-text row records the rest.
+    expect(sheetChoices(BOTH, null).talents).toEqual([]);
+  });
+
+  it('is empty for a class from a pack that is off', () => {
+    expect(sheetChoices(ONLY_CORE, 'frostbound:class:rimewalker').talents).toEqual([]);
+  });
+
+  it('names the pack where a supplement adds a talent core already named', () => {
+    const labels = sheetChoices(BOTH, 'core:class:wizard').talents.map((choice) => choice.label);
+
+    expect(labels).toEqual(['Grit (Core)', 'Nimble', 'Cold-forged', 'Grit (Frostbound)']);
+  });
+
+  it('drops a talent no loaded pack defines, and calls it neither an error nor a gap', () => {
+    const stack = resolvePacks([CORE, FROSTBOUND]);
+
+    expect(stack.byRef.get('frostbound:class:rimewalker')).toMatchObject({
+      talents: ['frostbound:talent:thaw'],
+    });
+    expect(sheetChoices(stack, 'frostbound:class:rimewalker').talents).toEqual([]);
+    expect(stack.warnings.some((warning) => warning.message.includes('frostbound:talent:thaw'))).toBe(
+      true,
+    );
+  });
+});
+
+describe('the words picking a talent puts on the sheet', () => {
+  it('is the entry\'s text when it has some', () => {
+    expect(talentWords(BOTH, 'frostbound:talent:cold-forged')).toBe(
+      'Weather never counts against you.',
+    );
+  });
+
+  it('is the name and the page when it has none, which is the core case', () => {
+    expect(talentWords(BOTH, 'core:talent:grit')).toBe('Grit (p. 27)');
+  });
+
+  it('is the name alone when there is no page either, and never an empty paragraph', () => {
+    expect(talentWords(BOTH, 'core:talent:nimble')).toBe('Nimble');
+  });
+
+  it('is nothing at all for a reference that is not a talent a pack answers for', () => {
+    expect(talentWords(BOTH, 'core:item:torch')).toBe('');
+    expect(talentWords(ONLY_CORE, 'frostbound:talent:cold-forged')).toBe('');
+    expect(talentWords(BOTH, null)).toBe('');
   });
 });
 

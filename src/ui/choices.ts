@@ -12,7 +12,9 @@
  * `frostbound:item:rimeblade` and leaves `name` empty (DATA-MODEL.md §12 — `name` is a
  * fallback, never a cache). The word on the screen is read back out of the stack every
  * render, so turning the pack off costs the sheet nothing it had and turning it back on
- * restores the label without an edit.
+ * restores the label without an edit. **A talent is the one exception**, and the format
+ * makes it one: the sheet stores the words and a `source` naming where they came from
+ * (DATA-MODEL.md §12), so `talentWords` below copies rather than references.
  *
  * **Options keep load order.** `ResolvedStack` holds each kind in load order and an
  * override keeps the position of what it replaced, so a supplement being turned on never
@@ -28,7 +30,7 @@
  */
 
 import type { Ref } from '../model/pack';
-import type { ResolvedStack } from '../model/pack-resolver';
+import type { ResolvedStack, ResolvedTalent } from '../model/pack-resolver';
 import { spellsForClass } from '../model/pack-resolver';
 import { orphanLabel } from './format';
 
@@ -52,6 +54,8 @@ export type SheetChoices = {
   /** The items a pack says burn — every item, while nothing loaded says anything. */
   readonly lights: readonly Choice[];
   readonly spells: readonly Choice[];
+  /** The talents extensions offered this character's class, and nothing else. */
+  readonly talents: readonly Choice[];
 };
 
 /** The shape every resolved entry shares, which is all a picker reads off one. */
@@ -91,6 +95,13 @@ export function offer(entries: readonly Offerable[]): readonly Choice[] {
  * spell loaded rather than none — an empty picker would read as a missing pack, and the
  * sheet records what a player says they know (PRD.md principle 1).
  *
+ * **Talents** are narrowed hardest of the three, and they are the one list that does not
+ * fall back. A talent reaches a class because an extension named it (DATA-MODEL.md §9) —
+ * so a character with no class has been offered nothing, and offering every talent
+ * loaded would be handing one class's choices to another. The free-text row beside the
+ * picker is what records a talent from anywhere else (PRD.md principle 1), which is why
+ * an empty list here costs the player nothing.
+ *
  * **Lights** are narrowed by the packs themselves: an item that says it gives light
  * (DATA-MODEL.md §4) belongs on the light picker and a bastard sword does not. The
  * fallback is the same shape and the same reason — while nothing loaded says anything
@@ -109,7 +120,53 @@ export function sheetChoices(stack: ResolvedStack, classRef: Ref | null): SheetC
     spells: offer(
       isClassLoaded && classRef !== null ? spellsForClass(stack, classRef) : stack.spells,
     ),
+    talents: offer(talentsForClass(stack, classRef)),
   };
+}
+
+/**
+ * The talents on a class's list that a loaded pack still defines.
+ *
+ * A reference nothing defines is dropped rather than offered: the sheet copies a
+ * talent's **words**, and a reference with no entry behind it has none to copy. It is
+ * not an error either — the resolver already warned when the extension was applied, and
+ * the class keeps the reference for when the pack that defines it comes back on
+ * (PRD.md principle 4).
+ */
+function talentsForClass(stack: ResolvedStack, classRef: Ref | null): readonly ResolvedTalent[] {
+  const found = classRef === null ? undefined : stack.byRef.get(classRef);
+  if (found === undefined || found.kind !== 'class') return [];
+
+  const offered: ResolvedTalent[] = [];
+  for (const reference of found.talents) {
+    const talent = stack.byRef.get(reference);
+    if (talent !== undefined && talent.kind === 'talent') offered.push(talent);
+  }
+
+  return offered;
+}
+
+/**
+ * What picking a talent writes on the sheet: its words, copied.
+ *
+ * This is the one picker that copies rather than references, and DATA-MODEL.md §12 is
+ * why — a talent stores `text` plus a `source` naming where it came from, so the pack
+ * can go off without the sheet losing a paragraph the player is playing with. Nothing
+ * reads this back afterwards; the words are the player's from the moment they land.
+ *
+ * **An entry with no `text` is the core case, not a broken one** (DESIGN.md §5 — core
+ * ships no rules text and falls back to a page reference). Its name and page are the
+ * only words it has, so they are what gets written: a row reading `Grit (p. 27)` is a
+ * talent the player can look up, and an empty paragraph is a row that lost one.
+ */
+export function talentWords(stack: ResolvedStack, reference: Ref | null): string {
+  const found = reference === null ? undefined : stack.byRef.get(reference);
+  if (found === undefined || found.kind !== 'talent') return '';
+
+  const { name, text, page } = found.entry;
+  if (text !== null && text !== undefined && text !== '') return text;
+
+  return page === null || page === undefined ? name : `${name} (p. ${page})`;
 }
 
 /** True when a loaded pack answers for this reference, and so owns what it is called. */
