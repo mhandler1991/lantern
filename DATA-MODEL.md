@@ -549,14 +549,24 @@ the result and costs nothing.
 `packsUsed` lets the app warn when a character needs a pack that is not loaded, and
 render those items as orphaned rather than losing them.
 
-It is **stamped on every edit**, in `src/model/orphans.ts`, and the rule is one line: what
-this sheet depends on right now, plus every id already recorded whose pack is *not
-loaded*. Most of it is derivable from the references on the sheet, but the case the field
+It is **stamped rather than derived**, in `src/model/orphans.ts`, and the rule is one
+line: what this sheet depends on right now, plus every id already recorded whose pack is
+*not loaded*. Most of it is derivable from the references on the sheet, but the case the field
 exists for is not — a pack that *overrode* `core:item:torch` leaves no trace in the
 reference, so once it is off there is nothing left to derive it from. So the record is
 written while the pack can still be seen, and an id the app cannot check is an id it does
 not get to drop. A recorded pack that *is* loaded and answers for nothing falls away, so
 the warning stays true rather than accumulating packs the player stopped using.
+
+The stamp runs at both moments a sheet can come to depend on a pack: **on every edit**,
+through the wrapper in `src/ui/App.tsx`, and **on every change to the load order** —
+loading, enabling, reordering, removing — through `src/state/use-recorded-packs.ts`. The
+second is not an optimisation. An overriding pack leaves no trace on the sheet, so a
+record written only on edit is missing exactly when a kept pack (`DESIGN.md` §7) is gone
+after a reload and there is nothing left to say it ever answered for anything. Neither is
+an effect: the load-order stamp adjusts state during render against the last stack it
+stamped, so no render ever shows a record that disagrees with the packs it resolved
+through (`CLAUDE.md` §6).
 
 **A loaded pack drives every picker on the sheet.** `src/ui/choices.ts` turns the
 resolved stack into the option lists — ancestry, class, gear, light and spells — and the
