@@ -79,6 +79,14 @@ function fieldByLabel(text: string): HTMLInputElement {
   return find<HTMLInputElement>(`#${CSS.escape((label as HTMLLabelElement).htmlFor)}`);
 }
 
+/** The same, for a control that is chosen from rather than typed into. */
+function selectByLabel(text: string): HTMLSelectElement {
+  const label = findAll('label').find((element) => element.textContent?.trim() === text);
+  if (label === undefined) throw new Error(`no field is labelled "${text}"`);
+
+  return find<HTMLSelectElement>(`#${CSS.escape((label as HTMLLabelElement).htmlFor)}`);
+}
+
 /** The button whose visible text is exactly this. Buttons are found by their words. */
 function button(text: string): HTMLButtonElement {
   const found = findAll('button').find((element) => element.textContent?.trim() === text);
@@ -89,6 +97,18 @@ function button(text: string): HTMLButtonElement {
 async function press(element: HTMLElement): Promise<void> {
   await act(async () => {
     element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
+/** Choosing from a `<select>`: React tracks its value the same way it tracks an input's. */
+async function choose(element: HTMLSelectElement, value: string): Promise<void> {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
+      'value',
+    )?.set;
+    setter?.call(element, value);
+    element.dispatchEvent(new Event('change', { bubbles: true }));
   });
 }
 
@@ -181,6 +201,43 @@ describe('the handle', () => {
     expect(find('.dice__entry-total').textContent).toBe('11');
   });
 
+  it('records who the roll was for, on the card and in the feed', async () => {
+    await mountCorner(scripted(13));
+
+    await press(button('Dice'));
+    await choose(selectByLabel('Who sees it'), 'just-me');
+    await press(button('Roll d20'));
+
+    // Chosen before the roll, and part of the record it leaves behind — not a thing the
+    // player has to remember about a number that is already on screen (DESIGN.md §4).
+    expect(find('.dice__result .dice__visibility').textContent).toBe('Just me');
+    expect(find('.dice__entry .dice__visibility').textContent).toBe('Just me');
+  });
+
+  it('rolls in front of the table unless the player says otherwise', async () => {
+    await mountCorner(scripted(5));
+
+    await press(button('Dice'));
+    await press(button('Roll d20'));
+
+    // The default is the loud one. A default of anything narrower would hide rolls the
+    // player meant to share, and the absence of a mark is also what a bug looks like.
+    expect(selectByLabel('Who sees it').value).toBe('everyone');
+    expect(find('.dice__entry .dice__visibility').textContent).toBe('Everyone');
+  });
+
+  it('keeps the choice for the next roll rather than resetting it', async () => {
+    await mountCorner(scripted(2, 3));
+
+    await press(button('Dice'));
+    await choose(selectByLabel('Who sees it'), 'dm-only');
+    await press(button('Roll d20'));
+    await press(button('Roll d20'));
+
+    const marks = findAll('.dice__entry .dice__visibility').map((mark) => mark.textContent);
+    expect(marks).toEqual(['DM only', 'DM only']);
+  });
+
   it('dismisses your own roll on request', async () => {
     await mountCorner(scripted(4));
 
@@ -219,6 +276,7 @@ const MINE: RollEntry = {
   at: 0,
   origin: { kind: 'mine' },
   label: 'Longsword',
+  visibility: 'everyone',
   roll: { dice: [{ sides: 8, value: 6 }], modifier: 2 },
   lookup: null,
   warnings: [],
@@ -250,6 +308,11 @@ describe('someone else’s roll', () => {
     expect(card.querySelectorAll('button, a, input, select, textarea')).toHaveLength(0);
     // The stylesheet takes it out of the pointer's reach; the class is what selects it.
     expect(card.className).toContain('dice__result--peer');
+  });
+
+  it('shows the audience it was rolled for', async () => {
+    await mountCard({ ...THEIRS, visibility: 'dm-only' });
+    expect(find('.dice__result .dice__visibility').textContent).toBe('DM only');
   });
 
   it('leaves your own card its dismiss', async () => {

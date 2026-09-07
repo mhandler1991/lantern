@@ -13,7 +13,7 @@
  * knows nothing about the number it surrounds.
  */
 
-import type { DieRoll, Roll, RollWarning } from '../model/dice';
+import type { DieRoll, Roll, RollVisibility, RollWarning } from '../model/dice';
 
 /** No dice, no modifier. A floor, not a rule of the game. */
 const NONE = 0;
@@ -59,6 +59,34 @@ export function rollNotation(roll: Roll): string {
   const pool = poolNotation(roll.dice);
 
   return modifier === '' ? pool : `${pool} ${modifier}`;
+}
+
+// ---------------------------------------------------------------------------
+// Who a roll was for
+// ---------------------------------------------------------------------------
+
+/**
+ * What each visibility is called, in the picker and on the record alike.
+ *
+ * One wording for both, rather than one for choosing and another for reading back.
+ * "Just me" is only ever printed on a roll that is in fact this player's — the wire has
+ * no word for it (`net/protocol.ts`), so a peer's roll can never arrive claiming to be
+ * one — and a single label is one fewer place for the two to describe the same roll
+ * differently.
+ *
+ * The record is unconditional: `everyone` prints "Everyone" rather than printing nothing.
+ * A secret roll and a public one must not be told apart by the *absence* of a mark,
+ * because absence is also what a bug looks like.
+ */
+const VISIBILITY_LABELS: Readonly<Record<RollVisibility, string>> = {
+  everyone: 'Everyone',
+  'just-me': 'Just me',
+  'dm-only': 'DM only',
+};
+
+/** Who a roll was for, in the words the picker offered when it was rolled. */
+export function describeVisibility(visibility: RollVisibility): string {
+  return VISIBILITY_LABELS[visibility];
 }
 
 // ---------------------------------------------------------------------------

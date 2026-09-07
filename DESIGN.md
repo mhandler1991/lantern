@@ -276,10 +276,18 @@ pack. We look up which row you rolled and print it. That is the whole operation.
 
 ### Visibility
 
-Per roll, not per player: `everyone` | `just-me` | `dm-only`.
+Per roll, not per player: `everyone` | `just-me` | `dm-only`. Chosen in the handle before
+the roll, defaulting to `everyone`, sticking between rolls, and recorded on the entry —
+so the feed says who each roll was for, including the public ones. A secret roll must be
+told apart by what the record *says*, never by a missing mark, because a missing mark is
+also what a bug looks like.
 
 A secret roll must not broadcast its numbers at all. Sending them and hiding them client
-side is not secret.
+side is not secret. That is structural rather than remembered: `RollVisibility` lives in
+`model/dice.ts`, the wire enum in `net/protocol.ts` is that one with `just-me` excluded,
+and `shareableVisibility()` is the only way to obtain the narrower type — it returns
+`null` for a secret roll, so a sender has nothing to send rather than something to
+suppress.
 
 ### Where others see it
 

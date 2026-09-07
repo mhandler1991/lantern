@@ -930,6 +930,18 @@ body {
   letter-spacing: var(--tracking-label);
 }
 
+/* Who the roll was for, beside the notation and on every line of the feed. It is printed
+   for a public roll too — a secret roll must be told apart by what it says, never by the
+   absence of a mark, because absence is also what a bug looks like (DESIGN.md §4). */
+.dice__visibility {
+  grid-column: 1;
+  margin: var(--space-0);
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+}
+
 /* A table row's own words, printed and never parsed (PRD.md principle 1). */
 .dice__row {
   margin: var(--space-3) var(--space-0) var(--space-0);

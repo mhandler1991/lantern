@@ -28,8 +28,8 @@
 import type { ReactElement } from 'react';
 import { useId, useState } from 'react';
 import { MAX_DICE_PER_ROLL, MAX_NAME_LENGTH, MAX_ROLL_MODIFIER } from '../constants';
-import type { DieRoll } from '../model/dice';
-import { rollTotal } from '../model/dice';
+import type { DieRoll, RollVisibility } from '../model/dice';
+import { RollVisibility as RollVisibilityEnum, rollTotal } from '../model/dice';
 import type { Die } from '../model/enums';
 import { Die as DieEnum } from '../model/enums';
 import { describeTableRollFailure } from '../model/tables';
@@ -38,6 +38,7 @@ import { NumberField, TextField, Warning } from './fields';
 import {
   SILHOUETTE_VIEW_BOX,
   describeRollWarning,
+  describeVisibility,
   dieLabel,
   dieSilhouette,
   rollNotation,
@@ -54,6 +55,14 @@ const ONE = 1;
  * session reaches for most, so it costs the fewest clicks to be wrong about.
  */
 const DEFAULT_DIE: Die = 'd20';
+
+/**
+ * What the handle offers before an audience is chosen. Most rolls at a table are made in
+ * front of everybody, and a default of anything narrower would quietly hide rolls the
+ * player meant to share — the failure that is not noticed until somebody asks what they
+ * got. The choice sticks between rolls, so a run of secret rolls costs one decision.
+ */
+const DEFAULT_VISIBILITY: RollVisibility = 'everyone';
 
 // ---------------------------------------------------------------------------
 // One die
@@ -101,11 +110,13 @@ function describeSubject(entry: RollEntry): string {
 
 export function DiceOverlay({ rolls }: { readonly rolls: Rolls }): ReactElement {
   const dieId = useId();
+  const visibilityId = useId();
   const [isOpen, setOpen] = useState(false);
   const [die, setDie] = useState<Die>(DEFAULT_DIE);
   const [count, setCount] = useState(ONE);
   const [modifier, setModifier] = useState(NONE);
   const [label, setLabel] = useState('');
+  const [visibility, setVisibility] = useState<RollVisibility>(DEFAULT_VISIBILITY);
 
   const { showing } = rolls;
   const isPeerRoll = showing !== null && showing.origin.kind === 'peer';
@@ -140,6 +151,7 @@ export function DiceOverlay({ rolls }: { readonly rolls: Rolls }): ReactElement 
             {rollTotal(showing.roll)}
           </p>
           <p className="dice__notation">{rollNotation(showing.roll)}</p>
+          <p className="dice__visibility">{describeVisibility(showing.visibility)}</p>
 
           {showing.lookup !== null && (
             <p className="dice__row">
@@ -221,11 +233,37 @@ export function DiceOverlay({ rolls }: { readonly rolls: Rolls }): ReactElement 
               onChange={setLabel}
             />
 
+            {/* Who the roll is for, chosen before it is rolled rather than after
+                (DESIGN.md §4). "Just me" is not a roll that is sent and then hidden —
+                Phase 5 has no way to send one, because the wire enum excludes it. */}
+            <div className="field">
+              <label className="field__label" htmlFor={visibilityId}>
+                Who sees it
+              </label>
+              <select
+                id={visibilityId}
+                className="field__input"
+                value={visibility}
+                onChange={(event) => {
+                  // Narrowed through the schema, never cast: a `<select>`'s value is a
+                  // string, and the enum is what says which audiences exist.
+                  const chosen = RollVisibilityEnum.safeParse(event.target.value);
+                  if (chosen.success) setVisibility(chosen.data);
+                }}
+              >
+                {RollVisibilityEnum.options.map((option) => (
+                  <option key={option} value={option}>
+                    {describeVisibility(option)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="row-actions">
               <button
                 type="button"
                 className="button"
-                onClick={() => rolls.roll({ die, count, modifier, label })}
+                onClick={() => rolls.roll({ die, count, modifier, label, visibility })}
               >
                 Roll {count > ONE ? `${count}${die}` : die}
               </button>
@@ -248,6 +286,9 @@ export function DiceOverlay({ rolls }: { readonly rolls: Rolls }): ReactElement 
                       {describeRoller(entry.origin)} {describeSubject(entry)}
                     </span>
                     <span className="dice__entry-notation">{rollNotation(entry.roll)}</span>
+                    <span className="dice__visibility">
+                      {describeVisibility(entry.visibility)}
+                    </span>
                     <span className="dice__entry-total">{rollTotal(entry.roll)}</span>
                     {entry.lookup !== null && (
                       <span className="dice__entry-row">

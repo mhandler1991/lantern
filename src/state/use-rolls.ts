@@ -29,7 +29,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DICE_OVERLAY_DWELL_MS, MAX_ROLL_FEED_ENTRIES } from '../constants';
-import type { RandomWords, Roll, RollWarning } from '../model/dice';
+import type { RandomWords, Roll, RollVisibility, RollWarning } from '../model/dice';
 import { cryptoWords, rollPool } from '../model/dice';
 import type { Die } from '../model/enums';
 import type { RollableTable, TableRollFailure } from '../model/tables';
@@ -88,6 +88,14 @@ export type RollEntry = {
   readonly origin: RollOrigin;
   /** What was rolled, in the roller's words: `Longsword`, `Human talents`. */
   readonly label: string;
+  /**
+   * Who this roll was for, decided when it was rolled (DESIGN.md §4). Recorded on every
+   * entry, whoever rolled it: a peer's roll arrives already narrowed to what the wire
+   * can say, and one of ours may be `just-me`, which is the case Phase 5 must never
+   * send. Kept beside the dice rather than off to the side, because a roll and its
+   * audience are one decision and separating them is how they come apart.
+   */
+  readonly visibility: RollVisibility;
   readonly roll: Roll;
   /** Null for a free roll from the handle; what was found for a table roll. */
   readonly lookup: RollLookup | null;
@@ -95,12 +103,13 @@ export type RollEntry = {
   readonly warnings: readonly RollWarning[];
 };
 
-/** A pool from the handle: a die, how many, what to add, and what it was for. */
+/** A pool from the handle: a die, how many, what to add, what it was for, and who for. */
 export type FreeRoll = {
   readonly die: Die;
   readonly count: number;
   readonly modifier: number;
   readonly label: string;
+  readonly visibility: RollVisibility;
 };
 
 // ---------------------------------------------------------------------------
@@ -115,7 +124,11 @@ export type Rolls = {
   /** Why the last attempt produced no dice at all. Cleared by the next roll that works. */
   readonly failure: TableRollFailure | null;
   readonly roll: (request: FreeRoll) => void;
-  readonly rollTable: (table: RollableTable, label: string) => void;
+  readonly rollTable: (
+    table: RollableTable,
+    label: string,
+    visibility: RollVisibility,
+  ) => void;
   /** A roll that happened somewhere else. The seam Phase 5 broadcasts into. */
   readonly record: (entry: RollEntry) => void;
   readonly dismiss: () => void;
@@ -162,6 +175,7 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
         at: Date.now(),
         origin: MINE,
         label: request.label,
+        visibility: request.visibility,
         roll: rolled.roll,
         lookup: null,
         warnings: rolled.warnings,
@@ -179,7 +193,7 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
    * hand, and `label` is what that caller calls it.
    */
   const rollTable = useCallback(
-    (table: RollableTable, label: string): void => {
+    (table: RollableTable, label: string, visibility: RollVisibility): void => {
       const rolled = rollOnTable(table, random);
       if (!rolled.ok) {
         setFailure(rolled.failure);
@@ -192,6 +206,7 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
         at: Date.now(),
         origin: MINE,
         label,
+        visibility,
         roll: rolled.result.roll,
         lookup: { row: rolled.result.row?.text ?? null },
         warnings: [],

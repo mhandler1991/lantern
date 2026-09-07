@@ -45,6 +45,7 @@ import {
   PROTOCOL_VERSION,
 } from '../constants';
 import { Condition, HitPoints, PackId, Ref, RowId } from '../model/character';
+import { RollVisibility } from '../model/dice';
 import { formatProblems, validate, type Problem } from '../model/problems';
 import { checkEventSize, isPeerId, type JsonValue, type PeerId } from './transport';
 
@@ -130,10 +131,30 @@ export type DieResult = z.infer<typeof DieResult>;
  * must not broadcast its numbers at all**, because sending them and hiding them client
  * side is not secret. So the wire cannot express one — the rule lives in the type
  * rather than in a reviewer's memory, and a `just-me` roll simply never reaches this
- * file. The local three-value control belongs to the dice UI (Phase 3).
+ * file.
+ *
+ * Derived from `model/dice.ts`'s three-value `RollVisibility` by removing the one word,
+ * rather than written out again. A second literal list is a second thing to keep in step,
+ * and the day somebody adds a fourth visibility the two lists disagree in silence; this
+ * way the wire enum is the local one minus the secret and cannot be anything else.
  */
-export const SharedVisibility = z.enum(['everyone', 'dm-only']);
+export const SharedVisibility = RollVisibility.exclude(['just-me']);
 export type SharedVisibility = z.infer<typeof SharedVisibility>;
+
+/**
+ * The gate a roll passes through on its way out, and the only one there is: `null` means
+ * this roll does not leave the machine.
+ *
+ * It is a function rather than a comment because the criterion is behavioural — a
+ * sender that forgets it would compile perfectly well while broadcasting a secret. A
+ * caller with a `RollVisibility` in hand cannot build a `RollEvent` without coming
+ * through here, since that is the only way to obtain the narrower type, and what comes
+ * back for `just-me` is nothing to send.
+ */
+export function shareableVisibility(visibility: RollVisibility): SharedVisibility | null {
+  const shared = SharedVisibility.safeParse(visibility);
+  return shared.success ? shared.data : null;
+}
 
 /**
  * A table roll is a roll plus a lookup, and the app never parses the result — it prints
