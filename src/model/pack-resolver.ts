@@ -568,8 +568,9 @@ export function lookup(
 }
 
 /**
- * The stack as `model/derived.ts` reads it: a reference in, the two facts an AC or a
- * slot count needs out, and `null` for anything no loaded pack defines.
+ * The stack as `model/derived.ts` and `model/light.ts` read it: a reference in, the
+ * facts an AC, a slot count or a burn needs out, and `null` for anything no loaded pack
+ * defines.
  *
  * A sheet stores the full `pack:kind:id` form and nothing else (DATA-MODEL.md §1), so
  * there is nothing to imply here and no `kind` argument to take — an unresolved
@@ -581,7 +582,11 @@ export function itemLookup(stack: ResolvedStack): ItemLookup {
     const found = stack.byRef.get(reference);
     if (found === undefined || found.kind !== 'item') return null;
 
-    return { slots: found.entry.slots, armor: found.entry.armor ?? null };
+    return {
+      slots: found.entry.slots,
+      armor: found.entry.armor ?? null,
+      light: found.entry.light ?? null,
+    };
   };
 }
 

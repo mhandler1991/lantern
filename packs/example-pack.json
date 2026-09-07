@@ -76,7 +76,8 @@
       "name": "Storm torch",
       "slots": 1,
       "cost": { "amount": 2, "currency": "gp" },
-      "text": "A pitch-soaked torch wound in oiled cloth, made for weather that puts an ordinary one out. Overrides the core torch, so a sheet already holding a torch shows this one.",
+      "light": { "minutes": 90 },
+      "text": "A pitch-soaked torch wound in oiled cloth, made for weather that puts an ordinary one out. Overrides the core torch, so a sheet already holding a torch shows this one and burns for its ninety minutes.",
       "page": null,
       "overrides": "core:item:torch"
     }

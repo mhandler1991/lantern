@@ -140,6 +140,7 @@ spell declares its classes. This means adding spells to an existing class needs 
     "properties": ["versatile"]
   },
   "armor": null,
+  "light": null,
   "text": "Optional.",
   "page": null
 }
@@ -151,13 +152,38 @@ evaluate it if it were not. `properties` are tags in the same shape as an id
 (`versatile`, `two-handed`), not sentences, so a sheet can group by them; a property that
 needs explaining goes in `text`.
 
-`weapon` and `armor` are both optional and mutually exclusive in practice — **and that is
-not enforced**. A shield that also hits is somebody's homebrew, not a malformed file. An
-armour entry looks like:
+`weapon`, `armor` and `light` are all optional and mutually exclusive in practice — **and
+that is not enforced**. A shield that also hits is somebody's homebrew, not a malformed
+file, and a blade that burns is the next one. An armour entry looks like:
 
 ```json
 "armor": { "type": "light", "ac": 12, "addDex": true }
 ```
+
+### An item that gives light says so
+
+```json
+"light": { "minutes": 60 }
+```
+
+**`minutes` is how long one of them burns from new, and the block is nothing else.** No
+radius, no colour, no condition — a light source at this table is a thing that burns for
+a while, and everything after that is the clock (`model/light.ts`).
+
+It exists because without it nothing in a pack tells a torch from a bastard sword, and a
+light picker offering all 33 core items is a picker nobody reads. So the sheet's light
+list offers **the items that carry the block** — and every item when no loaded pack
+carries one at all, because a homebrew torch in a pack written before this existed is
+still a torch and an unpickable one would be the app losing content rather than warning
+about it (PRD.md principle 4).
+
+It also answers the one number the row could not answer for itself. A torch picked off
+this list burns for the pack's 60 minutes rather than the sheet's default, and a pack
+that overrides `core:item:torch` with a 90-minute one changes every torch already on
+every sheet the moment it loads. The rule is the one `slots` already follows: **a loaded
+pack's answer wins, the row's own number is the fallback** (§12). Nothing is copied onto
+the sheet, so turning the pack off puts the row back to its own `minutes` — still there,
+still lightable.
 
 ## 5. Classes
 
@@ -531,6 +557,7 @@ The character is local and never sent whole. Export writes this file.
 | `journal` | `{ at, text }` | `at` is epoch milliseconds. |
 | `quests` | `{ text, done }` | |
 | `lights[].litAt` | epoch ms or `null` | **When** it was lit, never how much is left. Remaining time is computed from the clock, so a backgrounded tab cannot drift it. |
+| `lights[].minutes` | 1-1440 | How long it burns, when no loaded pack answers for the row. An item's `light` block wins (§4); this is the fallback, and it is what a row falls back *to* when the pack is turned off. |
 | `talents[].rolled` | number or `null` | The face that produced it; null when it was chosen. |
 
 Every object is **strict**: an unknown key is rejected, not ignored. That is what makes

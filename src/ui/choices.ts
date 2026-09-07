@@ -49,6 +49,8 @@ export type SheetChoices = {
   readonly ancestries: readonly Choice[];
   readonly classes: readonly Choice[];
   readonly items: readonly Choice[];
+  /** The items a pack says burn — every item, while nothing loaded says anything. */
+  readonly lights: readonly Choice[];
   readonly spells: readonly Choice[];
 };
 
@@ -81,19 +83,29 @@ export function offer(entries: readonly Offerable[]): readonly Choice[] {
 /**
  * Every picker on the sheet, from one stack and the class the character has chosen.
  *
- * Spells are the one list narrowed by something on the sheet: **a spell names its
- * classes, not the other way round** (DATA-MODEL.md §3), so a class that resolves is
- * asked what is on its list. A character with no class, or one from a pack that is off,
- * is offered every spell loaded rather than none — an empty picker would read as a
- * missing pack, and the sheet records what a player says they know (PRD.md principle 1).
+ * Two lists are narrower than the kind they come from, and for opposite reasons.
+ *
+ * **Spells** are narrowed by something on the sheet: **a spell names its classes, not
+ * the other way round** (DATA-MODEL.md §3), so a class that resolves is asked what is on
+ * its list. A character with no class, or one from a pack that is off, is offered every
+ * spell loaded rather than none — an empty picker would read as a missing pack, and the
+ * sheet records what a player says they know (PRD.md principle 1).
+ *
+ * **Lights** are narrowed by the packs themselves: an item that says it gives light
+ * (DATA-MODEL.md §4) belongs on the light picker and a bastard sword does not. The
+ * fallback is the same shape and the same reason — while nothing loaded says anything
+ * about light, every item is offered, because a homebrew torch in a pack written before
+ * the block existed is still a torch and refusing to offer it would lose it.
  */
 export function sheetChoices(stack: ResolvedStack, classRef: Ref | null): SheetChoices {
   const isClassLoaded = classRef !== null && stack.byRef.get(classRef)?.kind === 'class';
+  const lights = stack.items.filter((item) => (item.entry.light ?? null) !== null);
 
   return {
     ancestries: offer(stack.ancestries),
     classes: offer(stack.classes),
     items: offer(stack.items),
+    lights: offer(lights.length === NONE ? stack.items : lights),
     spells: offer(
       isClassLoaded && classRef !== null ? spellsForClass(stack, classRef) : stack.spells,
     ),

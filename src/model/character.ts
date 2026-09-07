@@ -50,6 +50,7 @@ import {
   MAX_TEXT_LENGTH,
   MAX_XP,
   MIN_CHARACTER_LEVEL,
+  MIN_LIGHT_MINUTES,
   MIN_STAT,
   PACK_ID_PATTERN,
   REF_PATTERN,
@@ -190,7 +191,7 @@ export const Light = z.strictObject({
   ref: Ref.nullable(),
   name: z.string().max(MAX_NAME_LENGTH),
   litAt: z.int().min(NONE).nullable(),
-  minutes: z.int().min(1).max(MAX_LIGHT_MINUTES),
+  minutes: z.int().min(MIN_LIGHT_MINUTES).max(MAX_LIGHT_MINUTES),
 });
 export type Light = z.infer<typeof Light>;
 

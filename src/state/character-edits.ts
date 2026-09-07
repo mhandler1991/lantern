@@ -138,9 +138,12 @@ export function newTalent(): Talent {
 /**
  * Unlit. `litAt` is set to the clock when the player lights it, never counted down.
  *
- * `minutes` is the row's own however it was added: nothing in a pack says how long a
- * light burns (DATA-MODEL.md §4), so a torch picked off a pack list starts at the same
- * default a typed-in one does and stays the player's to change.
+ * `minutes` is the default however the row was added, **including one picked off a pack
+ * list**. An item that says it gives light answers for the burn while the pack is on
+ * (DATA-MODEL.md §4), and that answer is read every render rather than written here:
+ * storing it would be a cache of a pack's number on a sheet, which is exactly what
+ * `name` is not either (DATA-MODEL.md §12). What is stored is what the row falls back to
+ * when the pack goes away — a torch that is still a torch with everything turned off.
  */
 export function newLight(ref: Ref | null = null): Light {
   return {

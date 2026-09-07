@@ -434,7 +434,7 @@ describe('the stack as derived values read it', () => {
   it('answers an item reference with the two facts a computation needs', () => {
     const stack = resolvePacks([CORE]);
 
-    expect(itemLookup(stack)('core:item:dagger')).toEqual({ slots: 1, armor: null });
+    expect(itemLookup(stack)('core:item:dagger')).toEqual({ slots: 1, armor: null, light: null });
   });
 
   it('carries the armour block through, because AC is arithmetic over it', () => {
@@ -455,8 +455,32 @@ describe('the stack as derived values read it', () => {
     expect(itemLookup(resolvePacks([armoury]))('armoury:item:chainmail')).toEqual({
       slots: 2,
       armor: { type: 'medium', ac: 13, addDex: true },
+      light: null,
     });
   });
+
+  it('carries the light block through, because a burn is arithmetic over it', () => {
+    const lamps = loaded({
+      id: 'lamps',
+      name: 'Lamps',
+      items: [
+        {
+          id: 'storm-torch',
+          name: 'Storm torch',
+          slots: 1,
+          cost: { amount: 2, currency: 'gp' },
+          light: { minutes: 90 },
+        },
+      ],
+    });
+
+    expect(itemLookup(resolvePacks([lamps]))('lamps:item:storm-torch')).toEqual({
+      slots: 1,
+      armor: null,
+      light: { minutes: 90 },
+    });
+  });
+
 
   it('answers null for anything no loaded pack defines, so the row’s own value stands', () => {
     const stack = resolvePacks([CORE]);

@@ -110,6 +110,7 @@ export function CharacterSheet({
           orphans={orphans}
           stack={stack}
           choices={choices}
+          items={items}
         />
         <SpellsPanel
           character={character}

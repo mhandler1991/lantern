@@ -262,8 +262,18 @@
       }
     },
 
+    "lightBlock": {
+      "description": "An item that gives light says so, and says for how long. `minutes` is how long one burns from new; the app counts down from the moment it was lit and never adjudicates what running out means.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minutes"],
+      "properties": {
+        "minutes": { "type": "integer", "minimum": 1, "maximum": 1440 }
+      }
+    },
+
     "itemEntry": {
-      "description": "DATA-MODEL.md §4. `weapon` and `armor` are mutually exclusive in practice and not enforced to be — a shield that also hits is somebody's homebrew, not a malformed file.",
+      "description": "DATA-MODEL.md §4. `weapon`, `armor` and `light` are mutually exclusive in practice and not enforced to be — a shield that also hits is somebody's homebrew, not a malformed file.",
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "name", "slots", "cost"],
@@ -282,6 +292,9 @@
         },
         "armor": {
           "anyOf": [{ "$ref": "#/$defs/armorBlock" }, { "type": "null" }]
+        },
+        "light": {
+          "anyOf": [{ "$ref": "#/$defs/lightBlock" }, { "type": "null" }]
         },
         "text": { "$ref": "#/$defs/entryText" },
         "page": { "$ref": "#/$defs/page" },

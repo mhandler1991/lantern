@@ -58,6 +58,7 @@ function held<T>(entries: readonly T[] | undefined): readonly T[] {
 
 const ONLY_CORE = resolvePacks([CORE]);
 const WITH_FROSTBOUND = resolvePacks([CORE, FROSTBOUND]);
+const NO_PACKS = resolvePacks([]);
 
 // ---------------------------------------------------------------------------
 // The harness
@@ -201,11 +202,27 @@ describe('the core pack drives every picker', () => {
     expect(optionLabels(picker('Class'))).toHaveLength(held(CORE.classes).length);
   });
 
-  it('offers every item to the gear list and to the light list', async () => {
+  it('offers every item to the gear list, and only what burns to the light list', async () => {
     await mount(ONLY_CORE);
 
     expect(optionLabels(packList('Gear'))).toHaveLength(held(CORE.items).length);
-    expect(optionLabels(packList('Light'))).toContain('Torch');
+
+    // The point of the `light` block: a picker of two, not of thirty-three
+    // (DATA-MODEL.md §4). A bastard sword is gear and never a light source.
+    const lights = optionLabels(packList('Light'));
+    expect(lights).toEqual(['Lantern', 'Torch']);
+    expect(lights).not.toContain('Bastard sword');
+  });
+
+  it('gives a torch the hour the pack says it burns, and does not let it be typed over', async () => {
+    await mount(ONLY_CORE);
+    await addFromPack('Light', 'core:item:torch');
+
+    const minutes = rows('.row--light')[0]?.querySelector<HTMLInputElement>(
+      'input[type="number"]',
+    );
+    expect(minutes?.value).toBe('60');
+    expect(minutes?.readOnly).toBe(true);
   });
 
   it('offers every spell until a class narrows the list to its own', async () => {
@@ -318,9 +335,14 @@ describe('a homebrew pack', () => {
     await addFromPack('Light', 'core:item:torch');
 
     // `storm-torch` overrides `core:item:torch`, so the reference is unchanged and the
-    // word on the row is the supplement's (DATA-MODEL.md §9).
+    // word on the row is the supplement's (DATA-MODEL.md §9) — and so is the burn.
     const [name] = rows('.row--light')[0]?.querySelectorAll('input') ?? [];
     expect(name?.value).toBe('Storm torch');
+
+    const minutes = rows('.row--light')[0]?.querySelector<HTMLInputElement>(
+      'input[type="number"]',
+    );
+    expect(minutes?.value).toBe('90');
   });
 });
 
@@ -350,5 +372,26 @@ describe('that pack turned off, with a character still using it', () => {
     expect(rows('.row--item')).toHaveLength(1);
     expect(rows('.row--orphaned')).toHaveLength(1);
     expect(panel('Gear').textContent).toContain('frostbound:item:rimeblade');
+  });
+
+  it('reads a torch back at whichever pack still answers, and at the row when none does', async () => {
+    const minutes = (): HTMLInputElement | null | undefined =>
+      rows('.row--light')[0]?.querySelector<HTMLInputElement>('input[type="number"]');
+
+    await mount(WITH_FROSTBOUND);
+    await addFromPack('Light', 'core:item:torch');
+    expect(minutes()?.value).toBe('90');
+
+    // The supplement off, core still on: the same row, answered by the pack underneath.
+    await mount(ONLY_CORE);
+    expect(minutes()?.value).toBe('60');
+    expect(minutes()?.readOnly).toBe(true);
+
+    // Everything off. The row keeps its own number and the player has it back — a torch
+    // nobody could light would be the app blocking play (PRD.md principle 4).
+    await mount(NO_PACKS);
+    expect(minutes()?.value).toBe('60');
+    expect(minutes()?.readOnly).toBe(false);
+    expect(button('Light it', panel('Light'))).toBeInstanceOf(HTMLButtonElement);
   });
 });

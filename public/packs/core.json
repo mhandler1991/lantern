@@ -157,12 +157,12 @@
     { "id": "grappling-hook", "name": "Grappling hook", "slots": 1, "cost": { "amount": 1, "currency": "gp" }, "page": null },
     { "id": "holy-water", "name": "Holy water", "slots": 1, "cost": { "amount": 25, "currency": "gp" }, "page": null },
     { "id": "iron-spikes", "name": "Iron spikes", "slots": 1, "cost": { "amount": 1, "currency": "gp" }, "page": null },
-    { "id": "lantern", "name": "Lantern", "slots": 1, "cost": { "amount": 5, "currency": "gp" }, "page": null },
+    { "id": "lantern", "name": "Lantern", "slots": 1, "cost": { "amount": 5, "currency": "gp" }, "light": { "minutes": 60 }, "page": null },
     { "id": "mirror", "name": "Mirror", "slots": 1, "cost": { "amount": 10, "currency": "gp" }, "page": null },
     { "id": "pole", "name": "Pole", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null },
     { "id": "rations", "name": "Rations", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null },
     { "id": "rope", "name": "Rope", "slots": 1, "cost": { "amount": 1, "currency": "gp" }, "page": null },
-    { "id": "torch", "name": "Torch", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "page": null }
+    { "id": "torch", "name": "Torch", "slots": 1, "cost": { "amount": 5, "currency": "sp" }, "light": { "minutes": 60 }, "page": null }
   ],
 
   "spells": [

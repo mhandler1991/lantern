@@ -194,6 +194,19 @@ describe('every reference inside core lands', () => {
     }
   });
 
+  it('says which of its items give light, and for how long', () => {
+    const burning = new Map(
+      (core.items ?? [])
+        .filter((item) => item.light !== undefined && item.light !== null)
+        .map((item) => [item.id, item.light?.minutes]),
+    );
+
+    // The two things a party lights a dungeon with. Anything else in core that gave
+    // light and did not say so would be unpickable on the sheet's light list.
+    expect([...burning.keys()].sort()).toEqual(['lantern', 'torch']);
+    for (const minutes of burning.values()) expect(minutes).toBeGreaterThan(0);
+  });
+
   it('names every class weapon as a weapon, and nothing else', () => {
     const weapons = new Set(
       (core.items ?? []).filter((item) => item.weapon !== undefined).map((item) => item.id),

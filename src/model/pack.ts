@@ -53,6 +53,7 @@ import {
   MAX_DESCRIPTION_LENGTH,
   MAX_ENTRIES_PER_ARRAY,
   MAX_EXTENDS_PER_PACK,
+  MAX_LIGHT_MINUTES,
   MAX_NAME_LENGTH,
   MAX_PACK_ITEM_SLOTS,
   MAX_PAGE_NUMBER,
@@ -62,6 +63,7 @@ import {
   MAX_TAGS_PER_ENTRY,
   MAX_TALENT_REFS_PER_EXTENSION,
   MAX_TEXT_LENGTH,
+  MIN_LIGHT_MINUTES,
   MIN_PACK_ITEM_SLOTS,
   MIN_TABLE_ROLL,
   ENTRY_ID_PATTERN,
@@ -239,12 +241,28 @@ export const ArmorBlock = z.strictObject({
 export type ArmorBlock = z.infer<typeof ArmorBlock>;
 
 /**
- * `weapon` and `armor` are mutually exclusive in practice and **not enforced to be**. A
- * shield that also hits is somebody's homebrew, not a malformed file, and the pair of
- * blocks costs the reader nothing (PRD.md principle 4).
+ * `minutes` is how long one of these burns from new, and it is the whole block: a torch
+ * is a thing that gives light for an hour, and everything else about the burn is the
+ * clock (`model/light.ts`). It is a **statement about the item**, not about a character
+ * — no pack lights anything, and nothing here adjudicates what running out means.
+ *
+ * It is also what tells a light picker a torch from a bastard sword, which is why an
+ * item that burns has to say so rather than be guessed at from its name.
+ */
+export const LightBlock = z.strictObject({
+  minutes: z.int().min(MIN_LIGHT_MINUTES).max(MAX_LIGHT_MINUTES),
+});
+export type LightBlock = z.infer<typeof LightBlock>;
+
+/**
+ * `weapon`, `armor` and `light` are mutually exclusive in practice and **not enforced to
+ * be**. A shield that also hits is somebody's homebrew, not a malformed file, and a
+ * blade that burns is the next one (PRD.md principle 4).
  *
  * `slots` is what **one** of it costs to carry. A sheet multiplies by quantity and a
- * pack's answer wins over the row's own — `model/derived.ts` §carry slots.
+ * pack's answer wins over the row's own — `model/derived.ts` §carry slots. `light` is
+ * read the same way, and by the same rule: the pack answers for how long a torch burns
+ * while the pack is on, and the row's own `minutes` is what is left when it is off.
  */
 export const ItemEntry = z.strictObject({
   id: EntryId,
@@ -254,6 +272,7 @@ export const ItemEntry = z.strictObject({
 
   weapon: WeaponBlock.nullish(),
   armor: ArmorBlock.nullish(),
+  light: LightBlock.nullish(),
 
   text: EntryText,
   page: PageReference,
