@@ -353,9 +353,25 @@ byte is decoded, then the decoded text's length, then `JSON.parse`, then `parseP
 `src/state/pack-file.ts`. Every failure is problems with paths and **nothing is
 replaced** — a malformed pack leaves every loaded pack exactly as it was.
 
-**Nothing is persisted.** `DESIGN.md` §7 — packs are room-scoped by default with an
-explicit opt-in to keep one, and that opt-in is not built. A loaded pack lasts as long as
-the tab, and the content screen says so rather than letting a DM find out after a reload.
+### Keeping a pack
+
+`DESIGN.md` §7 — packs are **room-scoped by default, with an explicit opt-in to keep
+one**. A loaded pack lasts as long as the tab unless Keep is ticked beside it, and the
+content screen says so above the list rather than letting a DM find out after a reload.
+
+| Rule | Why |
+|---|---|
+| **Off by default, and one tick per pack** | Room-scoped is the position; keeping is the exception somebody asks for. |
+| **What is kept is the pack *and* the two decisions about it** | Its place in the load order and whether it was on. Restoring one without the others would reshuffle a stack somebody arranged. |
+| **Core is not offered it** | It is fetched on boot from `packs/core.json`; there is no file to remember and nothing to restore. |
+| **`MAX_KEPT_PACKS` and `MAX_KEPT_PACKS_BYTES`** | `MAX_PACK_BYTES` × `MAX_PACKS_LOADED` is 64 MB against a `localStorage` quota of about 5, so the opt-in is bounded rather than the quota gambled on: eight packs, one megabyte of text, sharing an origin with the character. |
+| **Past a bound, the *opt-in* is refused — never the pack** | The pack stays loaded and working for the tab and the content screen says which bound was reached (`PRD.md` principle 4). |
+| **A browser that will not store says so** | Private mode, blocked site data and a full origin are reported as themselves, and everything else keeps working. |
+
+Restoring is a load like any other: the stored text is bounded before it is decoded, and
+every pack in it goes through `parsePack` exactly as a picked file does (`CLAUDE.md`
+§2.7). A stored pack the current build cannot read is **set aside, never dropped** — the
+`rejected` treatment §13 gives a character. `src/state/pack-storage.ts`.
 
 ### The resolution stack, rendered
 
@@ -589,6 +605,8 @@ forward by one migration path and cannot drift apart.
 |---|---|
 | `lantern:character` | The active sheet. |
 | `lantern:character.rejected` | A value the app could not read, copied aside before anything overwrote it. Never parsed and never written over; read back only to hand the raw text to the player as a file. |
+| `lantern:packs` | The packs a DM ticked Keep on, in load order, each with the on/off state it had. Written only when something is kept, and cleared when nothing is. |
+| `lantern:packs.rejected` | The same treatment for a kept-pack store the app could not read. |
 
 ### Reading
 
@@ -630,6 +648,34 @@ claim about what the file was meant to be, and it is what lets the import field 
 pick it up: the recovered file goes back in through `readCharacterFile` like any other,
 so "download it, fix the line the problem report named, open it" is one loop rather than
 two tools.
+
+### Kept packs
+
+`lantern:packs` holds its own envelope — `format: "lantern-packs"`, `formatVersion`, and
+a `packs` array of `{ name, isEnabled, pack }` — because what is stored is a *list* plus
+the two decisions made about each entry, which a bare pack file has nowhere to put. The
+`name` is the file the pack was picked from, capped at `MAX_PACK_SOURCE_NAME_LENGTH`: it
+is provenance in the load order and nothing computes with it.
+
+Reading is the character's path with a list in front of it, and it never throws:
+
+| Outcome | When | What the app does |
+|---|---|---|
+| Restored | Read, and every pack parsed. | Puts them in the load order, before core arrives and is placed in front. |
+| Partly restored | One entry failed. | Restores the rest, reports the problems by position — `packs[1].spells[0].tier` — and sets the whole stored value aside first, because the write that follows holds only what parsed. |
+| Nothing stored | No key. | Nothing kept, and nothing said. |
+| `unavailable` | The browser refused — private mode, blocked site data. | Says a kept pack could not be restored and that nothing can be kept, then carries on. |
+
+`kept` and `quarantined` mean exactly what they mean for a character, and the content
+screen offers the parked bytes back with **Download the stored packs**
+(`ui/RecoverPacks.tsx`). Writing is validated on the way out as well as in: every kept
+pack goes back through `parsePack` before it is stored, so a pack that would not load
+back is reported while the DM is still looking at the screen.
+
+`localStorage` rather than IndexedDB. The asynchrony IndexedDB buys is asynchrony the
+restore does not want — it happens in a reducer initialiser so the first paint already
+has the packs — and the quota it would buy is answered instead by bounding the opt-in,
+which a DM can see and an unbounded store cannot.
 
 ### `formatVersion`
 

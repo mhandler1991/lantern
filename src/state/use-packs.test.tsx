@@ -9,10 +9,19 @@
 import type { ReactElement } from 'react';
 import { StrictMode, act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { describe, expect, it } from 'vitest';
-import { MAX_PACKS_LOADED, PACK_FORMAT, PACK_FORMAT_VERSION } from '../constants';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  KEPT_PACKS_FORMAT,
+  KEPT_PACKS_FORMAT_VERSION,
+  MAX_KEPT_PACKS,
+  MAX_PACKS_LOADED,
+  PACK_FORMAT,
+  PACK_FORMAT_VERSION,
+} from '../constants';
 import type { Pack, Ref } from '../model/pack';
 import type { CorePackResult } from './core-pack';
+import { KEPT_PACKS_KEY } from './pack-storage';
+import type { StorageDriver } from './storage';
 import type { CorePackLoader, LoadedPack, Packs, PacksState } from './use-packs';
 import { INITIAL_PACKS, packsReducer, usePacks } from './use-packs';
 
@@ -191,13 +200,77 @@ describe('the load order', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The opt-in to keep a pack
+// ---------------------------------------------------------------------------
+
+describe('keeping a pack', () => {
+  it('keeps nothing by default — the opt-in is a press, not an assumption', () => {
+    const state = run({ type: 'core-loaded', pack: core }, loadedFromFile('frostbound'));
+
+    expect(state.loaded.every((held) => !held.isKept)).toBe(true);
+  });
+
+  it('turns the opt-in on and off again without moving the pack or turning it off', () => {
+    const on = run(loadedFromFile('frostbound'), { type: 'keep', id: 'frostbound' });
+    expect(on.loaded[0]?.isKept).toBe(true);
+    expect(on.loaded[0]?.isEnabled).toBe(true);
+
+    const off = packsReducer(on, { type: 'keep', id: 'frostbound' });
+    expect(off.loaded[0]?.isKept).toBe(false);
+    expect(off.loaded[0]?.isEnabled).toBe(true);
+  });
+
+  it('never keeps core, which is fetched on boot and has no file to remember', () => {
+    const state = run({ type: 'core-loaded', pack: core }, { type: 'keep', id: 'core' });
+
+    expect(state.loaded[0]?.isKept).toBe(false);
+  });
+
+  it('carries the opt-in across an update, the way it carries the on/off state', () => {
+    const state = run(
+      loadedFromFile('frostbound'),
+      { type: 'keep', id: 'frostbound' },
+      { type: 'toggle', id: 'frostbound' },
+      { type: 'read-loaded', name: 'frostbound-1.2.json', pack: pack('frostbound', { version: '1.2.0' }) },
+    );
+
+    // Both were decisions somebody made about the pack rather than about the version.
+    expect(state.loaded[0]?.pack.version).toBe('1.2.0');
+    expect(state.loaded[0]?.isKept).toBe(true);
+    expect(state.loaded[0]?.isEnabled).toBe(false);
+  });
+
+  it('refuses the opt-in past the bound and leaves the pack loaded and working', () => {
+    const loads = Array.from({ length: MAX_KEPT_PACKS + 1 }, (_unused, index) =>
+      loadedFromFile(`pack-${index}`),
+    );
+    const keeps = loads.map((load) => ({ type: 'keep', id: load.pack.id }) as const);
+    const state = run(...loads, ...keeps);
+
+    const last = `pack-${MAX_KEPT_PACKS}`;
+    expect(state.loaded.filter((held) => held.isKept)).toHaveLength(MAX_KEPT_PACKS);
+    expect(state.loaded.find((held) => held.pack.id === last)?.isKept).toBe(false);
+    expect(state.keep).toEqual({ kind: 'refused', name: last, reason: 'count' });
+
+    // PRD.md principle 4: refused the opt-in, not the pack.
+    expect(ids(state)).toContain(last);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The hook
 // ---------------------------------------------------------------------------
 
 let latest: Packs | null = null;
 
-function Probe({ load }: { readonly load: CorePackLoader }): ReactElement {
-  latest = usePacks(load);
+function Probe({
+  load,
+  driver,
+}: {
+  readonly load: CorePackLoader;
+  readonly driver: StorageDriver | null;
+}): ReactElement {
+  latest = usePacks(load, driver);
   return <span>{latest.core.kind}</span>;
 }
 
@@ -206,14 +279,26 @@ function hook(): Packs {
   return latest;
 }
 
-async function mount(load: CorePackLoader, strict = false): Promise<() => Promise<void>> {
+async function mount(
+  load: CorePackLoader,
+  strict = false,
+  driver: StorageDriver | null = localStorage,
+): Promise<() => Promise<void>> {
   latest = null;
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
 
   await act(async () => {
-    root.render(strict ? <StrictMode><Probe load={load} /></StrictMode> : <Probe load={load} />);
+    root.render(
+      strict ? (
+        <StrictMode>
+          <Probe load={load} driver={driver} />
+        </StrictMode>
+      ) : (
+        <Probe load={load} driver={driver} />
+      ),
+    );
   });
 
   return async () => {
@@ -347,6 +432,140 @@ describe('the packs hook', () => {
 
     expect(hook().pick.kind).toBe('failed');
     expect(hook().loaded.map((held) => held.pack.id)).toEqual(['core']);
+
+    await unmount();
+  });
+});
+
+describe('a pack that was kept', () => {
+  const corePack = (): Promise<CorePackResult> =>
+    Promise.resolve({ ok: true, pack: core } as CorePackResult);
+
+  /** Whatever a previous visit left behind, written the way `saveKeptPacks` writes it. */
+  function stored(entries: readonly { id: string; isEnabled: boolean }[]): void {
+    localStorage.setItem(
+      KEPT_PACKS_KEY,
+      JSON.stringify({
+        format: KEPT_PACKS_FORMAT,
+        formatVersion: KEPT_PACKS_FORMAT_VERSION,
+        packs: entries.map((entry) => ({
+          name: `${entry.id}.json`,
+          isEnabled: entry.isEnabled,
+          pack: pack(entry.id),
+        })),
+      }),
+    );
+  }
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('comes back on the next visit, in its stored order and on/off state', async () => {
+    stored([
+      { id: 'frostbound', isEnabled: true },
+      { id: 'cursed-scroll', isEnabled: false },
+    ]);
+
+    const unmount = await mount(corePack);
+
+    // Core is still placed in front of everything, restored packs included.
+    expect(hook().loaded.map((held) => held.pack.id)).toEqual(['core', 'frostbound', 'cursed-scroll']);
+    expect(found('cursed-scroll')?.isEnabled).toBe(false);
+    expect(found('frostbound')?.isKept).toBe(true);
+    expect(hook().restore.problems).toEqual([]);
+
+    await unmount();
+  });
+
+  it('is written the moment it is kept, and the key is cleared when it is not', async () => {
+    const unmount = await mount(corePack);
+
+    const text = JSON.stringify(pack('frostbound', { name: 'Frostbound' }));
+    await act(async () => {
+      await hook().addFile({ name: 'frostbound.json', size: text.length, text: () => Promise.resolve(text) });
+    });
+
+    expect(localStorage.getItem(KEPT_PACKS_KEY), 'a loaded pack is not a kept one').toBeNull();
+
+    await act(async () => {
+      hook().toggleKept('frostbound');
+    });
+    expect(localStorage.getItem(KEPT_PACKS_KEY)).toContain('frostbound');
+    expect(hook().store).toEqual({ ok: true, count: 1 });
+
+    await act(async () => {
+      hook().toggleKept('frostbound');
+    });
+    expect(localStorage.getItem(KEPT_PACKS_KEY)).toBeNull();
+
+    await unmount();
+  });
+
+  it('leaves a pack that was not kept behind, which is the default', async () => {
+    const unmount = await mount(corePack);
+
+    const text = JSON.stringify(pack('frostbound', { name: 'Frostbound' }));
+    await act(async () => {
+      await hook().addFile({ name: 'frostbound.json', size: text.length, text: () => Promise.resolve(text) });
+    });
+    await unmount();
+
+    const second = await mount(corePack);
+    expect(hook().loaded.map((held) => held.pack.id)).toEqual(['core']);
+    await second();
+  });
+
+  it('reports a stored pack it can no longer read and restores the rest', async () => {
+    localStorage.setItem(
+      KEPT_PACKS_KEY,
+      JSON.stringify({
+        format: KEPT_PACKS_FORMAT,
+        formatVersion: KEPT_PACKS_FORMAT_VERSION,
+        packs: [
+          { name: 'frostbound.json', isEnabled: true, pack: pack('frostbound') },
+          { name: 'broken.json', isEnabled: true, pack: { id: 'broken' } },
+        ],
+      }),
+    );
+
+    const unmount = await mount(corePack);
+
+    expect(hook().loaded.map((held) => held.pack.id)).toEqual(['core', 'frostbound']);
+    expect(hook().restore.problems.length).toBeGreaterThan(0);
+    expect(hook().restore.quarantined).toBe(true);
+
+    await unmount();
+  });
+
+  it('keeps working when the browser will not store anything', async () => {
+    const blocked: StorageDriver = {
+      getItem() {
+        throw new DOMException('The operation is insecure.', 'SecurityError');
+      },
+      setItem() {
+        throw new DOMException('The operation is insecure.', 'SecurityError');
+      },
+      removeItem: () => undefined,
+    };
+
+    const unmount = await mount(corePack, false, blocked);
+
+    expect(hook().restore.failure?.kind).toBe('unavailable');
+    expect(hook().core.kind).toBe('ready');
+
+    const text = JSON.stringify(pack('frostbound', { name: 'Frostbound' }));
+    await act(async () => {
+      await hook().addFile({ name: 'frostbound.json', size: text.length, text: () => Promise.resolve(text) });
+    });
+    await act(async () => {
+      hook().toggleKept('frostbound');
+    });
+
+    // The pack is loaded and resolved; only the keeping failed, and it says so.
+    expect(found('frostbound')?.isKept).toBe(true);
+    expect(hook().store?.ok).toBe(false);
+    expect(hook().stack.spells.length).toBeGreaterThan(0);
 
     await unmount();
   });
