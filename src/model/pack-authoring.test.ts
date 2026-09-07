@@ -335,9 +335,8 @@ describe('packs/example-pack.json', () => {
   });
 
   // The talent the file's first extension offers the core fighter is defined in the same
-  // file, so an author reads the whole loop — entry, then extension — off one page. It is
-  // also the one reference resolution does not check yet (#127), which is exactly why it
-  // is asserted here instead.
+  // file, so an author reads the whole loop — entry, then extension — off one page, and
+  // resolution holds it to the stack like any other reference.
   it('defines the talent its own extension offers a class', () => {
     const offered = (example.extends ?? []).flatMap((extension) => extension.talents ?? []);
     const defined = (example.talents ?? []).map((talent) => talent.id);
@@ -386,6 +385,9 @@ describe('packs/example-pack.json', () => {
         entry.classes.map((owner) => normalizeRef(owner, 'class', example.id)),
       ),
       ...(example.extends ?? []).map((extension) => extension.target),
+      ...(example.extends ?? []).flatMap((extension) =>
+        (extension.talents ?? []).map((talent) => normalizeRef(talent, 'talent', example.id)),
+      ),
     ];
 
     expect(referenced.filter((reference) => !stack.byRef.has(reference))).toEqual([]);

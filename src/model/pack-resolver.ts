@@ -23,8 +23,10 @@
  * so `reportProblems` puts a resolution fault and a schema fault in one pasteable block.
  * The path is `pack.array[index].field` — which pack, which entry, which field.
  *
- * 🚫 Nothing here adjudicates. A talent an extension adds to a class is a reference the
- * sheet records; this file never reads it, and never modifies a stat (PRD.md principle 1).
+ * 🚫 Nothing here adjudicates. A talent an extension adds to a class is resolved the way
+ * every other reference is — the class is offered it, and a pack defining nothing by that
+ * name warns — and there it stops: it is a reference a sheet records, never a stat this
+ * file modifies (PRD.md principle 1).
  */
 
 import type { ItemLookup, SpellcastingFacts } from './derived';
@@ -40,6 +42,7 @@ import {
   type SpellEntry,
   type TableEntry,
   type TableRow,
+  type TalentEntry,
 } from './pack';
 import type { Problem } from './problems';
 
@@ -57,14 +60,15 @@ const KIND_SEGMENT = 1;
 // ---------------------------------------------------------------------------
 
 /**
- * Every kind this file resolves. A talent is a defined kind in `pack.ts` since
- * DATA-MODEL.md §7 gave it a shape, and it is still absent here: putting talents in the
- * stack is #127, and until it lands a defined talent parses and reaches no picker.
+ * Every kind this file resolves, which is every kind a pack can define — all six of
+ * `EntryKind`. The alias is kept because it is what the code below means: a kind that
+ * has a map, a `collect` pass and a place in `byRef`.
  */
-export type DefinedKind = Exclude<EntryKind, 'talent'>;
+export type DefinedKind = EntryKind;
 
-/** The five entry types this file resolves, as one union. */
-export type PackEntry = ClassEntry | AncestryEntry | SpellEntry | ItemEntry | TableEntry;
+/** The six entry types this file resolves, as one union. */
+export type PackEntry =
+  ClassEntry | AncestryEntry | SpellEntry | ItemEntry | TalentEntry | TableEntry;
 
 /**
  * Fill in the segments an entry left implied and return the one form everything else
@@ -158,8 +162,23 @@ export type ResolvedItem = Provenance & {
   readonly entry: ItemEntry;
 };
 
+/**
+ * A choice on offer, with the pack that supplied it (DATA-MODEL.md §7). It holds no
+ * `classes` list of its own: which classes are offered it is the `talents` on each
+ * `ResolvedClass`, put there by the extensions that named it.
+ */
+export type ResolvedTalent = Provenance & {
+  readonly kind: 'talent';
+  readonly entry: TalentEntry;
+};
+
 export type ResolvedEntry =
-  ResolvedClass | ResolvedAncestry | ResolvedSpell | ResolvedItem | ResolvedTable;
+  | ResolvedClass
+  | ResolvedAncestry
+  | ResolvedSpell
+  | ResolvedItem
+  | ResolvedTalent
+  | ResolvedTable;
 
 /** A loaded pack as the content screen shows it: what it is, and how much it brought. */
 export type PackSummary = {
@@ -191,6 +210,7 @@ export type ResolvedStack = {
   readonly ancestries: readonly ResolvedAncestry[];
   readonly spells: readonly ResolvedSpell[];
   readonly items: readonly ResolvedItem[];
+  readonly talents: readonly ResolvedTalent[];
   readonly tables: readonly ResolvedTable[];
   readonly byRef: ReadonlyMap<Ref, ResolvedEntry>;
   readonly warnings: readonly Problem[];
@@ -227,6 +247,7 @@ type Definitions = {
   readonly ancestry: Map<Ref, Working<AncestryEntry>>;
   readonly spell: Map<Ref, Working<SpellEntry>>;
   readonly item: Map<Ref, Working<ItemEntry>>;
+  readonly talent: Map<Ref, Working<TalentEntry>>;
   readonly table: Map<Ref, Working<TableEntry>>;
 };
 
@@ -347,9 +368,10 @@ function find(definitions: Definitions, reference: Ref): Extensible | undefined 
       return definitions.spell.get(reference);
     case 'item':
       return definitions.item.get(reference);
+    case 'talent':
+      return definitions.talent.get(reference);
     case 'table':
       return definitions.table.get(reference);
-    case 'talent':
     case undefined:
       return undefined;
   }
@@ -393,14 +415,20 @@ function applyExtensions(
         );
       } else {
         talents.forEach((talent, position) => {
-          // A reference recorded and never looked up. No talent is defined in this
-          // file's stack yet (#127), so a name nothing answers for reads the same here
-          // as one that resolves. Duplicates are dropped rather than kept: the list
-          // becomes React keys, and it is worth saying so.
+          // Duplicates are dropped rather than kept: the list becomes React keys, and it
+          // is worth saying so. A talent nothing defines is the opposite — it is kept,
+          // because the reference is what a sheet would show and losing it would lose
+          // the class a talent it was offered (PRD.md principle 4).
           const reference = normalizeRef(talent, 'talent', pack.id);
           if (target.talents.includes(reference)) {
             warn(`${at}.talents[${position}]`, `${extension.target} already offers ${reference}`);
             return;
+          }
+          if (!definitions.talent.has(reference)) {
+            warn(
+              `${at}.talents[${position}]`,
+              `no loaded pack defines ${reference} — offered anyway, and it reads as its reference`,
+            );
           }
           target.talents.push(reference);
           talentsAdded += 1;
@@ -473,6 +501,7 @@ export function resolvePacks(packs: readonly Pack[]): ResolvedStack {
     ancestry: new Map(),
     spell: new Map(),
     item: new Map(),
+    talent: new Map(),
     table: new Map(),
   };
 
@@ -480,6 +509,7 @@ export function resolvePacks(packs: readonly Pack[]): ResolvedStack {
   collect(definitions.ancestry, 'ancestry', 'ancestries', packs, (pack) => pack.ancestries, warn);
   collect(definitions.spell, 'spell', 'spells', packs, (pack) => pack.spells, warn);
   collect(definitions.item, 'item', 'items', packs, (pack) => pack.items, warn);
+  collect(definitions.talent, 'talent', 'talents', packs, (pack) => pack.talents, warn);
   collect(definitions.table, 'table', 'tables', packs, (pack) => pack.tables, warn);
 
   applyExtensions(definitions, packs, warn);
@@ -531,8 +561,17 @@ export function resolvePacks(packs: readonly Pack[]): ResolvedStack {
     sources: working.sources,
   }));
 
+  const talents = [...definitions.talent.values()].map((working): ResolvedTalent => ({
+    ref: working.ref,
+    kind: 'talent',
+    packId: working.packId,
+    packName: working.packName,
+    entry: working.entry,
+    sources: working.sources,
+  }));
+
   const byRef = new Map<Ref, ResolvedEntry>();
-  for (const entry of [...classes, ...ancestries, ...spells, ...items, ...tables]) {
+  for (const entry of [...classes, ...ancestries, ...spells, ...items, ...talents, ...tables]) {
     byRef.set(entry.ref, entry);
   }
 
@@ -542,6 +581,7 @@ export function resolvePacks(packs: readonly Pack[]): ResolvedStack {
     ancestries,
     spells,
     items,
+    talents,
     tables,
     byRef,
     warnings,

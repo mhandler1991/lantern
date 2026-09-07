@@ -26,8 +26,7 @@
  * classes, ancestries, talents, tables and extensions, DATA-MODEL.md §§3-9. Every array
  * the envelope carries has a shape here. Nothing looks at a second pack: applying an
  * extension, resolving an override and namespacing an id are `model/pack-resolver.ts`,
- * which reads what this file produced — and which does not place a talent in the stack
- * it builds yet (#127).
+ * which reads what this file produced.
  */
 
 import * as z from 'zod';
@@ -110,9 +109,10 @@ export type Ref = z.infer<typeof Ref>;
  * because that is how DATA-MODEL.md §1 writes it — `core:item:dagger`, not `core:items`.
  *
  * All six are things a pack defines and a reference can name, `talent` included since
- * DATA-MODEL.md §7 gave it a shape. What a talent reference does not have yet is a
- * resolver that looks it up: an extension's `talents` list is a set of references
- * recorded and never checked (#127, PRD.md principle 1 — record, do not adjudicate).
+ * DATA-MODEL.md §7 gave it a shape. All six resolve, too: `model/pack-resolver.ts` holds
+ * every one in the stack, so an extension naming a talent nothing defines is warned about
+ * rather than taken on trust — and still offered, because a reference is what a sheet
+ * shows (PRD.md principle 1 — record, do not adjudicate).
  */
 export const EntryKind = z.enum(['class', 'ancestry', 'spell', 'item', 'talent', 'table']);
 export type EntryKind = z.infer<typeof EntryKind>;
