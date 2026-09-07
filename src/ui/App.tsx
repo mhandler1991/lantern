@@ -14,9 +14,11 @@
  *
  * Packs are the one thing above the sheet that can change what the sheet *means*, so
  * this is where the two meet: the orphan report is computed here and handed down, and
- * every edit passes through `updatePacksUsed` so the sheet's record of what it depends
- * on is written while the packs are still loaded to be seen. Turning a pack off warns
- * and marks; it never touches a row (PRD.md principle 4, DESIGN.md §5).
+ * the sheet's record of what it depends on is written while the packs are still loaded
+ * to be seen — on every edit, and on every change to the load order, because a pack that
+ * only *overrides* is otherwise recorded nowhere (`state/use-recorded-packs.ts`).
+ * Turning a pack off warns and marks; it never touches a row (PRD.md principle 4,
+ * DESIGN.md §5).
  *
  * The character file sits above the sheet for the opposite reason: it is not optional.
  * A character lives in this browser and nowhere else (DESIGN.md §8), so export is the
@@ -34,6 +36,7 @@ import type { CharacterLoad } from '../state/character-storage';
 import { usePacks } from '../state/use-packs';
 import { usePersistentCharacter } from '../state/use-persistent-character';
 import { usePresence } from '../state/use-presence';
+import { useRecordedPacks } from '../state/use-recorded-packs';
 import { useRoom } from '../state/use-room';
 import { ContentScreen } from './ContentScreen';
 import { Lobby } from './Lobby';
@@ -81,6 +84,10 @@ export function App(): ReactElement {
       ),
     [writeCharacter, packs.stack],
   );
+
+  // The other half of the same record: an edit is not the only way a sheet comes to
+  // depend on a pack. Takes the unwrapped setter, so the stamp happens once.
+  useRecordedPacks(writeCharacter, packs.stack);
 
   /**
    * Which rows point at content no loaded pack answers for. Derived on read, never
