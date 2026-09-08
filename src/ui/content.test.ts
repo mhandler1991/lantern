@@ -54,7 +54,10 @@ const core = packOf({
       die: 'd20',
       rows: [
         { roll: [1, 10], text: 'A copper ring' },
-        { roll: [11, 20], text: 'A tallow candle' },
+        // Nineteen faces, not twenty: the Frostbound extension below fills 20, the way
+        // an extension is meant to (DATA-MODEL.md §9). A base that covered its own span
+        // could only be extended into an overlap, and coverage would say so.
+        { roll: [11, 19], text: 'A tallow candle' },
       ],
     },
   ],

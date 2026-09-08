@@ -21,7 +21,10 @@
  *
  * Warnings are `Problem`s, the same shape a malformed pack reports (DATA-MODEL.md §10),
  * so `reportProblems` puts a resolution fault and a schema fault in one pasteable block.
- * The path is `pack.array[index].field` — which pack, which entry, which field.
+ * The path is `pack.array[index].field` — which pack, which entry, which field. The one
+ * exception is a table's coverage, which is `tables[index]` into the resolved stack and
+ * names the table's reference in the line: a table's rows can come from several packs at
+ * once, so there is no single pack's array to point at (`model/tables.ts`).
  *
  * 🚫 Nothing here adjudicates. A talent an extension adds to a class is resolved the way
  * every other reference is — the class is offered it, and a pack defining nothing by that
@@ -45,6 +48,7 @@ import {
   type TalentEntry,
 } from './pack';
 import type { Problem } from './problems';
+import { tableCoverageProblems } from './tables';
 
 /** An empty count, and the first index. Neither is a rule of the game. */
 const NONE = 0;
@@ -444,7 +448,8 @@ function applyExtensions(
         // 🚫 Gaps and overlaps are not checked here, the same way `pack.ts` does not
         // check them: a row an extension adds over one that exists is a real fault and
         // it is `model/tables.ts`'s to report, where the lookup that falls through it
-        // lives (DATA-MODEL.md §8).
+        // lives (DATA-MODEL.md §8). It is reported once every extension has applied,
+        // at the end of `resolvePacks` — half an extension's rows is not a table.
         target.rows.push(...rows);
         rowsAdded = rows.length;
       }
@@ -574,6 +579,12 @@ export function resolvePacks(packs: readonly Pack[]): ResolvedStack {
   for (const entry of [...classes, ...ancestries, ...spells, ...items, ...talents, ...tables]) {
     byRef.set(entry.ref, entry);
   }
+
+  // Coverage last, and over the resolved tables rather than the packs' own: a table is
+  // only short of a face once every extension that was going to fill it has applied
+  // (DATA-MODEL.md §8). Warnings, like everything above — the tables it describes are
+  // the tables being returned, holes and all.
+  warnings.push(...tableCoverageProblems(tables));
 
   return {
     packs: packs.map(summarize),

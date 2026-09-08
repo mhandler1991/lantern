@@ -50,10 +50,10 @@ const spell = (id: string, name: string, extra: Record<string, unknown> = {}) =>
   ...extra,
 });
 
-const table = (id: string, rows: ReadonlyArray<Record<string, unknown>>) => ({
+const table = (id: string, rows: ReadonlyArray<Record<string, unknown>>, die = '2d6') => ({
   id,
   name: 'A table',
-  die: '2d6',
+  die,
   rows,
 });
 
@@ -70,7 +70,7 @@ const CORE = loaded({
     },
   ],
   spells: [spell('light', 'Light'), spell('fireball', 'Fireball'), spell('sleep', 'Sleep')],
-  tables: [table('loot-minor', [{ roll: [2, 18], text: 'A copper ring' }])],
+  tables: [table('loot-minor', [{ roll: [1, 20], text: 'A copper ring' }], 'd20')],
 });
 
 const refsOf = (stack: ResolvedStack): readonly string[] => stack.spells.map((one) => one.ref);
@@ -228,6 +228,20 @@ describe('extend', () => {
   const rimeblade = { roll: [19, 20], text: 'A rimeblade' };
   const frostTalent = { roll: 2, text: 'Frost affinity' };
 
+  /**
+   * Core, with its loot table two faces short of `d20` on purpose — the extension below
+   * is what fills 19 and 20, which is exactly the arrangement `packs/example-pack.json`
+   * ships. A base table that already covered its span could not be extended without an
+   * overlap, so a fixture that used one would be modelling the mistake rather than the
+   * operation, and coverage would report it (`tableCoverageProblems`).
+   */
+  const OPEN = loaded({
+    id: 'core',
+    name: 'Core',
+    classes: [wizard()],
+    tables: [table('loot-minor', [{ roll: [1, 18], text: 'A copper ring' }], 'd20')],
+  });
+
   // It defines the talent it offers, the way `packs/example-pack.json` does: an
   // extension naming a talent nothing defines is its own case, below.
   const frost = loaded({
@@ -241,20 +255,20 @@ describe('extend', () => {
   });
 
   it('adds rows to a table another pack defined, after its own', () => {
-    const stack = resolvePacks([CORE, frost]);
+    const stack = resolvePacks([OPEN, frost]);
 
-    expect(stack.tables[0]?.rows).toEqual([{ roll: [2, 18], text: 'A copper ring' }, rimeblade]);
+    expect(stack.tables[0]?.rows).toEqual([{ roll: [1, 18], text: 'A copper ring' }, rimeblade]);
     expect(stack.warnings).toEqual([]);
   });
 
   it('leaves the defining pack’s own entry untouched', () => {
-    const stack = resolvePacks([CORE, frost]);
+    const stack = resolvePacks([OPEN, frost]);
 
     expect(stack.tables[0]?.entry.rows).toHaveLength(1);
   });
 
   it('namespaces a talent reference from the extending pack', () => {
-    const stack = resolvePacks([CORE, frost]);
+    const stack = resolvePacks([OPEN, frost]);
 
     expect(stack.classes[0]?.talents).toEqual(['frostbound:talent:frost-affinity']);
   });
@@ -266,15 +280,15 @@ describe('extend', () => {
       extends: [{ target: 'core:table:loot-minor', rows: [frostTalent] }],
     });
 
-    const forwards = resolvePacks([CORE, frost, cursed]).tables[0]?.rows.map((row) => row.text);
-    const backwards = resolvePacks([CORE, cursed, frost]).tables[0]?.rows.map((row) => row.text);
+    const forwards = resolvePacks([OPEN, frost, cursed]).tables[0]?.rows.map((row) => row.text);
+    const backwards = resolvePacks([OPEN, cursed, frost]).tables[0]?.rows.map((row) => row.text);
 
     expect(forwards).toEqual(['A copper ring', 'A rimeblade', 'Frost affinity']);
     expect(backwards).toEqual(['A copper ring', 'Frost affinity', 'A rimeblade']);
   });
 
   it('applies an extension written before the pack it targets', () => {
-    const stack = resolvePacks([frost, CORE]);
+    const stack = resolvePacks([frost, OPEN]);
 
     expect(stack.tables[0]?.rows).toHaveLength(2);
     expect(stack.warnings).toEqual([]);
@@ -291,7 +305,7 @@ describe('extend', () => {
       ],
     });
 
-    const stack = resolvePacks([CORE, orphan]);
+    const stack = resolvePacks([OPEN, orphan]);
 
     expect(stack.warnings).toHaveLength(1);
     expect(stack.warnings[0]?.path).toBe('orphan.extends[0].target');
@@ -335,7 +349,7 @@ describe('extend', () => {
   });
 
   it('records what each pack contributed, which is what the UI line is made of', () => {
-    const stack = resolvePacks([CORE, frost]);
+    const stack = resolvePacks([OPEN, frost]);
 
     expect(stack.classes[0]?.sources).toEqual([
       {
@@ -460,6 +474,87 @@ describe('talents', () => {
 
     expect(stack.warnings.map((one) => one.path)).toEqual(['confused.extends[0].talents']);
     expect(stack.warnings[0]?.message).toContain('is a talent');
+  });
+});
+
+describe('table coverage', () => {
+  // #142. `coverageProblems` had told the truth about one table since #141 and nothing
+  // asked it, so a pack with a hole at 7 loaded in silence and the author found out when
+  // somebody rolled a 7. Resolution is where it gets asked, because it is the only place
+  // that knows every extension has applied.
+  const holed = loaded({
+    id: 'brokenwood',
+    name: 'Brokenwood',
+    classes: [wizard()],
+    tables: [
+      table('hedge-knight-talents', [
+        { roll: [2, 5], text: 'The low band' },
+        { roll: [5, 8], text: 'The band that starts a face late' },
+        { roll: [10, 12], text: 'The band that leaves 9 to nobody' },
+      ]),
+    ],
+  });
+
+  it('folds a table’s gaps and overlaps into the warnings the content screen prints', () => {
+    const stack = resolvePacks([holed]);
+
+    expect(stack.warnings.map((one) => one.path)).toEqual([
+      'tables[0].rows[1].roll',
+      'tables[0].rows',
+    ]);
+    expect(stack.warnings[1]?.message).toContain('nothing covers 9');
+  });
+
+  // The path is an index into the stack, so the line has to say which table it means.
+  it('names the table every coverage warning is about', () => {
+    for (const warning of resolvePacks([holed]).warnings) {
+      expect(warning.message).toContain('brokenwood:table:hedge-knight-talents');
+    }
+  });
+
+  it('warns without refusing: the table resolves, and the class still finds it', () => {
+    const stack = resolvePacks([holed]);
+
+    expect(stack.tables).toHaveLength(1);
+    expect(stack.tables[0]?.rows).toHaveLength(3);
+    expect(stack.byRef.has('brokenwood:table:hedge-knight-talents')).toBe(true);
+  });
+
+  it('waits for every extension before calling a table short', () => {
+    const short = loaded({
+      id: 'core',
+      name: 'Core',
+      tables: [table('loot-minor', [{ roll: [1, 10], text: 'The low half' }], 'd20')],
+    });
+    const filling = loaded({
+      id: 'frostbound',
+      name: 'Frostbound',
+      extends: [{ target: 'core:table:loot-minor', rows: [{ roll: [11, 20], text: 'The high half' }] }],
+    });
+
+    expect(resolvePacks([short]).warnings.map((one) => one.path)).toEqual(['tables[0].rows']);
+    expect(resolvePacks([short, filling]).warnings).toEqual([]);
+  });
+
+  it('reports the table an override replaced by what replaced it', () => {
+    const replacement = loaded({
+      id: 'grim',
+      name: 'Grim',
+      tables: [
+        {
+          ...table('loot-minor', [{ roll: [1, 15], text: 'A rusted nail' }], 'd20'),
+          overrides: 'core:table:loot-minor',
+        },
+      ],
+    });
+
+    const stack = resolvePacks([CORE, replacement]);
+
+    expect(stack.warnings.map((one) => one.path)).toEqual([
+      'grim.tables[0].overrides',
+      'tables[0].rows',
+    ]);
+    expect(stack.warnings[1]?.message).toContain('nothing covers 16-20');
   });
 });
 

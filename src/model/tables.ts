@@ -231,6 +231,35 @@ export function coverageProblems(table: RollableTable): readonly Problem[] {
   return problems;
 }
 
+/**
+ * Coverage over every table in a resolved stack, in the shape `resolvePacks` warns in.
+ *
+ * This is the call that makes coverage reach anybody. `coverageProblems` has told the
+ * truth about one table since #141 and nothing asked it, so a pack with a hole at 7
+ * loaded in silence and the author found out when somebody rolled a 7 (#142).
+ *
+ * Two things it does that a caller looping itself would get wrong:
+ *
+ *   - It reads `rollableTable`, so the rows an **extension** added count. A table left
+ *     two faces short by its own pack and completed by a supplement — which is exactly
+ *     what `packs/example-pack.json` does — is complete, and saying otherwise would
+ *     teach authors to distrust the report.
+ *   - It paths every problem to the table in the stack the warning is about and names
+ *     that table's reference, because `rows[3].roll` on its own says nothing about
+ *     *which* table, and the whole point of a problem line is that it can be acted on
+ *     (DATA-MODEL.md §10).
+ *
+ * 🚫 Warnings, never refusals. The stack this describes is the stack that is returned.
+ */
+export function tableCoverageProblems(tables: readonly ResolvedTable[]): readonly Problem[] {
+  return tables.flatMap((table, index) =>
+    coverageProblems(rollableTable(table)).map((problem) => ({
+      path: `tables[${index}].${problem.path}`,
+      message: `${problem.message} (${table.ref})`,
+    })),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Rolling on one
 // ---------------------------------------------------------------------------

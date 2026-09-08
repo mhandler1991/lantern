@@ -450,6 +450,46 @@ describe('packs/broken-pack.json', () => {
     }
   });
 
+  /**
+   * Coverage is the one fault in this file the schema does not hold: a gap and an
+   * overlap are warnings, not refusals (DATA-MODEL.md §8), so `tables[1]` is well
+   * formed and costs the report above nothing. It is here to be *seen* — which for the
+   * rest of the file means loading it and reading the refusal, and for this table means
+   * fixing the refusals first, because a pack that does not parse is never resolved.
+   * So the table is lifted into a pack of its own here, and what comes back is the two
+   * lines the content screen prints from `stack.warnings`.
+   */
+  it('carries a table whose only faults are coverage, and reports them as warnings', () => {
+    const file = asObject(JSON.parse(read('packs', 'broken-pack.json')) as Json, 'broken-pack.json');
+    const tables = file['tables'];
+    if (!Array.isArray(tables)) throw new Error('broken-pack.json has no tables');
+
+    const onlyTheTable = parse(
+      JSON.stringify({
+        format: 'lantern-pack',
+        formatVersion: 1,
+        id: 'brokenwood',
+        name: 'Brokenwood',
+        version: '1.0.0',
+        tables: [tables[1]],
+      }),
+      'the coverage table in broken-pack.json',
+    );
+
+    const stack = resolvePacks([onlyTheTable]);
+
+    expect(
+      stack.warnings.map((warning) => `${warning.path} — ${warning.message}`),
+    ).toEqual([
+      'tables[0].rows[1].roll — expected a band no other row covers — 5 is already covered ' +
+        'by rows[0] (brokenwood:table:brambleback-loot)',
+      'tables[0].rows — expected a row for every roll 2d6 can make — nothing covers 9 ' +
+        '(brokenwood:table:brambleback-loot)',
+    ]);
+    // Warned about, and loaded: the rows are all there to roll on (PRD.md principle 4).
+    expect(stack.tables[0]?.rows).toHaveLength(3);
+  });
+
   it('leaves the enum problems readable as the list to choose from', () => {
     expect(parsed.ok).toBe(false);
     if (parsed.ok) return;
