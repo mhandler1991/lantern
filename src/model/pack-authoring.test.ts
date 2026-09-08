@@ -1,6 +1,6 @@
 /**
- * The four files DATA-MODEL.md §11 ships for authors, tested against the code they claim
- * to describe. All four fail the same way if nobody watches them: they keep describing
+ * The five files DATA-MODEL.md §11 ships for authors, tested against the code they claim
+ * to describe. All five fail the same way if nobody watches them: they keep describing
  * last month's schema, and the person they mislead is the one who cannot read
  * `model/pack.ts` to check.
  *
@@ -25,6 +25,11 @@
  * paste back into an AI, and a promise nobody has read the output of is a promise. Held
  * to its paths one by one: a schema change that stopped naming one of these would be a
  * report that had quietly got vaguer.
+ *
+ * **`packs/warning-pack.json`.** The other report: the faults §9 can only *warn* about,
+ * which is the report a pack written with an AI actually hits. It parses, so it can be
+ * loaded and watched — the broken pack cannot show one, because a pack that does not
+ * parse is never resolved — and it is held to its warning lines the same way.
  */
 
 import { readFileSync } from 'node:fs';
@@ -500,5 +505,106 @@ describe('packs/broken-pack.json', () => {
       'expected one of: d4, d6, d8, d10, d12, d20, d100 — got "d7"',
     );
     expect(byPath.get('items[0].cost.currency')).toBe('expected one of: gp, sp, cp — got "ep"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The pack that loads and warns. DATA-MODEL.md §9, §11.
+// ---------------------------------------------------------------------------
+
+/**
+ * The broken pack above is the schema's report; this one is resolution's, and it is the
+ * report a pack written with an AI actually hits. A model invents an `extends` aimed at
+ * a supplement nobody has, an `overrides` of content that is turned off, a talent it
+ * never got round to defining, and a table one face short — every one of which **loads**
+ * (PRD.md principle 4), so an author who never reads the warnings never learns they are
+ * there.
+ *
+ * It cannot be demonstrated by the broken pack for the reason its coverage table cannot:
+ * a pack that does not parse is never resolved. So this file parses, and is asserted the
+ * way the broken pack's twelve paths are — by path, one line at a time.
+ */
+describe('packs/warning-pack.json', () => {
+  const warning = parse(read('packs', 'warning-pack.json'), 'warning-pack.json');
+  const core = parse(read('public', CORE_PACK_PATH), 'core.json');
+  const stack = resolvePacks([core, warning]);
+
+  const classRef = normalizeRef('mere-guide', 'class', warning.id);
+  const talentRef = normalizeRef('mere-touched', 'talent', warning.id);
+  const missingTalentRef = normalizeRef('lantern-sworn', 'talent', warning.id);
+  const tableRef = normalizeRef('mere-guide-talents', 'table', warning.id);
+
+  /** The table's place in the resolved stack, which is what a coverage path counts. */
+  const tableIndex = stack.tables.findIndex((table) => table.ref === tableRef);
+
+  const talentsOf = (stack: ReturnType<typeof resolvePacks>, ref: string): readonly string[] => {
+    const found = stack.byRef.get(ref);
+    return found?.kind === 'class' ? found.talents : [];
+  };
+
+  it('parses, so the report it demonstrates is the resolution one', () => {
+    expect(parsePack(JSON.parse(read('packs', 'warning-pack.json')) as Json).ok).toBe(true);
+  });
+
+  it('produces one of each resolution warning, at the exact path holding it', () => {
+    expect(stack.warnings.map((problem) => `${problem.path} — ${problem.message}`)).toEqual([
+      'hollowmere.items[0].overrides — no loaded pack defines wintergloom:item:drowned-lantern ' +
+        '— kept there anyway, so a sheet holding it resolves',
+      'hollowmere.extends[0].target — no loaded pack defines frostbound:class:rimewalker ' +
+        '— the extension is skipped',
+      'hollowmere.extends[1].talents[1] — no loaded pack defines hollowmere:talent:lantern-sworn ' +
+        '— offered anyway, and it reads as its reference',
+      `tables[${tableIndex}].rows[1].roll — expected a band no other row covers — 3 is already ` +
+        `covered by rows[0] (${tableRef})`,
+      `tables[${tableIndex}].rows — expected a row for every roll 1d6 can make — nothing covers ` +
+        `5 (${tableRef})`,
+    ]);
+  });
+
+  /**
+   * Warned about, and loaded. An override is kept at the reference it names rather than
+   * at its own, which is what "kept there anyway" means and why the item is looked for
+   * where it is.
+   */
+  it('resolves — every entry it defines is in the stack, and nothing is refused', () => {
+    const defined: readonly string[] = [
+      classRef,
+      talentRef,
+      tableRef,
+      'wintergloom:item:drowned-lantern',
+    ];
+
+    expect(defined.filter((reference) => !stack.byRef.has(reference))).toEqual([]);
+    expect(stack.packs.map((summary) => summary.id)).toContain(warning.id);
+  });
+
+  // The talent nothing defines is offered anyway: losing it would lose the class a
+  // talent it was offered, and a reference is what a sheet shows (PRD.md principle 1).
+  it('offers the class both talents, the one nothing defines included', () => {
+    expect(talentsOf(stack, classRef)).toEqual([talentRef, missingTalentRef]);
+  });
+
+  // A gap costs a face, never a row: all three are there to roll on, and 5 answers with
+  // the number rolled and no row (DATA-MODEL.md §8).
+  it('keeps every row of the table with the hole in it', () => {
+    expect(stack.tables[tableIndex]?.rows).toHaveLength(3);
+  });
+
+  /**
+   * The half of "an override of content that is turned off" a static file cannot show:
+   * load the pack the extension names and the extension applies, with nothing else about
+   * the file changing. It is the same list, resolved again — which is the whole of what
+   * reordering or turning a pack on does (DATA-MODEL.md §9).
+   */
+  it('applies its skipped extension once the pack it names is loaded', () => {
+    const example = parse(read('packs', 'example-pack.json'), 'example-pack.json');
+    const together = resolvePacks([core, example, warning]);
+
+    expect(together.warnings.map((problem) => problem.path)).not.toContain(
+      'hollowmere.extends[0].target',
+    );
+    expect(talentsOf(together, normalizeRef('rimewalker', 'class', example.id))).toEqual([
+      talentRef,
+    ]);
   });
 });

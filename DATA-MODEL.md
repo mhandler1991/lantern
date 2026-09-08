@@ -494,7 +494,7 @@ to describe it, and every line renders as a text node.
 Most people will not read a schema. They will paste a template and their notes into a
 chat window, and **making that path work well is most of the adoption.**
 
-Four things ship together, and all four are in the repository:
+These ship together, and all of them are in the repository:
 
 | File | What it is | What keeps it honest |
 |---|---|---|
@@ -502,6 +502,7 @@ Four things ship together, and all four are in the repository:
 | `docs/authoring-prompt.md` | The prompt to paste, the paste-the-errors loop, and what to check before loading | Its enum lists are compared against `model/enums.ts` member by member |
 | `packs/example-pack.json` | One of everything, at the repository root because nothing fetches it at runtime | Parsed by the real `parsePack` and resolved against core, with every reference in it required to resolve |
 | `packs/broken-pack.json` | The same file with a mistake in every entry, so the error report can be seen rather than described — load it to watch §10 work. Its last table is the exception: well formed, with a gap and an overlap, because coverage warns rather than refuses (§8) | Its twelve paths are asserted one by one; a report that stopped naming one of them would have quietly got vaguer. The coverage table is resolved on its own, so the two warnings it produces are asserted as well |
+| `packs/warning-pack.json` | Well formed, and wrong in the four ways resolution can only *warn* about (§9): an `extends` aimed at a pack that is not loaded, an `overrides` of content that is not loaded, a talent nothing defines, and a table with an overlap and a gap. It is the report an AI-written pack actually hits, and the broken pack cannot show it — a pack that does not parse is never resolved. Load it to watch five warnings and no refusal | Resolved against core and held to its five warning lines by path; every entry it defines is required to be in the stack, and loading the pack its skipped extension names is asserted to apply it |
 | The in-app validator | `ui/ProblemReport.tsx` — the whole block, heading and all, behind one **Copy the problems** button | A player picking lines out of a paragraph pastes half the problem |
 
 `src/model/pack-authoring.test.ts` is the last column, executable. The example pack now

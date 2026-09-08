@@ -1,0 +1,71 @@
+{
+  "format": "lantern-pack",
+  "formatVersion": 1,
+  "id": "hollowmere",
+  "name": "Hollowmere",
+  "version": "1.0.0",
+  "author": "The Lantern example",
+  "description": "Well formed, and wrong in four ways resolution can only warn about: an extension aimed at a pack that is not loaded, an override of content that is not loaded, a talent nothing defines, and a table with an overlap and a gap. Load it to watch all five warnings and none of them stop it.",
+
+  "classes": [
+    {
+      "id": "mere-guide",
+      "name": "Mere-guide",
+      "hitDie": "d8",
+      "weapons": ["core:item:dagger", "core:item:spear", "core:item:shortbow"],
+      "armor": ["none", "light"],
+      "talentTable": "mere-guide-talents",
+      "text": "Walks ahead of everyone else over the drowned roads, because they know which stones still carry weight.",
+      "page": null
+    }
+  ],
+
+  "items": [
+    {
+      "id": "mere-lantern",
+      "name": "Mere lantern",
+      "slots": 1,
+      "cost": { "amount": 12, "currency": "gp" },
+      "light": { "minutes": 120 },
+      "text": "A shuttered lantern that burns wet. It overrides a lantern from Wintergloom, a pack this repository does not ship: a supplement that is turned off, or a reference typed wrong, reads exactly like this. Nothing defines the target, so the app warns, keeps this entry at that reference so a sheet holding one still resolves, and loads the rest of the file.",
+      "page": null,
+      "overrides": "wintergloom:item:drowned-lantern"
+    }
+  ],
+
+  "talents": [
+    {
+      "id": "mere-touched",
+      "name": "Mere-touched",
+      "text": "Standing water never counts as harsh going for you, and you can tell how deep one is by looking at it.",
+      "page": null
+    }
+  ],
+
+  "tables": [
+    {
+      "id": "mere-guide-talents",
+      "name": "Mere-guide talents",
+      "die": "1d6",
+      "rerollable": false,
+      "rows": [
+        { "roll": [1, 3], "text": "Choose a talent from any table the DM has loaded" },
+        { "roll": [3, 4], "text": "A band that starts on 3, which the row above already covers" },
+        { "roll": 6, "text": "A band that leaves 5 to nobody" }
+      ],
+      "text": "The overlap and the gap are the point. A lookup answers with the first row covering the number, and shows the number with no row for 5.",
+      "page": null
+    }
+  ],
+
+  "extends": [
+    {
+      "target": "frostbound:class:rimewalker",
+      "talents": ["mere-touched"]
+    },
+    {
+      "target": "hollowmere:class:mere-guide",
+      "talents": ["mere-touched", "lantern-sworn"]
+    }
+  ]
+}
