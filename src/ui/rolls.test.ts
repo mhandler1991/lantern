@@ -9,11 +9,13 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_DIE_SIDES, MIN_DIE_SIDES } from '../constants';
 import type { DieRoll } from '../model/dice';
+import { RollVisibility } from '../model/dice';
 import { Die } from '../model/enums';
 import { dieSides } from '../model/dice';
 import {
   SILHOUETTE_VIEW_BOX,
   describeRollWarning,
+  describeVisibility,
   dieLabel,
   dieSilhouette,
   poolNotation,
@@ -117,5 +119,21 @@ describe('warnings', () => {
     const line = describeRollWarning({ reason: 'modifier-clamped', requested: 5000, applied: 999 });
     expect(line).toContain('5000');
     expect(line).toContain('999');
+  });
+});
+
+describe('who a roll was for', () => {
+  it('names every visibility there is, so none can be printed as nothing', () => {
+    // Driven off the enum rather than a list written here: a fourth audience added one
+    // day fails this instead of quietly reaching the feed as an empty mark.
+    for (const visibility of RollVisibility.options) {
+      expect(describeVisibility(visibility), visibility).not.toBe('');
+    }
+  });
+
+  it('says a public roll is public rather than saying nothing at all', () => {
+    expect(describeVisibility('everyone')).toBe('Everyone');
+    expect(describeVisibility('just-me')).toBe('Just me');
+    expect(describeVisibility('dm-only')).toBe('DM only');
   });
 });

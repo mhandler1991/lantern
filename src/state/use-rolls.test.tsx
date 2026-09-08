@@ -18,7 +18,7 @@ import { DICE_OVERLAY_DWELL_MS, MAX_ROLL_FEED_ENTRIES } from '../constants';
 import type { RandomWords } from '../model/dice';
 import { rollTotal } from '../model/dice';
 import type { RollableTable } from '../model/tables';
-import type { RollEntry, Rolls } from './use-rolls';
+import type { FreeRoll, RollEntry, Rolls } from './use-rolls';
 import { useRolls } from './use-rolls';
 
 declare global {
@@ -56,6 +56,17 @@ const TALENTS: RollableTable = {
     // 10 through 12 are deliberately uncovered: a gap is a warning, never a refusal.
   ],
 };
+
+/**
+ * A pool from the handle, in front of the whole table unless a test says otherwise.
+ *
+ * Every field a roll needs has a default here so each test states only the ones it is
+ * actually about — a test of the dwell should not have to have an opinion about who sees
+ * the roll, and one about visibility should say nothing but that.
+ */
+function pool(request: Partial<FreeRoll> = {}): FreeRoll {
+  return { die: 'd20', count: 1, modifier: 0, label: '', visibility: 'everyone', ...request };
+}
 
 let container: HTMLDivElement;
 let root: Root;
@@ -104,7 +115,7 @@ afterEach(async () => {
 describe('rolling', () => {
   it('shows the number that was rolled, not one decided beforehand', async () => {
     await mount(scripted(17));
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: 'Longsword' }));
+    await run(() => rolls().roll(pool({ label: 'Longsword' })));
 
     const entry = rolls().showing as RollEntry;
     expect(entry.roll.dice).toEqual([{ sides: 20, value: 17 }]);
@@ -114,9 +125,24 @@ describe('rolling', () => {
     expect(entry.lookup).toBeNull();
   });
 
+  it('records who each roll was for, chosen at the roll and not after it', async () => {
+    await mount(scripted(1, 2, 3));
+    await run(() => rolls().roll(pool({ label: 'open', visibility: 'everyone' })));
+    await run(() => rolls().roll(pool({ label: 'secret', visibility: 'just-me' })));
+    await run(() => rolls().roll(pool({ label: 'for the DM', visibility: 'dm-only' })));
+
+    // Per roll, not per player: three in a row, three different audiences, and each
+    // entry keeps its own (DESIGN.md §4).
+    expect(rolls().feed.map((entry) => entry.visibility)).toEqual([
+      'dm-only',
+      'just-me',
+      'everyone',
+    ]);
+  });
+
   it('rolls a whole pool and adds the modifier on read', async () => {
     await mount(scripted(3, 5));
-    await run(() => rolls().roll({ die: 'd6', count: 2, modifier: 2, label: '' }));
+    await run(() => rolls().roll(pool({ die: 'd6', count: 2, modifier: 2 })));
 
     const entry = rolls().showing as RollEntry;
     expect(entry.roll.dice.map((die) => die.value)).toEqual([3, 5]);
@@ -125,7 +151,7 @@ describe('rolling', () => {
 
   it('carries a clamped modifier as a warning rather than losing the roll', async () => {
     await mount(scripted(4));
-    await run(() => rolls().roll({ die: 'd6', count: 1, modifier: 100_000, label: '' }));
+    await run(() => rolls().roll(pool({ die: 'd6', modifier: 100_000 })));
 
     const entry = rolls().showing as RollEntry;
     expect(entry.warnings).toHaveLength(1);
@@ -134,7 +160,7 @@ describe('rolling', () => {
 
   it('shows nothing and says why when no dice could be rolled', async () => {
     await mount(BROKEN);
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: '' }));
+    await run(() => rolls().roll(pool()));
 
     // 🚫 No substitute number. The corner is empty and the reason is available.
     expect(rolls().showing).toBeNull();
@@ -150,11 +176,11 @@ describe('rolling', () => {
     };
 
     await mount(source);
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: '' }));
+    await run(() => rolls().roll(pool()));
     expect(rolls().failure).not.toBeNull();
 
     broken = false;
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: '' }));
+    await run(() => rolls().roll(pool()));
     expect(rolls().failure).toBeNull();
   });
 });
@@ -162,7 +188,7 @@ describe('rolling', () => {
 describe('table rolls', () => {
   it('is a roll plus a lookup, and nothing else', async () => {
     await mount(scripted(4, 4));
-    await run(() => rolls().rollTable(TALENTS, 'Human talents'));
+    await run(() => rolls().rollTable(TALENTS, 'Human talents', 'everyone'));
 
     const entry = rolls().showing as RollEntry;
     expect(rollTotal(entry.roll)).toBe(8);
@@ -172,9 +198,16 @@ describe('table rolls', () => {
     expect(entry.roll.modifier).toBe(0);
   });
 
+  it('records the visibility it was rolled with, the same as a free roll', async () => {
+    await mount(scripted(4, 4));
+    await run(() => rolls().rollTable(TALENTS, 'Human talents', 'dm-only'));
+
+    expect((rolls().showing as RollEntry).visibility).toBe('dm-only');
+  });
+
   it('reports a number no row covers rather than substituting a neighbour', async () => {
     await mount(scripted(6, 5));
-    await run(() => rolls().rollTable(TALENTS, 'Human talents'));
+    await run(() => rolls().rollTable(TALENTS, 'Human talents', 'everyone'));
 
     const entry = rolls().showing as RollEntry;
     expect(rollTotal(entry.roll)).toBe(11);
@@ -186,7 +219,7 @@ describe('table rolls', () => {
 describe('the feed and the dwell', () => {
   it('keeps the entry after the card has dismissed itself', async () => {
     await mount(scripted(12));
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: 'Sneak' }));
+    await run(() => rolls().roll(pool({ label: 'Sneak' })));
     expect(rolls().showing).not.toBeNull();
 
     await run(() => vi.advanceTimersByTime(DICE_OVERLAY_DWELL_MS));
@@ -198,10 +231,10 @@ describe('the feed and the dwell', () => {
 
   it('gives a roll that lands mid-dwell the whole dwell, not what was left of it', async () => {
     await mount(scripted(2));
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: 'first' }));
+    await run(() => rolls().roll(pool({ label: 'first' })));
     await run(() => vi.advanceTimersByTime(DICE_OVERLAY_DWELL_MS - 1));
 
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: 'second' }));
+    await run(() => rolls().roll(pool({ label: 'second' })));
     await run(() => vi.advanceTimersByTime(DICE_OVERLAY_DWELL_MS - 1));
 
     expect(rolls().showing?.label, 'the second roll inherited the first one’s clock').toBe(
@@ -214,7 +247,7 @@ describe('the feed and the dwell', () => {
 
   it('dismisses on request without touching the feed', async () => {
     await mount(scripted(9));
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: '' }));
+    await run(() => rolls().roll(pool()));
     await run(() => rolls().dismiss());
 
     expect(rolls().showing).toBeNull();
@@ -223,8 +256,8 @@ describe('the feed and the dwell', () => {
 
   it('is newest first', async () => {
     await mount(scripted(1, 2, 3));
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: 'one' }));
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: 'two' }));
+    await run(() => rolls().roll(pool({ label: 'one' })));
+    await run(() => rolls().roll(pool({ label: 'two' })));
 
     expect(rolls().feed.map((entry) => entry.label)).toEqual(['two', 'one']);
   });
@@ -233,7 +266,7 @@ describe('the feed and the dwell', () => {
     await mount(scripted(1));
 
     for (let rolled = 0; rolled < MAX_ROLL_FEED_ENTRIES + 5; rolled += 1) {
-      await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: `${rolled}` }));
+      await run(() => rolls().roll(pool({ label: `${rolled}` })));
     }
 
     expect(rolls().feed).toHaveLength(MAX_ROLL_FEED_ENTRIES);
@@ -242,8 +275,8 @@ describe('the feed and the dwell', () => {
 
   it('gives every entry an id of its own, so the feed can be keyed', async () => {
     await mount(scripted(1));
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: '' }));
-    await run(() => rolls().roll({ die: 'd20', count: 1, modifier: 0, label: '' }));
+    await run(() => rolls().roll(pool()));
+    await run(() => rolls().roll(pool()));
 
     const ids = new Set(rolls().feed.map((entry) => entry.id));
     expect(ids.size).toBe(2);
@@ -256,6 +289,7 @@ describe('a roll that is not yours', () => {
     at: 0,
     origin: { kind: 'peer', who: 'Thorin' },
     label: 'Loot',
+    visibility: 'dm-only',
     roll: { dice: [{ sides: 6, value: 5 }], modifier: 0 },
     lookup: { row: 'A pouch of buttons' },
     warnings: [],

@@ -28,6 +28,7 @@
  * and the arrow only points one way.
  */
 
+import * as z from 'zod';
 import {
   MAX_DICE_PER_ROLL,
   MAX_REJECTION_SAMPLING_ATTEMPTS,
@@ -101,6 +102,27 @@ export type Roll = {
   readonly dice: readonly DieRoll[];
   readonly modifier: number;
 };
+
+/**
+ * Who a roll is for, chosen when it is rolled and never afterwards (DESIGN.md §4).
+ *
+ * Per roll rather than per player: the same character rolls a public attack and a secret
+ * stealth check a minute apart, so this belongs to the roll and not to a setting
+ * somebody has to remember to put back.
+ *
+ * The three are not three degrees of the same thing. `everyone` and `dm-only` are both
+ * *sent* and differ in who receives them; **`just-me` is never sent at all**, because
+ * broadcasting numbers and hiding them client side is not secret — every peer runs its
+ * own code and can print whatever it was given. `net/protocol.ts` derives its wire enum
+ * from this one by excluding `just-me`, which is how that rule survives being written
+ * down: the wire has no word for a secret roll, so no branch can accidentally find one.
+ *
+ * 🚫 Nothing here enforces anything about the DM. `dm-only` is a request the sender
+ * addresses and the receiver honours — authority is modelled, never enforced (PRD.md
+ * principle 3).
+ */
+export const RollVisibility = z.enum(['everyone', 'just-me', 'dm-only']);
+export type RollVisibility = z.infer<typeof RollVisibility>;
 
 /**
  * Something was off but the roll still happened (PRD.md principle 4). A warning never

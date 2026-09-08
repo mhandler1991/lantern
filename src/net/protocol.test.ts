@@ -35,6 +35,8 @@ import {
   ProtocolEvent,
   PublicCharacter,
   receiveEvent,
+  shareableVisibility,
+  SharedVisibility,
   type EventType,
 } from './protocol';
 
@@ -283,6 +285,18 @@ describe('roll', () => {
     // DESIGN.md §4 — broadcasting the numbers and hiding them client side is not secret.
     expect(rejectionOf(mangle('roll', { visibility: 'just-me' }))).toBe('malformed');
     expect(parseEvent(mangle('roll', { visibility: 'dm-only' })).ok).toBe(true);
+
+    // The wire enum is the local one minus the secret, derived rather than retyped, so
+    // the two cannot drift into disagreeing about what may be sent.
+    expect(SharedVisibility.options).toEqual(['everyone', 'dm-only']);
+  });
+
+  it('has nothing to send for a roll nobody else may see', () => {
+    // The gate a sender passes through, and the reason the rule survives a refactor: a
+    // caller cannot obtain the narrower type any other way, and `just-me` yields none.
+    expect(shareableVisibility('just-me')).toBeNull();
+    expect(shareableVisibility('everyone')).toBe('everyone');
+    expect(shareableVisibility('dm-only')).toBe('dm-only');
   });
 
   it('carries no total, because a total is derived', () => {
