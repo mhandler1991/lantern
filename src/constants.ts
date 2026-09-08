@@ -458,6 +458,25 @@ export const STORAGE_VERSION = 1;
 export const PERSIST_DEBOUNCE_MS = 500;
 
 // ---------------------------------------------------------------------------
+// Creation. DATA-MODEL.md §13 — where the walkthrough had got to.
+// ---------------------------------------------------------------------------
+
+/**
+ * The stored walkthrough position carries its own envelope, exactly as a character and
+ * the kept packs do, so a value written by a build with a different step sequence is
+ * refused rather than resumed into a step that no longer exists.
+ */
+export const CREATION_FORMAT = 'lantern-creation';
+export const CREATION_FORMAT_VERSION = 1;
+
+/**
+ * The stored position is four short fields — a format, a version, a character id and a
+ * step id — so a value under our key that is larger than this was not written by us.
+ * Bounded before it is decoded, exactly as a stored character is (CLAUDE.md §2.7).
+ */
+export const MAX_CREATION_BYTES = 1024;
+
+// ---------------------------------------------------------------------------
 // Transport. DESIGN.md §1 — Trystero over public Nostr relays.
 // ---------------------------------------------------------------------------
 

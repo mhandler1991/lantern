@@ -1,11 +1,12 @@
 /**
  * The sheet: every panel, and the one place derived values are computed.
  *
- * Modifiers, AC, carry and level progress are computed here with `useMemo` and passed
- * down (CLAUDE.md §6 — deriving state in an effect is a bug, and storing a derived value
- * guarantees drift). Computing them once also means two panels showing the same number
- * cannot disagree: the slot count in the gear banner and the coin line below it are the
- * same object.
+ * Modifiers, AC, carry and level progress are computed by `useSheetDerivations` and
+ * passed down (CLAUDE.md §6 — deriving state in an effect is a bug, and storing a
+ * derived value guarantees drift). Computing them once also means two panels showing the
+ * same number cannot disagree: the slot count in the gear banner and the coin line below
+ * it are the same object. The hook is a module of its own because the walkthrough renders
+ * these same panels one at a time and has to hand them the same numbers.
  *
  * The dice come in from above for a different reason: there is one corner in the app and
  * the rolls that start on the sheet belong in it (DESIGN.md §4). Two panels take it —
@@ -31,25 +32,15 @@
  */
 
 import type { ReactElement } from 'react';
-import { useMemo } from 'react';
-import {
-  abilityModifiers,
-  computeArmorClass,
-  computeCarry,
-  computeLevelProgress,
-  highestSpellTier,
-  spellcastingModifier,
-} from '../../model/derived';
-import { itemLookup, spellcastingFor } from '../../model/pack-resolver';
-import { sheetChoices } from '../choices';
 import { AbilitiesPanel } from './AbilitiesPanel';
 import { ConditionsPanel } from './ConditionsPanel';
+import { useSheetDerivations } from './derivations';
 import { GearPanel } from './GearPanel';
 import { IdentityPanel } from './IdentityPanel';
 import { JournalPanel } from './JournalPanel';
 import { LightsPanel } from './LightsPanel';
 import { QuestsPanel } from './QuestsPanel';
-import type { Casting, OrphanProps, PanelProps, RollsProps, StackProps } from './sheet-props';
+import type { OrphanProps, PanelProps, RollsProps, StackProps } from './sheet-props';
 import { SpellsPanel } from './SpellsPanel';
 import { TalentsPanel } from './TalentsPanel';
 import { VitalsPanel } from './VitalsPanel';
@@ -61,26 +52,10 @@ export function CharacterSheet({
   stack,
   rolls,
 }: PanelProps & OrphanProps & StackProps & RollsProps): ReactElement {
-  const items = useMemo(() => itemLookup(stack), [stack]);
-
-  const modifiers = useMemo(() => abilityModifiers(character.stats), [character.stats]);
-  const armor = useMemo(() => computeArmorClass(character, items), [character, items]);
-  const carry = useMemo(() => computeCarry(character, items), [character, items]);
-  const progress = useMemo(() => computeLevelProgress(character), [character]);
-
-  /** Every picker on the sheet, built once so two panels cannot offer two lists. */
-  const choices = useMemo(
-    () => sheetChoices(stack, character.class.ref),
-    [stack, character.class.ref],
+  const { items, modifiers, armor, carry, progress, choices, casting } = useSheetDerivations(
+    character,
+    stack,
   );
-
-  const casting = useMemo<Casting | null>(() => {
-    const facts = spellcastingFor(stack, character.class.ref);
-    const modifier = spellcastingModifier(character.stats, facts);
-    if (facts === null || modifier === null) return null;
-
-    return { stat: facts.stat, modifier, highestTier: highestSpellTier(facts, character.level) };
-  }, [stack, character.class.ref, character.stats, character.level]);
 
   return (
     <div className="sheet">
