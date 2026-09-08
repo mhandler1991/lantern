@@ -100,28 +100,35 @@ export function TalentsPanel({
   /**
    * Roll the class's table and write down what it said.
    *
-   * The offer is settled first, whatever the dice do: a roll that failed or fell in a
-   * gap was still the player taking their level up, and an offer that came back would be
-   * the app nagging about a thing it cannot know is undone.
+   * The level-up offer is settled first, whatever the dice do: a roll that failed or fell
+   * in a gap was still the player taking their level up, and an offer that came back
+   * would be the app nagging about a thing it cannot know is undone.
+   *
+   * **The words are written when the result is the result, not when the dice stop.** A
+   * `rerollable` table offers a reroll *before* the result is kept (DATA-MODEL.md §8), so
+   * the sheet is told through the corner's callback rather than from the return value —
+   * a talent the player rolled away must never have been on the sheet to begin with. On
+   * a table that offers nothing the callback fires immediately and the two are the same.
    */
   const rollTalents = (): void => {
     if (table === null) return;
     setSettled({ id: character.id, level: character.level });
 
-    const entry = rolls.rollTable(rollableTable(table), table.entry.name);
-    const words = entry?.lookup?.row ?? null;
-    if (entry === null || words === null) return;
+    rolls.rollTable(rollableTable(table), table.entry.name, (kept) => {
+      const words = kept.lookup?.row ?? null;
+      if (words === null) return;
 
-    setCharacter((previous) => ({
-      ...previous,
-      talents: appendRow(
-        previous.talents,
-        // 🚫 Recorded, never applied. The words are copied onto the sheet and nothing
-        // in the app reads them again (PRD.md principle 1).
-        rolledTalent(words, table.ref, rollTotal(entry.roll)),
-        MAX_TALENTS,
-      ),
-    }));
+      setCharacter((previous) => ({
+        ...previous,
+        talents: appendRow(
+          previous.talents,
+          // 🚫 Recorded, never applied. The words are copied onto the sheet and nothing
+          // in the app reads them again (PRD.md principle 1).
+          rolledTalent(words, table.ref, rollTotal(kept.roll)),
+          MAX_TALENTS,
+        ),
+      }));
+    });
   };
 
   return (

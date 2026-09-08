@@ -27,7 +27,7 @@
  * words; no stat is touched by either (PRD.md principle 1).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DICE_OVERLAY_DWELL_MS, MAX_ROLL_FEED_ENTRIES } from '../constants';
 import type {
   RandomWords,
@@ -38,8 +38,8 @@ import type {
 } from '../model/dice';
 import { cryptoWords, rollNotation, rollPool } from '../model/dice';
 import type { Die } from '../model/enums';
-import type { RollableTable, TableRollFailure } from '../model/tables';
-import { rollOnTable } from '../model/tables';
+import type { RollableTable, TableResult, TableRollFailure } from '../model/tables';
+import { rerollTable, rollOnTable } from '../model/tables';
 import { newRowId } from './new-character';
 
 /** The start of a list, and a count of nothing. */
@@ -88,7 +88,49 @@ const MINE: RollOrigin = { kind: 'mine' };
  */
 export type RollLookup = {
   readonly row: string | null;
+  /**
+   * Throws a reroll passed up, oldest first. Empty on all but a rerolled result.
+   *
+   * The record is the point of keeping them. A table that says *take it or roll again*
+   * (DATA-MODEL.md §8) has to show what was rolled away, or the offer is something that
+   * happened invisibly and the feed reads as though the second throw were the only one.
+   */
+  readonly discarded: readonly DiscardedThrow[];
+  /**
+   * Whether a reroll is still on offer. Only a `rerollable` table ever offers one, and
+   * only `MAX_TABLE_REROLLS` of them — `model/tables.ts` decides both, and this is that
+   * answer carried up. 🚫 Never a permission the corner grants itself.
+   */
+  readonly canReroll: boolean;
 };
+
+/**
+ * A throw a reroll threw away: the number it made and the row it found, which is all of
+ * one that is worth showing. 🚫 Its dice are not kept — a passed-up throw is a line in
+ * the record, not a second result to draw silhouettes for.
+ */
+export type DiscardedThrow = {
+  readonly total: number;
+  readonly row: string | null;
+};
+
+/**
+ * A model result, as the feed keeps it. The only place a `TableResult` is turned into a
+ * lookup, so the card, the feed and a caller recording a talent cannot disagree about
+ * what was rolled or what was passed up.
+ *
+ * 🚫 The text is copied, never read. `row.text` goes across as the author's own string.
+ */
+function lookupOf(result: TableResult): RollLookup {
+  return {
+    row: result.row?.text ?? null,
+    discarded: result.discarded.map((passed) => ({
+      total: passed.total,
+      row: passed.row?.text ?? null,
+    })),
+    canReroll: result.canReroll,
+  };
+}
 
 /**
  * One roll, as the feed keeps it and the overlay shows it.
@@ -136,6 +178,31 @@ export type FreeRoll = {
 // ---------------------------------------------------------------------------
 // The hook
 // ---------------------------------------------------------------------------
+/**
+ * What a caller does with a table result, once it *is* the result.
+ *
+ * Called exactly once per `rollTable`, and — on a `rerollable` table — not until the
+ * offer has been settled. That ordering is DATA-MODEL.md §8's "a reroll before the
+ * result is kept" made mechanical: a talent the player rolled away must never have
+ * reached the sheet, and the only way to guarantee that is for the sheet to be told
+ * later rather than told twice.
+ */
+export type KeepResult = (entry: RollEntry) => void;
+
+/**
+ * The offer standing right now: what was thrown, what it was thrown on, and who asked
+ * to be told once it is settled.
+ *
+ * The `TableResult` is kept because `rerollTable` takes the previous *result*, not the
+ * entry — `discarded` and `canReroll` are the model's to carry forward, and rebuilding
+ * them from an entry would be this file second-guessing `MAX_TABLE_REROLLS`.
+ */
+type StandingOffer = {
+  readonly entry: RollEntry;
+  readonly table: RollableTable;
+  readonly result: TableResult;
+  readonly keep: KeepResult | null;
+};
 
 export type Rolls = {
   /** Newest first, capped at `MAX_ROLL_FEED_ENTRIES`. */
@@ -168,8 +235,26 @@ export type Rolls = {
    * returned rather than pushed at the sheet because **what is done with a result is the
    * caller's**: a talent table's row is written down as words (PRD.md principle 1), and
    * a loot table's is not written anywhere. Nothing in this hook knows the difference.
+   *
+   * 🚫 **The returned entry is not necessarily the result.** On a `rerollable` table it
+   * is a throw with an offer still standing, and the player may yet pass it up. A caller
+   * that records anything passes `keep`, which fires once, on the throw that was kept.
    */
-  readonly rollTable: (table: RollableTable, label: string) => RollEntry | null;
+  readonly rollTable: (
+    table: RollableTable,
+    label: string,
+    keep?: KeepResult,
+  ) => RollEntry | null;
+  /**
+   * Take the reroll the standing result offered: throw again on the same table, keeping
+   * what was passed up on the new entry.
+   *
+   * The offer is the model's — `rerollTable` refuses a table that never made one and a
+   * table whose one offer is spent — so this is the corner asking rather than deciding.
+   * Rolling on the table from the top is `rollTable` and is a different act entirely:
+   * it starts a fresh entry with nothing passed up (DATA-MODEL.md §8).
+   */
+  readonly reroll: () => RollEntry | null;
   /** A roll that happened somewhere else. The seam Phase 5 broadcasts into. */
   readonly record: (entry: RollEntry) => void;
   readonly dismiss: () => void;
@@ -187,30 +272,73 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
   const [visibility, setVisibility] = useState<RollVisibility>(DEFAULT_VISIBILITY);
 
   /**
+   * The offer on the table, if one is.
+   *
+   * A ref rather than state, deliberately: nothing rendered reads it — `canReroll` and
+   * `discarded` travel on the entry, which *is* state — and it is only ever touched from
+   * an event handler or an effect, which is the whole of what a ref is for. Holding it as
+   * state instead would re-render the corner to record a fact the corner cannot see.
+   */
+  const offer = useRef<StandingOffer | null>(null);
+
+  /**
+   * Take the standing offer off the table and tell whoever was waiting what was kept.
+   *
+   * `kept` is the throw that survived, or `null` when the offer simply lapsed and the
+   * throw already on screen is what the player has. Settling twice is a no-op, which is
+   * what lets every path that ends an offer — dismiss, another roll, a reroll — call it
+   * without checking first.
+   */
+  const settle = useCallback((kept: RollEntry | null): void => {
+    const standing = offer.current;
+    if (standing === null) return;
+
+    offer.current = null;
+    standing.keep?.(kept ?? standing.entry);
+  }, []);
+
+  /**
    * The one way an entry reaches the feed, whoever rolled it. Prepending and capping in
    * the same step is what keeps the cap a bound on memory rather than a suggestion.
+   *
+   * `replacing` is a reroll and nothing else: the throw that was passed up is *replaced*
+   * in the feed by the one that replaced it, rather than both being prepended. Two lines
+   * for one act would put a rejected row in the permanent record looking exactly like a
+   * kept one, which is a wrong answer that reads as right. Nothing is hidden by it — the
+   * passed-up throw is on the entry that replaced it, in `lookup.discarded`, and the
+   * corner prints it.
    */
-  const record = useCallback((entry: RollEntry): void => {
-    setFeed((previous) => [entry, ...previous].slice(NONE, MAX_ROLL_FEED_ENTRIES));
+  const land = useCallback((entry: RollEntry, replacing: string | null): void => {
+    setFeed((previous) =>
+      replacing === null
+        ? [entry, ...previous].slice(NONE, MAX_ROLL_FEED_ENTRIES)
+        : previous.map((existing) => (existing.id === replacing ? entry : existing)),
+    );
     setShowing(entry);
     setFailure(null);
   }, []);
 
+  /** A roll from anywhere else. Any roll landing ends whatever offer was standing. */
+  const record = useCallback(
+    (entry: RollEntry): void => {
+      settle(null);
+      land(entry, null);
+    },
+    [land, settle],
+  );
+
   /**
-   * A pool that has already been rolled, put in the feed. The one place an entry of our
-   * own is built, so a free roll, a weapon and a table cannot describe themselves
-   * differently.
+   * A pool that has already been rolled, put in the feed. The one place a free roll of
+   * our own is built, so the handle and a weapon cannot describe themselves differently.
    *
    * A roll that produced no dice is said out loud and shows nothing. 🚫 There is no
    * substitute number: `model/dice.ts` refuses rather than guessing, and a corner that
    * invented one would undo that in the last inch (DESIGN.md §4).
    */
-  const keep = useCallback(
-    (
-      rolled: RollResult,
-      label: string,
-      lookup: RollLookup | null,
-    ): RollEntry | null => {
+  const enter = useCallback(
+    (rolled: RollResult, label: string): RollEntry | null => {
+      settle(null);
+
       if (!rolled.ok) {
         setFailure(rolled.failure);
         setShowing(null);
@@ -224,28 +352,66 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
         label,
         visibility,
         roll: rolled.roll,
-        lookup,
+        lookup: null,
         warnings: rolled.warnings,
       };
       record(entry);
 
       return entry;
     },
-    [record, visibility],
+    [record, settle, visibility],
+  );
+
+  /**
+   * A table result, into the feed — and onto the table as an offer when the model says
+   * one stands. The single path a first throw and a reroll both take, so the two cannot
+   * come to describe the same result differently.
+   */
+  const takeTable = useCallback(
+    (
+      table: RollableTable,
+      result: TableResult,
+      label: string,
+      keep: KeepResult | null,
+      replacing: string | null,
+    ): RollEntry => {
+      const entry: RollEntry = {
+        id: newRowId(),
+        at: Date.now(),
+        origin: MINE,
+        label,
+        visibility,
+        roll: result.roll,
+        lookup: lookupOf(result),
+        warnings: [],
+      };
+      land(entry, replacing);
+
+      if (result.canReroll) {
+        offer.current = { entry, table, result, keep };
+      } else {
+        // Nothing further is on offer, so this throw *is* the result and the caller can
+        // record it (DATA-MODEL.md §8 — the offer comes before the result is kept).
+        offer.current = null;
+        keep?.(entry);
+      }
+
+      return entry;
+    },
+    [land, visibility],
   );
 
   const roll = useCallback(
     (request: FreeRoll): void => {
-      keep(
+      enter(
         rollPool(
           { die: request.die, count: request.count, modifier: request.modifier },
           random,
         ),
         request.label,
-        null,
       );
     },
-    [keep, random],
+    [enter, random],
   );
 
   /**
@@ -255,9 +421,9 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
    */
   const rollNotated = useCallback(
     (notation: string, label: string): void => {
-      keep(rollNotation(notation, UNMODIFIED, random), label, null);
+      enter(rollNotation(notation, UNMODIFIED, random), label);
     },
-    [keep, random],
+    [enter, random],
   );
 
   /**
@@ -269,7 +435,11 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
    * hand, and `label` is what that caller calls it.
    */
   const rollTable = useCallback(
-    (table: RollableTable, label: string): RollEntry | null => {
+    (table: RollableTable, label: string, keep?: KeepResult): RollEntry | null => {
+      // Rolling from the top is a new act, so anything still on offer lapses: the throw
+      // the player left on screen is the one they kept (DATA-MODEL.md §8).
+      settle(null);
+
       const rolled = rollOnTable(table, random);
       if (!rolled.ok) {
         setFailure(rolled.failure);
@@ -277,16 +447,42 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
         return null;
       }
 
-      return keep(
-        { ok: true, roll: rolled.result.roll, warnings: [] },
-        label,
-        { row: rolled.result.row?.text ?? null },
-      );
+      return takeTable(table, rolled.result, label, keep ?? null, null);
     },
-    [keep, random],
+    [random, settle, takeTable],
   );
 
-  const dismiss = useCallback((): void => setShowing(null), []);
+  const reroll = useCallback((): RollEntry | null => {
+    const standing = offer.current;
+    if (standing === null) {
+      setFailure({ reason: 'reroll-not-offered' });
+      return null;
+    }
+
+    const rolled = rerollTable(standing.table, standing.result, random);
+    if (!rolled.ok) {
+      // 🚫 The offer stands. No dice were thrown, so nothing was passed up and the one
+      // reroll the table offered has not been spent on a roll that never happened.
+      setFailure(rolled.failure);
+      return null;
+    }
+
+    // The label is the table's, unchanged: a reroll is the same act on the same table,
+    // and it takes over the entry rather than adding a second one beside it.
+    return takeTable(
+      standing.table,
+      rolled.result,
+      standing.entry.label,
+      standing.keep,
+      standing.entry.id,
+    );
+  }, [random, takeTable]);
+
+  /** Taking the card off the screen is taking the offer: what is showing is what is kept. */
+  const dismiss = useCallback((): void => {
+    settle(null);
+    setShowing(null);
+  }, [settle]);
 
   /**
    * The dwell. Keyed on the entry itself, so a roll that lands while another is on
@@ -294,9 +490,14 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
    *
    * It clears `showing` and never touches `feed` — which is the mechanical difference
    * between the two lifetimes this hook keeps, written where it happens.
+   *
+   * 🚫 **A card with a reroll on offer does not dwell out.** The dwell exists so nobody
+   * else's roll sits on your screen (DESIGN.md §4); this one is your own, and it is
+   * asking you a question. A question that answers itself in six seconds is not one, and
+   * a timer that settled the offer would be the app deciding a talent for the player.
    */
   useEffect(() => {
-    if (showing === null) return;
+    if (showing === null || showing.lookup?.canReroll === true) return;
 
     const timer = window.setTimeout(() => setShowing(null), DICE_OVERLAY_DWELL_MS);
     return () => window.clearTimeout(timer);
@@ -312,9 +513,21 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
       roll,
       rollNotation: rollNotated,
       rollTable,
+      reroll,
       record,
       dismiss,
     }),
-    [feed, showing, failure, visibility, roll, rollNotated, rollTable, record, dismiss],
+    [
+      feed,
+      showing,
+      failure,
+      visibility,
+      roll,
+      rollNotated,
+      rollTable,
+      reroll,
+      record,
+      dismiss,
+    ],
   );
 }

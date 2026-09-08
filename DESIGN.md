@@ -272,6 +272,14 @@ they arrive from context: level up opens your class's talent table, the DM's loo
 opens a loot table. The corner has a die, a count, a modifier, a label and an audience,
 and deliberately no list of tables to browse.
 
+A `rerollable` table adds one control and nothing else: the card offers **Reroll**
+beside **Keep it**, the throw that was passed up stays printed under the one that
+replaced it, and the entry in the feed is replaced rather than doubled — one act, one
+line, with what was rolled away named on it. A card with an offer standing does not
+dwell out: the dwell is there so nobody *else's* roll sits on your screen, and this one
+is asking you a question. The result is kept when the offer settles — taken, dismissed,
+or rolled past — never before, so a talent the player passed up was never on the sheet.
+
 A weapon arrives the same way: its row on the sheet rolls the `damage` its pack supplies,
 and a `1d4/1d8` offers one roll per hand rather than deciding which the player meant. The
 result is a number in the corner and nothing else — a talent table's row is written onto

@@ -42,6 +42,8 @@ import type { RollEntry, RollOrigin, Rolls } from '../state/use-rolls';
 import { NumberField, TextField, Warning } from './fields';
 import {
   SILHOUETTE_VIEW_BOX,
+  describePassedUp,
+  describePassedUpLine,
   describeRollWarning,
   describeVisibility,
   dieLabel,
@@ -116,6 +118,8 @@ export function DiceOverlay({ rolls }: { readonly rolls: Rolls }): ReactElement 
 
   const { showing } = rolls;
   const isPeerRoll = showing !== null && showing.origin.kind === 'peer';
+  /** Whether a reroll is still on the table for what is showing. Never for a peer's. */
+  const isOffered = !isPeerRoll && showing?.lookup?.canReroll === true;
 
   return (
     <div className="dice">
@@ -156,6 +160,18 @@ export function DiceOverlay({ rolls }: { readonly rolls: Rolls }): ReactElement 
             </p>
           )}
 
+          {/* What a reroll threw away. Shown rather than dropped, so the offer is not a
+              thing that happened invisibly (DATA-MODEL.md §8). The row's own words again
+              — a text node, never markup (CLAUDE.md §2.6). */}
+          {showing.lookup?.discarded.map((passed, index) => (
+            // The entry's id plus the position. `discarded` is built once by the model
+            // and replaced whole, so nothing in it ever moves — a stable identity rather
+            // than an index standing in for one (CLAUDE.md §6).
+            <p className="dice__passed" key={`${showing.id}:passed:${index}`}>
+              Passed up {describePassedUp(passed)}
+            </p>
+          ))}
+
           {showing.warnings.map((warning) => (
             <p className="dice__warning" key={warning.reason}>
               {describeRollWarning(warning)}
@@ -165,9 +181,21 @@ export function DiceOverlay({ rolls }: { readonly rolls: Rolls }): ReactElement 
           {/* 🚫 Never rendered for a peer's roll. The card has to be untouchable, and a
               button is the one thing that would make it otherwise. */}
           {!isPeerRoll && (
-            <button type="button" className="button" onClick={rolls.dismiss}>
-              Dismiss
-            </button>
+            <div className="row-actions">
+              {/* Only a `rerollable` table ever gets here, and only until its one offer
+                  is spent — `model/tables.ts` decides both and the entry carries the
+                  answer. 🚫 The corner never grants itself a reroll. */}
+              {isOffered && (
+                <button type="button" className="button" onClick={() => rolls.reroll()}>
+                  Reroll
+                </button>
+              )}
+              {/* Taking the card away is taking the result: *take it or roll again*
+                  (DATA-MODEL.md §8), which is what the word changes to say. */}
+              <button type="button" className="button" onClick={rolls.dismiss}>
+                {isOffered ? 'Keep it' : 'Dismiss'}
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -294,6 +322,14 @@ export function DiceOverlay({ rolls }: { readonly rolls: Rolls }): ReactElement 
                     {entry.lookup !== null && (
                       <span className="dice__entry-row">
                         {entry.lookup.row ?? 'no row covers that number'}
+                      </span>
+                    )}
+                    {/* A reroll replaces its entry rather than adding a second one, so
+                        this line is the whole of what says a throw was passed up. The
+                        permanent record keeps both, and neither looks like the other. */}
+                    {entry.lookup !== null && entry.lookup.discarded.length > NONE && (
+                      <span className="dice__entry-passed">
+                        passed up {describePassedUpLine(entry.lookup.discarded)}
                       </span>
                     )}
                   </li>

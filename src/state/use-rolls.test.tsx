@@ -14,7 +14,7 @@ import { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DICE_OVERLAY_DWELL_MS, MAX_ROLL_FEED_ENTRIES } from '../constants';
+import { DICE_OVERLAY_DWELL_MS, MAX_ROLL_FEED_ENTRIES, MAX_TABLE_REROLLS } from '../constants';
 import type { RandomWords } from '../model/dice';
 import { rollTotal } from '../model/dice';
 import type { RollableTable } from '../model/tables';
@@ -56,6 +56,9 @@ const TALENTS: RollableTable = {
     // 10 through 12 are deliberately uncovered: a gap is a warning, never a refusal.
   ],
 };
+
+/** The same rows, on a table that says *take it or roll again* (DATA-MODEL.md §8). */
+const REROLLABLE: RollableTable = { ...TALENTS, rerollable: true };
 
 /**
  * A pool from the handle.
@@ -194,7 +197,7 @@ describe('table rolls', () => {
 
     const entry = rolls().showing as RollEntry;
     expect(rollTotal(entry.roll)).toBe(8);
-    expect(entry.lookup).toEqual({ row: 'The name of a river' });
+    expect(entry.lookup).toEqual({ row: 'The name of a river', discarded: [], canReroll: false });
     expect(entry.label).toBe('Human talents');
     // 🚫 No modifier on a table roll — a bonus would move which row came up.
     expect(entry.roll.modifier).toBe(0);
@@ -222,7 +225,7 @@ describe('table rolls', () => {
     // What is done with a result is the caller's: a talent is written down as words,
     // a loot row is not written anywhere (PRD.md principle 1).
     expect(entry).not.toBeNull();
-    expect((entry as unknown as RollEntry).lookup).toEqual({ row: 'The name of a river' });
+    expect((entry as unknown as RollEntry).lookup?.row).toBe('The name of a river');
   });
 
   it('hands back nothing when no dice were rolled at all', async () => {
@@ -244,7 +247,7 @@ describe('table rolls', () => {
     const entry = rolls().showing as RollEntry;
     expect(rollTotal(entry.roll)).toBe(11);
     // A table roll that found nothing, which is not the same fact as a free roll.
-    expect(entry.lookup).toEqual({ row: null });
+    expect(entry.lookup).toEqual({ row: null, discarded: [], canReroll: false });
   });
 });
 
@@ -315,6 +318,166 @@ describe('the feed and the dwell', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// The offer a rerollable table makes
+// ---------------------------------------------------------------------------
+
+describe('a rerollable table’s offer', () => {
+  it('offers a reroll, and no other table does', async () => {
+    await mount(scripted(1, 1));
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens'));
+
+    expect(rolls().showing?.lookup?.canReroll).toBe(true);
+    expect(rolls().showing?.lookup?.discarded).toEqual([]);
+
+    await run(() => rolls().rollTable(TALENTS, 'Human talents'));
+    expect(rolls().showing?.lookup?.canReroll).toBe(false);
+  });
+
+  it('throws again when the offer is taken, and the offer is then gone', async () => {
+    // 2 on the first throw, 8 on the second: different rows, so what changed is visible.
+    await mount(scripted(1, 1, 4, 4));
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens'));
+    await run(() => rolls().reroll());
+
+    const entry = rolls().showing as RollEntry;
+    expect(rollTotal(entry.roll)).toBe(8);
+    expect(entry.lookup?.row).toBe('The name of a river');
+    expect(entry.lookup?.canReroll, 'a second offer is not one the table made').toBe(false);
+    expect(entry.lookup?.discarded).toHaveLength(MAX_TABLE_REROLLS);
+  });
+
+  it('keeps what was passed up, so a rerolled result says what it replaced', async () => {
+    await mount(scripted(1, 1, 4, 4));
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens'));
+    await run(() => rolls().reroll());
+
+    expect(rolls().showing?.lookup?.discarded).toEqual([
+      { total: 2, row: 'A knack for knots' },
+    ]);
+  });
+
+  it('replaces the throw it passed up rather than leaving both in the feed', async () => {
+    await mount(scripted(1, 1, 4, 4));
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens'));
+    await run(() => rolls().reroll());
+
+    // One act, one line. A rejected row left standing in the permanent record would read
+    // exactly like a kept one, and nothing is lost — it is on the entry that replaced it.
+    expect(rolls().feed).toHaveLength(1);
+    expect(rolls().feed[0]?.lookup?.row).toBe('The name of a river');
+    expect(rolls().feed[0]?.lookup?.discarded).toHaveLength(1);
+  });
+
+  it('leaves rolling on the table from the top a different act entirely', async () => {
+    await mount(scripted(1, 1, 4, 4));
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens'));
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens'));
+
+    // Two entries, and the second passed nothing up: starting over is not a reroll, and
+    // the offer it makes is a fresh one (DATA-MODEL.md §8).
+    expect(rolls().feed).toHaveLength(2);
+    expect(rolls().feed[0]?.lookup?.discarded).toEqual([]);
+    expect(rolls().feed[0]?.lookup?.canReroll).toBe(true);
+  });
+
+  it('refuses a reroll nobody was offered, and rolls no dice doing it', async () => {
+    await mount(scripted(4, 4));
+    await run(() => rolls().rollTable(TALENTS, 'Human talents'));
+    const before = rolls().showing;
+
+    await run(() => rolls().reroll());
+
+    expect(rolls().failure?.reason).toBe('reroll-not-offered');
+    expect(rolls().showing, 'a refused reroll changed what was on screen').toBe(before);
+    expect(rolls().feed).toHaveLength(1);
+  });
+
+  it('holds the card while the offer stands, and lets it dwell once it is spent', async () => {
+    await mount(scripted(1, 1, 4, 4));
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens'));
+
+    // A question that answers itself in six seconds is not one (DESIGN.md §4's dwell is
+    // about a *peer's* roll not sitting on your screen; this one is asking you something).
+    await run(() => vi.advanceTimersByTime(DICE_OVERLAY_DWELL_MS * 2));
+    expect(rolls().showing, 'the offer dwelled out from under the player').not.toBeNull();
+
+    await run(() => rolls().reroll());
+    await run(() => vi.advanceTimersByTime(DICE_OVERLAY_DWELL_MS));
+    expect(rolls().showing).toBeNull();
+  });
+});
+
+describe('when a table result is kept', () => {
+  /** What a caller was told to keep, in the order it was told. Issue #144's whole point. */
+  function keeper(): { readonly kept: RollEntry[]; readonly keep: (entry: RollEntry) => void } {
+    const kept: RollEntry[] = [];
+    return { kept, keep: (entry) => kept.push(entry) };
+  }
+
+  it('tells a caller straight away when no offer stands', async () => {
+    await mount(scripted(4, 4));
+    const { kept, keep } = keeper();
+
+    await run(() => rolls().rollTable(TALENTS, 'Human talents', keep));
+
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.lookup?.row).toBe('The name of a river');
+  });
+
+  it('makes a caller wait while a reroll is still on offer', async () => {
+    await mount(scripted(1, 1, 4, 4));
+    const { kept, keep } = keeper();
+
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens', keep));
+
+    // DATA-MODEL.md §8: the reroll comes *before the result is kept*. A row the player
+    // is about to pass up must never have reached the sheet.
+    expect(kept, 'a throw still on offer was recorded as the result').toEqual([]);
+
+    await run(() => rolls().reroll());
+
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.lookup?.row).toBe('The name of a river');
+  });
+
+  it('keeps what is on screen when the player takes it rather than rerolling', async () => {
+    await mount(scripted(1, 1));
+    const { kept, keep } = keeper();
+
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens', keep));
+    await run(() => rolls().dismiss());
+
+    // Taking the card away is taking the result. *Take it or roll again* — and this is
+    // taking it.
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.lookup?.row).toBe('A knack for knots');
+  });
+
+  it('settles a standing offer when anything else is rolled', async () => {
+    await mount(scripted(1, 1, 3));
+    const { kept, keep } = keeper();
+
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens', keep));
+    await run(() => rolls().roll(pool({ label: 'Sneak' })));
+
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.lookup?.row).toBe('A knack for knots');
+  });
+
+  it('tells a caller once and once only', async () => {
+    await mount(scripted(1, 1, 4, 4));
+    const { kept, keep } = keeper();
+
+    await run(() => rolls().rollTable(REROLLABLE, 'Omens', keep));
+    await run(() => rolls().reroll());
+    await run(() => rolls().dismiss());
+    await run(() => rolls().roll(pool()));
+
+    expect(kept, 'the sheet was told twice about one roll').toHaveLength(1);
+  });
+});
+
 describe('a roll that is not yours', () => {
   const THEIRS: RollEntry = {
     id: 'r_0123456789abcdef',
@@ -323,7 +486,7 @@ describe('a roll that is not yours', () => {
     label: 'Loot',
     visibility: 'dm-only',
     roll: { dice: [{ sides: 6, value: 5 }], modifier: 0 },
-    lookup: { row: 'A pouch of buttons' },
+    lookup: { row: 'A pouch of buttons', discarded: [], canReroll: false },
     warnings: [],
   };
 

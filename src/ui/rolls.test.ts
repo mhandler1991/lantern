@@ -14,6 +14,8 @@ import { Die } from '../model/enums';
 import { dieSides } from '../model/dice';
 import {
   SILHOUETTE_VIEW_BOX,
+  describePassedUp,
+  describePassedUpLine,
   describeRollWarning,
   describeVisibility,
   dieLabel,
@@ -119,6 +121,33 @@ describe('warnings', () => {
     const line = describeRollWarning({ reason: 'modifier-clamped', requested: 5000, applied: 999 });
     expect(line).toContain('5000');
     expect(line).toContain('999');
+  });
+});
+
+describe('what a reroll passed up', () => {
+  it('says the number and the row it found', () => {
+    expect(describePassedUp({ total: 3, row: 'A knack for knots' })).toBe(
+      '3 — A knack for knots',
+    );
+  });
+
+  it('says a face no row covered rather than printing an empty half', () => {
+    // A gap is reported, never filled in with a neighbour (`model/tables.ts`) — and that
+    // is as true of a throw that was passed up as of one that was kept.
+    expect(describePassedUp({ total: 11, row: null })).toContain('no row covered');
+  });
+
+  it('puts every one of them on one line, for the feed’s one row per roll', () => {
+    expect(
+      describePassedUpLine([
+        { total: 3, row: 'A knack for knots' },
+        { total: 11, row: null },
+      ]),
+    ).toBe('3 — A knack for knots; 11 — no row covered that number');
+  });
+
+  it('is nothing at all when nothing was passed up', () => {
+    expect(describePassedUpLine([])).toBe('');
   });
 });
 

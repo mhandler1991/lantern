@@ -14,6 +14,7 @@
  */
 
 import type { DieRoll, Roll, RollVisibility, RollWarning } from '../model/dice';
+import type { DiscardedThrow } from '../state/use-rolls';
 
 /** No dice, no modifier. A floor, not a rule of the game. */
 const NONE = 0;
@@ -87,6 +88,30 @@ const VISIBILITY_LABELS: Readonly<Record<RollVisibility, string>> = {
 /** Who a roll was for, in the words the picker offered when it was rolled. */
 export function describeVisibility(visibility: RollVisibility): string {
   return VISIBILITY_LABELS[visibility];
+}
+
+// ---------------------------------------------------------------------------
+// What a reroll passed up
+// ---------------------------------------------------------------------------
+
+/**
+ * A throw a reroll threw away: the number, and the row it found.
+ *
+ * Printed rather than hidden, because a table that says *take it or roll again*
+ * (DATA-MODEL.md §8) has to show what was passed up — a reroll that quietly replaced the
+ * record would let a result disappear, and a result nobody can point at afterwards is
+ * exactly what a shared roll is not for.
+ *
+ * A face no row covered is said in the same words the card uses for one: a gap is
+ * reported, never filled in with a neighbour (`model/tables.ts`).
+ */
+export function describePassedUp(passed: DiscardedThrow): string {
+  return `${passed.total} — ${passed.row ?? 'no row covered that number'}`;
+}
+
+/** Every one of them on one line, for the feed's one row per roll. */
+export function describePassedUpLine(discarded: readonly DiscardedThrow[]): string {
+  return discarded.map(describePassedUp).join('; ');
 }
 
 // ---------------------------------------------------------------------------
