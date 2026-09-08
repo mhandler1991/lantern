@@ -20,7 +20,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DICE_OVERLAY_DWELL_MS } from '../constants';
 import type { RandomWords } from '../model/dice';
-import type { RollEntry, Rolls } from '../state/use-rolls';
+import type { RollEntry, RollLookup, Rolls } from '../state/use-rolls';
 import { useRolls } from '../state/use-rolls';
 import { DiceOverlay } from './DiceOverlay';
 
@@ -269,9 +269,15 @@ function fixedRolls(showing: RollEntry | null): Rolls {
     roll: () => undefined,
     rollNotation: () => undefined,
     rollTable: () => null,
+    reroll: () => null,
     record: () => undefined,
     dismiss: () => undefined,
   };
+}
+
+/** A table lookup in full, so a case states only the part it is actually about. */
+function lookup(fields: Partial<RollLookup> = {}): RollLookup {
+  return { row: 'The name of a river', discarded: [], canReroll: false, ...fields };
 }
 
 const MINE: RollEntry = {
@@ -332,7 +338,7 @@ describe('a table result', () => {
     ...MINE,
     label: 'Human talents',
     roll: { dice: [{ sides: 6, value: 3 }, { sides: 6, value: 5 }], modifier: 0 },
-    lookup: { row: 'The name of a river' },
+    lookup: lookup(),
   };
 
   it('shows the row in the same card a free roll uses', async () => {
@@ -344,7 +350,7 @@ describe('a table result', () => {
   });
 
   it('says a number is uncovered rather than filling the gap in', async () => {
-    await mountCard({ ...ROLLED, lookup: { row: null } });
+    await mountCard({ ...ROLLED, lookup: lookup({ row: null }) });
     expect(find('.dice__row').textContent).toContain('gap');
   });
 
@@ -352,7 +358,7 @@ describe('a table result', () => {
     // The XSS boundary (CLAUDE.md §2.6). A row's text is a pack author's string, and a
     // pack is a file somebody else wrote.
     const hostile = '<img src=x onerror="alert(1)">';
-    await mountCard({ ...ROLLED, lookup: { row: hostile } });
+    await mountCard({ ...ROLLED, lookup: lookup({ row: hostile }) });
 
     expect(find('.dice__row').textContent).toBe(hostile);
     expect(container.querySelector('img')).toBeNull();
@@ -364,5 +370,97 @@ describe('a table result', () => {
 
     expect(find('.dice__who').textContent).toContain(hostile);
     expect(container.querySelector('script')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The offer a rerollable table makes — issue #144's acceptance, in the markup
+// ---------------------------------------------------------------------------
+
+describe('a reroll on offer', () => {
+  const ROLLED: RollEntry = {
+    ...MINE,
+    label: 'Omens',
+    roll: { dice: [{ sides: 6, value: 3 }, { sides: 6, value: 5 }], modifier: 0 },
+    lookup: lookup(),
+  };
+
+  const OFFERED: RollEntry = { ...ROLLED, lookup: lookup({ canReroll: true }) };
+
+  it('puts a reroll on the card, and only while one is on offer', async () => {
+    await mountCard(OFFERED);
+    expect(button('Reroll')).toBeTruthy();
+
+    await mountCard(ROLLED);
+    // 🚫 A table that offered nothing gets no button. The corner never grants itself one.
+    expect(() => button('Reroll')).toThrow();
+  });
+
+  it('says taking the card away is keeping the result', async () => {
+    // *Take it or roll again* (DATA-MODEL.md §8), which is what the two words say.
+    await mountCard(OFFERED);
+    expect(button('Keep it')).toBeTruthy();
+
+    await mountCard(ROLLED);
+    expect(button('Dismiss')).toBeTruthy();
+  });
+
+  it('asks the hook for the reroll rather than deciding one itself', async () => {
+    let asked = 0;
+    const reroll = (): null => {
+      asked += 1;
+      return null;
+    };
+    await act(async () => {
+      root.render(<DiceOverlay rolls={{ ...fixedRolls(OFFERED), reroll }} />);
+    });
+
+    await press(button('Reroll'));
+
+    // Nothing here decides a number, a reroll included: the model says whether an offer
+    // stands and the model throws the dice.
+    expect(asked).toBe(1);
+  });
+
+  it('shows what was passed up, as the row’s own words', async () => {
+    await mountCard({
+      ...ROLLED,
+      lookup: lookup({ discarded: [{ total: 3, row: 'A knack for knots' }] }),
+    });
+
+    expect(find('.dice__passed').textContent).toContain('A knack for knots');
+    expect(find('.dice__passed').textContent).toContain('3');
+    // The row that was kept is still the answer, and still the one that reads as one.
+    expect(find('.dice__row').textContent).toBe('The name of a river');
+  });
+
+  it('says a passed-up number no row covered rather than leaving a blank', async () => {
+    await mountCard({
+      ...ROLLED,
+      lookup: lookup({ discarded: [{ total: 11, row: null }] }),
+    });
+
+    expect(find('.dice__passed').textContent).toContain('no row covered');
+  });
+
+  it('prints a passed-up row as a text node and never as markup', async () => {
+    // The XSS boundary again (CLAUDE.md §2.6): a discarded row is a pack author's string
+    // exactly as much as a kept one is.
+    const hostile = '<img src=x onerror="alert(1)">';
+    await mountCard({
+      ...ROLLED,
+      lookup: lookup({ discarded: [{ total: 3, row: hostile }] }),
+    });
+
+    expect(find('.dice__passed').textContent).toContain(hostile);
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('still puts no control on a peer’s card, whatever their entry claims', async () => {
+    // A peer's roll arrives with an offer on it and it changes nothing: the offer is
+    // yours to take on your own roll, and their card stays untouchable (DESIGN.md §4).
+    await mountCard({ ...THEIRS, lookup: lookup({ canReroll: true }) });
+
+    expect(find('.dice__result').querySelectorAll('button')).toHaveLength(0);
   });
 });

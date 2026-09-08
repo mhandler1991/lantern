@@ -973,6 +973,16 @@ body {
   text-align: left;
 }
 
+/* What a reroll threw away, kept beside what replaced it. Quieter than the row that was
+   kept — it is the record of a decision, not the answer — but present, because a table
+   offering *take it or roll again* has to show what was passed up (DATA-MODEL.md §8). */
+.dice__passed {
+  margin: var(--space-2) var(--space-0) var(--space-0);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
 .dice__warning {
   margin: var(--space-2) var(--space-0) var(--space-0);
   color: var(--state-caution);
@@ -1049,4 +1059,12 @@ body {
 .dice__entry-row {
   grid-column: 1 / -1;
   color: var(--text-secondary);
+}
+
+/* The same fact on the feed's one line per roll. A reroll replaces its entry rather than
+   adding a second one, so this is the whole of what says a throw was passed up. */
+.dice__entry-passed {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }

@@ -78,6 +78,16 @@ const HOMEBREW = fixturePack({
       talentTable: 'wanderer-talents',
     },
     {
+      // A class whose table says *take it or roll again* (DATA-MODEL.md §8). The offer
+      // is the only thing that separates it from the Wanderer.
+      id: 'oracle',
+      name: 'Oracle',
+      hitDie: 'd6',
+      weapons: [],
+      armor: ['none'],
+      talentTable: 'oracle-omens',
+    },
+    {
       // Names a table nothing defines: a class with nothing to roll on, which is a
       // warning at resolution and simply no button here (PRD.md principle 4).
       id: 'drifter',
@@ -98,6 +108,18 @@ const HOMEBREW = fixturePack({
         { roll: [7, 9], text: 'The name of a river' },
         // 10 through 12 are deliberately uncovered: a gap is a warning, never a refusal,
         // and a roll that finds nothing must write nothing.
+      ],
+    },
+    {
+      id: 'oracle-omens',
+      name: 'Oracle omens',
+      die: '2d6',
+      // The flag's whole purpose, and the one this file's own words are here to prove
+      // reaches a player: a result that can be passed up before it is kept.
+      rerollable: true,
+      rows: [
+        { roll: [2, 6], text: 'A shape in the smoke' },
+        { roll: [7, 12], text: 'A cold wind from the east' },
       ],
     },
   ],
@@ -380,5 +402,103 @@ describe('the class’s talent table', () => {
     expect(talent?.rolled).toBe(8);
     expect(talent?.text).not.toBe('');
     expect(parseCharacter(character()).ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A table that offers a reroll
+// ---------------------------------------------------------------------------
+
+describe('a rerollable table’s offer', () => {
+  const oracle = (level: number): Character =>
+    sheet({ class: { ref: 'homebrew:class:oracle', name: '' }, level });
+
+  /** 4 on the first throw, 8 on the second — different rows, so the change is visible. */
+  const twoThrows = () => scripted(2, 2, 4, 4);
+
+  it('offers the reroll on the card, and writes nothing while it stands', async () => {
+    await mount(oracle(2), twoThrows());
+
+    await press('Roll on Oracle omens');
+
+    expect(text('.dice__row')).toBe('A shape in the smoke');
+    expect([...container.querySelectorAll('.dice__result button')].map((b) => b.textContent))
+      .toEqual(['Reroll', 'Keep it']);
+    // 🚫 Not yet the result. DATA-MODEL.md §8 offers the reroll *before the result is
+    // kept*, so a row the player is about to pass up has not reached the sheet.
+    expect(character().talents).toEqual([]);
+  });
+
+  it('records the throw that was kept, and never the one passed up', async () => {
+    await mount(oracle(2), twoThrows());
+
+    await press('Roll on Oracle omens');
+    await press('Reroll');
+
+    expect(text('.dice__row')).toBe('A cold wind from the east');
+    expect(text('.dice__passed')).toContain('A shape in the smoke');
+
+    const talents = character().talents;
+    expect(talents).toHaveLength(1);
+    expect(talents[0]?.text).toBe('A cold wind from the east');
+    expect(talents[0]?.rolled).toBe(8);
+    expect(parseCharacter(character()).ok).toBe(true);
+  });
+
+  it('spends the offer: the card has nothing left to reroll', async () => {
+    await mount(oracle(2), twoThrows());
+
+    await press('Roll on Oracle omens');
+    await press('Reroll');
+
+    // `MAX_TABLE_REROLLS` is one. A second offer would be rolling until the row is liked,
+    // which is a different thing and not one any table asks for.
+    expect([...container.querySelectorAll('.dice__result button')].map((b) => b.textContent))
+      .toEqual(['Dismiss']);
+  });
+
+  it('records what is on screen when the player keeps it instead', async () => {
+    await mount(oracle(2), twoThrows());
+
+    await press('Roll on Oracle omens');
+    await press('Keep it');
+
+    expect(character().talents[0]?.text).toBe('A shape in the smoke');
+    expect(character().talents).toHaveLength(1);
+  });
+
+  it('leaves rolling from the top available, and it is not the same act', async () => {
+    await mount(oracle(2), twoThrows());
+
+    await press('Roll on Oracle omens');
+    await press('Roll on Oracle omens');
+
+    // Starting over settles the first throw — the player kept it by rolling on past it —
+    // and opens a *fresh* offer with nothing passed up. Two acts, not one reroll
+    // (DATA-MODEL.md §8): the second throw is on offer in its own right.
+    expect(container.querySelector('.dice__passed')).toBeNull();
+    expect(text('.dice__row')).toBe('A cold wind from the east');
+    expect(character().talents.map((talent) => talent.text)).toEqual([
+      'A shape in the smoke',
+    ]);
+
+    await press('Keep it');
+    expect(character().talents.map((talent) => talent.text)).toEqual([
+      'A shape in the smoke',
+      'A cold wind from the east',
+    ]);
+  });
+
+  it('adjudicates nothing — a reroll changes which words are copied and no number', async () => {
+    const start = oracle(3);
+    const before = structuredClone(start);
+    await mount(start, twoThrows());
+
+    await press('Roll on Oracle omens');
+    await press('Reroll');
+
+    // 🚫 A talent is words. No stat moves for a roll, and none moves for a reroll either
+    // (PRD.md principle 1, DATA-MODEL.md §8).
+    expect(character()).toEqual({ ...before, talents: character().talents });
   });
 });
