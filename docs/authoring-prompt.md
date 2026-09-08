@@ -39,6 +39,22 @@ Rules:
 - format is "lantern-pack", formatVersion is 1
 - ids are lowercase a-z0-9- and are NOT prefixed with the pack id
 - Every content array is optional; omit what you do not need
+- These are the only fields there are. A field that is not on this list is refused,
+  and the app tells the author which one it was:
+    pack:         format formatVersion id name version author description classes ancestries spells items talents tables extends
+    class:        id name hitDie weapons armor spellcasting talentTable text page overrides
+    spellcasting: stat highestTierByLevel
+    ancestry:     id name talent text page overrides
+    spell:        id name tier classes range duration text page overrides
+    item:         id name slots cost weapon armor light text page overrides
+    cost:         amount currency
+    weapon:       type damage properties
+    armor:        type ac addDex
+    light:        minutes
+    talent:       id name text page overrides
+    table:        id name die rerollable rows text page overrides
+    row:          roll text
+    extends:      target talents rows
 - Enums are exact:
     stat: str dex con int wis cha
     range: self close near far
