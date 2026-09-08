@@ -5,7 +5,7 @@
   "name": "Frostbound",
   "version": "1.0.0",
   "author": "The Lantern example",
-  "description": "One of everything a pack can hold: a class, an ancestry, spells, items, a talent, a table, an extension and an override. Homebrew, invented for this file.",
+  "description": "One of everything a pack can hold: a class, an ancestry, spells, items, a talent, a table that offers a reroll, an extension and an override. Homebrew, invented for this file.",
 
   "classes": [
     {
@@ -97,13 +97,14 @@
       "id": "rimewalker-talents",
       "name": "Rimewalker talents",
       "die": "2d6",
-      "rerollable": false,
+      "rerollable": true,
       "rows": [
         { "roll": 2, "text": "Choose any result on this table" },
         { "roll": [3, 6], "text": "Your light sources burn a quarter longer than anyone else's" },
         { "roll": [7, 9], "text": "+1 to spellcasting checks made in open winter weather" },
         { "roll": [10, 11], "text": "+1 to constitution" }
       ],
+      "text": "Rerollable, so the corner offers one reroll before the result is kept and shows the row that was passed up. Leave the flag out and a result is simply the result; rolling on the table again from the top is a different act and is always available.",
       "page": null
     }
   ],

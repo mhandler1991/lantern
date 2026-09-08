@@ -350,6 +350,18 @@ describe('packs/example-pack.json', () => {
     expect(defined).toEqual(['cold-forged']);
   });
 
+  /**
+   * The flag nothing shipped set. #144 made a `rerollable` table's offer reach the
+   * corner and every table in the repository said `false`, so the feature worked and no
+   * player could see it (#152). The example pack is where a flag gets demonstrated —
+   * whether a *core* table offers a reroll is a question about the book, not about us.
+   */
+  it('sets the one flag a table has, so the offer can be seen by loading a file', () => {
+    expect((example.tables ?? []).map((table) => [table.id, table.rerollable])).toEqual([
+      ['rimewalker-talents', true],
+    ]);
+  });
+
   it('demonstrates define, extend and override', () => {
     const defined = normalizeRef('rimewalker', 'class', example.id);
     const extended = normalizeRef('fighter', 'class', CORE_PACK_ID);

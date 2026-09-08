@@ -30,6 +30,7 @@ import type { RandomWords } from '../../model/dice';
 import { orphanReport } from '../../model/orphans';
 import type { Pack } from '../../model/pack';
 import { parsePack, reportProblems } from '../../model/pack';
+import type { ResolvedStack } from '../../model/pack-resolver';
 import { resolvePacks } from '../../model/pack-resolver';
 import { newCharacter, newRowId } from '../../state/new-character';
 import { useRolls } from '../../state/use-rolls';
@@ -127,6 +128,14 @@ const HOMEBREW = fixturePack({
 
 const STACK = resolvePacks([CORE, HOMEBREW]);
 
+/**
+ * The example pack as it ships, off disk. The fixture above proves the offer *works*;
+ * this proves the file an author downloads actually asks for one — which is the whole of
+ * #152, because until it did, #144's offer was a feature no player could reach.
+ */
+const FROSTBOUND = packFromDisk('packs', 'example-pack.json');
+const SHIPPED = resolvePacks([CORE, FROSTBOUND]);
+
 // ---------------------------------------------------------------------------
 // The harness
 // ---------------------------------------------------------------------------
@@ -151,9 +160,11 @@ let latest: Character | null = null;
 function Harness({
   start,
   random,
+  stack,
 }: {
   readonly start: Character;
   readonly random: RandomWords;
+  readonly stack: ResolvedStack;
 }): ReactElement {
   const [character, setCharacter] = useState(start);
   const rolls = useRolls(random);
@@ -164,8 +175,8 @@ function Harness({
       <CharacterSheet
         character={character}
         setCharacter={setCharacter}
-        orphans={orphanReport(character, STACK)}
-        stack={STACK}
+        orphans={orphanReport(character, stack)}
+        stack={stack}
         rolls={rolls}
       />
       <DiceOverlay rolls={rolls} />
@@ -184,9 +195,13 @@ afterEach(() => {
   latest = null;
 });
 
-async function mount(start: Character, random: RandomWords): Promise<void> {
+async function mount(
+  start: Character,
+  random: RandomWords,
+  stack: ResolvedStack = STACK,
+): Promise<void> {
   await act(async () => {
-    root.render(<Harness start={start} random={random} />);
+    root.render(<Harness start={start} random={random} stack={stack} />);
   });
 }
 
@@ -500,5 +515,67 @@ describe('a rerollable table’s offer', () => {
     // 🚫 A talent is words. No stat moves for a roll, and none moves for a reroll either
     // (PRD.md principle 1, DATA-MODEL.md §8).
     expect(character()).toEqual({ ...before, talents: character().talents });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The offer, in the file an author actually downloads
+// ---------------------------------------------------------------------------
+
+/**
+ * Everything above this line runs on a fixture written in this file, which proves the
+ * offer works and nothing about what ships. #152 is the other half: `rerollable` reached
+ * the corner in #144 and every table in the repository said `false`, so the way to see
+ * the feature was to write a pack of your own first.
+ *
+ * So this mounts `packs/example-pack.json` off disk — the real file, its own homebrew
+ * words — and rolls the way a player would.
+ */
+describe('the shipped example pack', () => {
+  const rimewalker = (level: number): Character =>
+    sheet({ class: { ref: 'frostbound:class:rimewalker', name: '' }, level });
+
+  /** 4 on the first throw, 8 on the second: two different rows of the shipped table. */
+  const twoThrows = () => scripted(2, 2, 4, 4);
+
+  it('offers the reroll in the corner when its table is rolled', async () => {
+    await mount(rimewalker(2), twoThrows(), SHIPPED);
+
+    await press('Roll on Rimewalker talents');
+
+    expect([...container.querySelectorAll('.dice__result button')].map((b) => b.textContent))
+      .toEqual(['Reroll', 'Keep it']);
+    expect(character().talents).toEqual([]);
+  });
+
+  it('records the row that was kept once the offer is taken', async () => {
+    await mount(rimewalker(2), twoThrows(), SHIPPED);
+
+    await press('Roll on Rimewalker talents');
+    await press('Reroll');
+
+    // Both rows are the example pack's own invented words, so quoting them copies
+    // nobody's book (CLAUDE.md §9).
+    expect(text('.dice__passed')).toContain(
+      "Your light sources burn a quarter longer than anyone else's",
+    );
+    expect(character().talents.map((talent) => talent.text)).toEqual([
+      '+1 to spellcasting checks made in open winter weather',
+    ]);
+    expect(character().talents[0]?.source).toBe('frostbound:table:rimewalker-talents');
+    expect(parseCharacter(character()).ok).toBe(true);
+  });
+
+  // The core tables are untouched and stay that way: whether the book's fighter may
+  // reroll is a question about the book, not about this app (#152).
+  it('leaves every core table offering nothing', async () => {
+    await mount(sheet({ class: { ref: 'core:class:fighter', name: '' }, level: 2 }), scripted(4, 4), SHIPPED);
+
+    await press('Roll on Fighter talents');
+
+    expect([...container.querySelectorAll('.dice__result button')].map((b) => b.textContent))
+      .toEqual(['Dismiss']);
+    expect(SHIPPED.tables.filter((table) => table.entry.rerollable).map((table) => table.ref))
+      .toEqual(['frostbound:table:rimewalker-talents']);
   });
 });
