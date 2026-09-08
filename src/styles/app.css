@@ -613,6 +613,31 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+ * Roll or choose
+ *
+ * The dice half of a creation step, on the room's surface above the paper the choosing
+ * happens on. Torch-lit rather than inked, because it is an offer and not a field —
+ * the same reason `.prompt` takes the torch rule everywhere else.
+ * ------------------------------------------------------------------------ */
+
+.step-roll {
+  margin-bottom: var(--space-3);
+  color: var(--text-on-room);
+}
+
+.step-roll__say {
+  margin: var(--space-0) var(--space-0) var(--space-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.step-roll__dice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ---------------------------------------------------------------------------
  * The offer of a walkthrough
  *
  * Above the sheet and quiet: it is a door, not a gate. On an untouched sheet it says a

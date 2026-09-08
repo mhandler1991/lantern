@@ -36,7 +36,7 @@ import type {
   RollVisibility,
   RollWarning,
 } from '../model/dice';
-import { cryptoWords, rollNotation, rollPool } from '../model/dice';
+import { cryptoWords, rollAmong, rollNotation, rollPool } from '../model/dice';
 import type { Die } from '../model/enums';
 import type { RollableTable, TableResult, TableRollFailure } from '../model/tables';
 import { rerollTable, rollOnTable } from '../model/tables';
@@ -222,12 +222,28 @@ export type Rolls = {
    */
   readonly visibility: RollVisibility;
   readonly setVisibility: (visibility: RollVisibility) => void;
-  readonly roll: (request: FreeRoll) => void;
   /**
-   * A pool named the way a pack names it — a weapon's `1d8` (DATA-MODEL.md §4). The
-   * notation is read by `model/dice.ts`; nothing here evaluates a string.
+   * The entry is handed back for the same reason `rollTable`'s is: a caller that has to
+   * write the number down — an ability score in the walkthrough (#35) — must write the
+   * one that was rolled rather than roll a second time to find out. `null` when no dice
+   * were thrown at all; the reason is on `failure`.
    */
-  readonly rollNotation: (notation: string, label: string) => void;
+  readonly roll: (request: FreeRoll) => RollEntry | null;
+  /**
+   * A pool named the way a pack names it — a weapon's `1d8`, a class's `hitDie`
+   * (DATA-MODEL.md §4, §5). The notation is read by `model/dice.ts`; nothing here
+   * evaluates a string.
+   */
+  readonly rollNotation: (notation: string, label: string) => RollEntry | null;
+  /**
+   * One face of a die with as many faces as there are things to choose between — how
+   * "roll or choose" rolls (#35). `null` when there was nothing fair to throw, which
+   * includes a list of one (`model/dice.ts`).
+   *
+   * 🚫 It is handed a count, never the list. What the face picked out is the caller's
+   * to decide and to record; nothing here knows what was being chosen between.
+   */
+  readonly rollAmong: (count: number, label: string) => RollEntry | null;
   /**
    * Roll on a table, and hand back the entry so the caller can record what it found.
    *
@@ -402,15 +418,14 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
   );
 
   const roll = useCallback(
-    (request: FreeRoll): void => {
+    (request: FreeRoll): RollEntry | null =>
       enter(
         rollPool(
           { die: request.die, count: request.count, modifier: request.modifier },
           random,
         ),
         request.label,
-      );
-    },
+      ),
     [enter, random],
   );
 
@@ -420,9 +435,18 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
    * principle 1), and the handle is where a player adds one on purpose.
    */
   const rollNotated = useCallback(
-    (notation: string, label: string): void => {
-      enter(rollNotation(notation, UNMODIFIED, random), label);
-    },
+    (notation: string, label: string): RollEntry | null =>
+      enter(rollNotation(notation, UNMODIFIED, random), label),
+    [enter, random],
+  );
+
+  /**
+   * A draw among things, through the same feed as everything else. The count is the
+   * caller's list length; `model/dice.ts` refuses one it cannot throw fairly, and the
+   * failure lands on `failure` like any other.
+   */
+  const rollAmongThings = useCallback(
+    (count: number, label: string): RollEntry | null => enter(rollAmong(count, random), label),
     [enter, random],
   );
 
@@ -512,6 +536,7 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
       setVisibility,
       roll,
       rollNotation: rollNotated,
+      rollAmong: rollAmongThings,
       rollTable,
       reroll,
       record,
@@ -524,6 +549,7 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
       visibility,
       roll,
       rollNotated,
+      rollAmongThings,
       rollTable,
       reroll,
       record,

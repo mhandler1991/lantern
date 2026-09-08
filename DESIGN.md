@@ -259,6 +259,25 @@ weight.
 not divide evenly by 20. The skew is invisible in play and someone will eventually run a
 million rolls and post the histogram.
 
+### A die with as many faces as there are choices
+
+Creation offers **roll or choose** at every step, and rolling among six ancestries is
+rolling a d6. So `rollAmong(count)` draws one face of a `count`-sided die — a d7, a d33,
+whatever the loaded packs happen to offer — through the same rejection sampling as
+everything else, and the corner shows it like any other roll.
+
+Nothing about this is a second kind of randomness. `DieRoll.sides` was always a number
+rather than a member of the `Die` enum: the enum bounds what a **pack** may name, and a
+roll only has to stay inside the protocol's own `MIN_DIE_SIDES`…`MAX_DIE_SIDES`. A list
+of one is refused rather than rolled — a one-faced die is a constant wearing a die's
+clothes, and a choice with one option is not one.
+
+The draw and its meaning are kept apart on purpose: the model is handed a count and
+never the list, and `ui/creation/rolling.ts` reads the face back against the list it was
+thrown for, refusing a face whose die does not match. A pack turned on between the throw
+and the read would otherwise shift what a 4 meant, which is the one way this could put
+content on a sheet that the corner never showed.
+
 ### The overlay is one component
 
 A table roll is a roll plus a lookup. Nothing else.

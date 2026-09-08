@@ -66,10 +66,30 @@ type Offerable = {
 };
 
 /**
- * One kind, as options. A name that appears twice carries the pack that supplied it, so
- * the player picking between two Skalds can see which is which.
+ * When an option says which pack it came from.
+ *
+ * `when-ambiguous` is the sheet's answer and the reason is at the top of this file:
+ * `Torch (Core)` on every row of a gear list is noise, and the only names that actually
+ * need telling apart are the ones that repeat.
+ *
+ * `always` is the walkthrough's, and it is issue #35's third criterion — "content from
+ * any loaded pack appears, labelled with its source". Creation is the one moment where
+ * the question is not "which torch" but "what has this table got, and who supplied it":
+ * a player choosing a class for the first time is deciding whether to take the one the
+ * DM's supplement added, and a bare name does not tell them that a supplement is why it
+ * is on the list at all.
  */
-export function offer(entries: readonly Offerable[]): readonly Choice[] {
+export type PackLabel = 'when-ambiguous' | 'always';
+
+/**
+ * One kind, as options. A name that appears twice carries the pack that supplied it, so
+ * the player picking between two Skalds can see which is which — and under `always`,
+ * every option carries it whether it repeats or not.
+ */
+export function offer(
+  entries: readonly Offerable[],
+  packLabel: PackLabel = 'when-ambiguous',
+): readonly Choice[] {
   const timesNamed = new Map<string, number>();
   for (const entry of entries) {
     timesNamed.set(entry.entry.name, (timesNamed.get(entry.entry.name) ?? NONE) + UNIQUE);
@@ -78,7 +98,7 @@ export function offer(entries: readonly Offerable[]): readonly Choice[] {
   return entries.map((entry) => ({
     ref: entry.ref,
     label:
-      (timesNamed.get(entry.entry.name) ?? UNIQUE) > UNIQUE
+      packLabel === 'always' || (timesNamed.get(entry.entry.name) ?? UNIQUE) > UNIQUE
         ? `${entry.entry.name} (${entry.packName})`
         : entry.entry.name,
   }));
@@ -108,19 +128,24 @@ export function offer(entries: readonly Offerable[]): readonly Choice[] {
  * about light, every item is offered, because a homebrew torch in a pack written before
  * the block existed is still a torch and refusing to offer it would lose it.
  */
-export function sheetChoices(stack: ResolvedStack, classRef: Ref | null): SheetChoices {
+export function sheetChoices(
+  stack: ResolvedStack,
+  classRef: Ref | null,
+  packLabel: PackLabel = 'when-ambiguous',
+): SheetChoices {
   const isClassLoaded = classRef !== null && stack.byRef.get(classRef)?.kind === 'class';
   const lights = stack.items.filter((item) => (item.entry.light ?? null) !== null);
 
   return {
-    ancestries: offer(stack.ancestries),
-    classes: offer(stack.classes),
-    items: offer(stack.items),
-    lights: offer(lights.length === NONE ? stack.items : lights),
+    ancestries: offer(stack.ancestries, packLabel),
+    classes: offer(stack.classes, packLabel),
+    items: offer(stack.items, packLabel),
+    lights: offer(lights.length === NONE ? stack.items : lights, packLabel),
     spells: offer(
       isClassLoaded && classRef !== null ? spellsForClass(stack, classRef) : stack.spells,
+      packLabel,
     ),
-    talents: offer(talentsForClass(stack, classRef)),
+    talents: offer(talentsForClass(stack, classRef), packLabel),
   };
 }
 

@@ -470,6 +470,17 @@ export const CREATION_FORMAT = 'lantern-creation';
 export const CREATION_FORMAT_VERSION = 1;
 
 /**
+ * What the walkthrough rolls for one ability score.
+ *
+ * It is a business-rule number and lives here for that reason (CLAUDE.md §2.10), not a
+ * statement about what a table must do: the box takes any number a player types, and a
+ * table using an array, a point buy or four-drop-lowest ignores the button entirely.
+ * No loaded pack has anywhere to say otherwise — the pack format describes content, not
+ * character creation — so the app carries the default and nothing overrides it.
+ */
+export const ABILITY_ROLL_NOTATION = '3d6';
+
+/**
  * The stored position is four short fields — a format, a version, a character id and a
  * step id — so a value under our key that is larger than this was not written by us.
  * Bounded before it is decoded, exactly as a stored character is (CLAUDE.md §2.7).

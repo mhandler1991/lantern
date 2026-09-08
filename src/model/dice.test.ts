@@ -7,8 +7,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_DICE_PER_ROLL,
+  MAX_DIE_SIDES,
   MAX_REJECTION_SAMPLING_ATTEMPTS,
   MAX_ROLL_MODIFIER,
+  MIN_DIE_SIDES,
 } from '../constants';
 import type { Die } from './enums';
 import type { RandomWords } from './dice';
@@ -16,6 +18,7 @@ import {
   cryptoWords,
   describeRollFailure,
   dieSides,
+  rollAmong,
   rollNotation,
   rollPool,
   rollTotal,
@@ -358,5 +361,87 @@ describe('a missing or broken source', () => {
     expect(facesOf(rollPool({ die: 'd20' }))).toEqual([1]);
     expect(getRandomValues).toHaveBeenCalledTimes(1);
     expect(cryptoWords).toBeTypeOf('function');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rolling among things — how "roll or choose" rolls (#35)
+// ---------------------------------------------------------------------------
+
+describe('rolling among things', () => {
+  it('is one die with as many faces as there are things', () => {
+    const result = rollAmong(6, scripted([3]));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.roll.dice).toEqual([{ sides: 6, value: 4 }]);
+    expect(result.roll.modifier).toBe(0);
+  });
+
+  // A die nobody owns is the point: the `Die` enum bounds what a *pack* may name, and a
+  // list of thirty-three items still has to be chosen between fairly.
+  it('rolls a count that is not a die anybody sells', () => {
+    const result = rollAmong(33, scripted([0]));
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.roll.dice[0]?.sides).toBe(33);
+  });
+
+  it('discards the biased tail, exactly as a die does', () => {
+    const faces = 7;
+    const limit = rejectionLimit(faces);
+    const result = rollAmong(faces, scripted([limit, limit + 1, 3]));
+
+    // The first two words are in the ragged tail. Folding either in would have skewed
+    // the first face; both are thrown away and the third is what answers.
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.roll.dice[0]?.value).toBe(4);
+  });
+
+  it('refuses a list with nothing to decide, and one too long to be fair about', () => {
+    for (const count of [0, 1, MIN_DIE_SIDES - 1, MAX_DIE_SIDES + 1, 2.5, Number.NaN]) {
+      const result = rollAmong(count, scripted([0]));
+
+      expect(result.ok, `${count}`).toBe(false);
+      if (!result.ok) expect(result.failure.reason).toBe('faces');
+    }
+  });
+
+  it('says what it refused, in a line a player could act on', () => {
+    const result = rollAmong(1, scripted([0]));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(describeRollFailure(result.failure)).toContain('1');
+  });
+
+  it('reports a missing CSPRNG rather than choosing anything', () => {
+    vi.stubGlobal('crypto', {});
+
+    const result = rollAmong(6, cryptoWords);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.failure.reason).toBe('no-csprng');
+  });
+
+  it('comes out flat over a large sample', () => {
+    const faces = 7;
+    const rolls = 70_000;
+    const seen = new Map<number, number>();
+
+    for (let rolled = 0; rolled < rolls; rolled += 1) {
+      const result = rollAmong(faces);
+      if (!result.ok) throw new Error(describeRollFailure(result.failure));
+
+      const value = result.roll.dice[0]?.value ?? 0;
+      seen.set(value, (seen.get(value) ?? 0) + 1);
+    }
+
+    expect(seen.size).toBe(faces);
+    const expected = rolls / faces;
+    for (const [face, count] of seen) {
+      // A wide band: this is a smoke test for a `%` reduction sneaking back in, not a
+      // statistics exam. A biased seventh face would sit about 14% off, not 10%.
+      expect(Math.abs(count - expected) / expected, `face ${face}`).toBeLessThan(0.1);
+    }
   });
 });

@@ -33,6 +33,7 @@
  */
 
 import type { ItemLookup, SpellcastingFacts } from './derived';
+import type { Die } from './enums';
 import {
   EntryKind,
   type AncestryEntry,
@@ -670,6 +671,24 @@ export function spellcastingFor(
   if (found === undefined || found.kind !== 'class') return null;
 
   return found.entry.spellcasting ?? null;
+}
+
+/**
+ * The die a class rolls for hit points (DATA-MODEL.md §5), or `null` when no loaded pack
+ * says — no class chosen, or one whose pack is off.
+ *
+ * A query rather than a stored number, like everything else a pack answers for: a class
+ * turned off stops answering and the sheet keeps the hit points that were written down,
+ * because what was rolled is the player's and the die was only ever how they rolled it.
+ *
+ * 🚫 It says what to roll, never what the result means. Nothing multiplies it by a level
+ * or adds a constitution modifier to it (PRD.md principle 1).
+ */
+export function hitDieFor(stack: ResolvedStack, classRef: Ref | null): Die | null {
+  const found = classRef === null ? undefined : stack.byRef.get(classRef);
+  if (found === undefined || found.kind !== 'class') return null;
+
+  return found.entry.hitDie;
 }
 
 /**

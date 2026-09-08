@@ -31,8 +31,10 @@
 import * as z from 'zod';
 import {
   MAX_DICE_PER_ROLL,
+  MAX_DIE_SIDES,
   MAX_REJECTION_SAMPLING_ATTEMPTS,
   MAX_ROLL_MODIFIER,
+  MIN_DIE_SIDES,
 } from '../constants';
 import { dieNotationParts } from './enums';
 import type { Die } from './enums';
@@ -144,7 +146,8 @@ export type RollFailure =
   | { readonly reason: 'source-threw'; readonly thrown: unknown }
   | { readonly reason: 'exhausted'; readonly attempts: number; readonly sides: number }
   | { readonly reason: 'count'; readonly requested: number }
-  | { readonly reason: 'notation'; readonly notation: string };
+  | { readonly reason: 'notation'; readonly notation: string }
+  | { readonly reason: 'faces'; readonly requested: number };
 
 export type RollResult =
   | { readonly ok: true; readonly roll: Roll; readonly warnings: readonly RollWarning[] }
@@ -163,6 +166,8 @@ export function describeRollFailure(failure: RollFailure): string {
       return `expected 1 to ${MAX_DICE_PER_ROLL} dice — got ${failure.requested}`;
     case 'notation':
       return `expected dice notation such as 2d6 or d20 — got "${failure.notation}"`;
+    case 'faces':
+      return `expected ${MIN_DIE_SIDES} to ${MAX_DIE_SIDES} things to choose between — got ${failure.requested}`;
   }
 }
 
@@ -278,4 +283,42 @@ export function rollNotation(
   if (parts === null) return { ok: false, failure: { reason: 'notation', notation } };
 
   return rollPool({ die: parts.die, count: parts.count, modifier }, random);
+}
+
+/**
+ * A uniform draw among `count` things, as a roll of a die with that many faces.
+ *
+ * This is how "roll or choose" is rolled (#35). Picking one of six ancestries is a d6,
+ * and picking one of thirty-three items is a d33 — a die nobody owns, which is exactly
+ * why it belongs here rather than in a component: the fairness is the same rejection
+ * sampling every other roll gets, and the result travels as a `Roll` so the corner shows
+ * it, the feed keeps it and the wire could carry it. `DieRoll.sides` is a number rather
+ * than a member of the `Die` enum, and always was — the enum bounds what a *pack* may
+ * name, not what a roll may contain.
+ *
+ * The bounds are the protocol's own (`MIN_DIE_SIDES`, `MAX_DIE_SIDES`). One option is
+ * refused deliberately: `constants.ts` calls a one-faced die "a constant wearing a die's
+ * clothes", and a list with a single entry has nothing to decide. Callers offer no roll
+ * rather than rolling a die that cannot come up any other way.
+ *
+ * 🚫 It draws an index and nothing else. **What the drawn face means is the caller's** —
+ * this function has never seen the list, and no result here touches a stat (PRD.md
+ * principle 1).
+ */
+export function rollAmong(count: number, random: RandomWords = cryptoWords): RollResult {
+  if (!Number.isInteger(count) || count < MIN_DIE_SIDES || count > MAX_DIE_SIDES) {
+    return { ok: false, failure: { reason: 'faces', requested: count } };
+  }
+  if (random === cryptoWords && !hasCrypto()) {
+    return { ok: false, failure: { reason: 'no-csprng' } };
+  }
+
+  const face = rollFace(count, random);
+  if (!face.ok) return { ok: false, failure: face.failure };
+
+  return {
+    ok: true,
+    roll: { dice: [{ sides: count, value: face.value }], modifier: NONE },
+    warnings: [],
+  };
 }
