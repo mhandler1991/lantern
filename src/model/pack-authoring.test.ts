@@ -11,9 +11,11 @@
  * same required lists. The committed file may add what Zod cannot express — a `pattern`
  * for a refinement — and nothing else.
  *
- * **`docs/authoring-prompt.md`.** The enum lists a model is handed. They are compared
- * against `model/enums.ts` member by member: a vocabulary that gained a value and a
- * prompt that did not is a model generating packs the app will refuse.
+ * **`docs/authoring-prompt.md`.** The enum lists and the field census a model is handed.
+ * Both are compared against the schema member by member: a vocabulary that gained a value
+ * and a prompt that did not is a model generating packs the app will refuse, and a field
+ * the page never names is a feature no author can reach — `rerollable` shipped and went
+ * unmentioned for four cycles (#152, #155).
  *
  * **`packs/example-pack.json`.** Read off disk and put through the real `parsePack` and
  * the real `resolvePacks` alongside core, the way `state/core-pack.test.ts` does with
@@ -271,6 +273,66 @@ describe('schema/pack.schema.json', () => {
 // docs/authoring-prompt.md
 // ---------------------------------------------------------------------------
 
+/**
+ * Every field name the format has, taken from the schema rather than from a list
+ * somebody keeps: the envelope's own, every entry's, and the nested blocks — `cost`,
+ * `weapon`, `armor`, `light`, `spellcasting`, a table's rows, an extension.
+ *
+ * Read off the generated JSON Schema for the same reason the committed one is compared
+ * to it: `properties` is where a field name lives, whatever Zod is doing above it.
+ */
+function fieldNames(node: Json, into: Set<string>): void {
+  if (Array.isArray(node)) {
+    for (const item of node) fieldNames(item, into);
+    return;
+  }
+  if (!isObject(node)) return;
+
+  for (const [key, value] of Object.entries(node)) {
+    if (key === 'properties' && isObject(value)) {
+      for (const [name, child] of Object.entries(value)) {
+        into.add(name);
+        fieldNames(child, into);
+      }
+      continue;
+    }
+    fieldNames(value, into);
+  }
+}
+
+/**
+ * What stands between a field and its shape in a generated schema: an array's `items`,
+ * and the `anyOf` an optional block becomes. Both are how the generator writes things
+ * down, not anything the format has an opinion about.
+ */
+function unwrap(node: Json): Json {
+  if (!isObject(node)) return node;
+
+  const items = node['items'];
+  if (items !== undefined) return unwrap(items);
+
+  const branches = node['anyOf'];
+  if (Array.isArray(branches)) {
+    const object = branches.find((branch) => isObject(branch) && branch['properties'] !== undefined);
+    if (object !== undefined) return object;
+  }
+
+  return node;
+}
+
+/** The object a path of field names arrives at: `['items', 'cost']` is an item's cost. */
+function objectAt(node: Json, path: readonly string[], at: string): { readonly [key: string]: Json } {
+  const object = asObject(unwrap(node), at);
+  const [head, ...rest] = path;
+  if (head === undefined) return object;
+
+  const properties = asObject(object['properties'] ?? null, `${at}.properties`);
+  const child = properties[head];
+  if (child === undefined) throw new Error(`${at} has no field ${head}`);
+
+  return objectAt(child, rest, `${at}.${head}`);
+}
+
 describe('docs/authoring-prompt.md', () => {
   const prompt = read('docs', 'authoring-prompt.md');
 
@@ -293,6 +355,90 @@ describe('docs/authoring-prompt.md', () => {
 
   it.each(vocabularies)('hands a model every %s the app accepts', (label, options) => {
     expect(listed(label)).toEqual([...options]);
+  });
+
+  /**
+   * The gap #155 was filed for. The vocabularies above are compared member by member, so
+   * an enum that gains a value cannot drift — and none of that says anything about a
+   * field being **absent**. `rerollable` shipped in the schema and this page never named
+   * it (#152), so a model handed the prompt could not produce one and the flag reached
+   * nobody. An enum check answers a narrower question than it looks like it does.
+   *
+   * The prompt now carries a census of every field, for the failure the broken pack is
+   * made of: a model does not misspell `hitDie`, it invents `hp` on a class and `grants`
+   * on a talent. The census is held to the schema the same way the enums are.
+   */
+  const generated: Json = z.toJSONSchema(Pack, {
+    io: 'input',
+    unrepresentable: 'any',
+    target: 'draft-2020-12',
+  }) as Json;
+
+  const fields = ((): readonly string[] => {
+    const names = new Set<string>();
+    fieldNames(generated, names);
+    return [...names].sort();
+  })();
+
+  /** The fields of one object of the format, in the order `pack.ts` declares them. */
+  const propertiesOf = (path: readonly string[]): readonly string[] =>
+    Object.keys(asObject(objectAt(generated, path, 'pack')['properties'] ?? null, 'properties'));
+
+  /** Every object the format has, and the census line each one is written on. */
+  const shapes: readonly (readonly [string, readonly string[]])[] = [
+    ['pack', []],
+    ['class', ['classes']],
+    ['spellcasting', ['classes', 'spellcasting']],
+    ['ancestry', ['ancestries']],
+    ['spell', ['spells']],
+    ['item', ['items']],
+    ['cost', ['items', 'cost']],
+    ['weapon', ['items', 'weapon']],
+    ['armor', ['items', 'armor']],
+    ['light', ['items', 'light']],
+    ['talent', ['talents']],
+    ['table', ['tables']],
+    ['row', ['tables', 'rows']],
+    ['extends', ['extends']],
+  ];
+
+  /**
+   * What the page leaves to the schema it tells the author to paste, and why. It is
+   * empty, and that is the intended state: a field belongs here only when naming it
+   * would cost a reader more than the schema's own description does. 🚫 Never add one to
+   * settle the assertion below — the whole point of #155 is that the page went quiet
+   * about a field and nothing said so.
+   */
+  const LEFT_TO_THE_SCHEMA: ReadonlyMap<string, string> = new Map();
+
+  /** Whether the page names a field, as a word — `armor` is not `armorType`. */
+  const names = (field: string): boolean => new RegExp(`\\b${field}\\b`).test(prompt);
+
+  it.each(shapes)('hands a model every field a %s has, in order', (label, path) => {
+    expect(listed(label)).toEqual([...propertiesOf(path)]);
+  });
+
+  // The census covers the objects it has lines for. This covers the one it does not: a
+  // block added to `pack.ts` that nobody wrote a line for is a field the page never says.
+  it('names every field the format has, or says why it does not', () => {
+    const missing = fields
+      .filter((field) => !LEFT_TO_THE_SCHEMA.has(field) && !names(field))
+      .map((field) => `prompt.${field} — expected the page to name the field — it does not`);
+
+    expect(missing).toEqual([]);
+  });
+
+  it('keeps a reason only for a field the format has and the page really omits', () => {
+    const stale = [...LEFT_TO_THE_SCHEMA.keys()].map((field) => {
+      if (!fields.includes(field)) {
+        return `prompt.${field} — expected a field of the format — pack.ts has none`;
+      }
+      return names(field)
+        ? `prompt.${field} — expected no reason to be needed — the page names it`
+        : null;
+    });
+
+    expect(stale.filter((line) => line !== null)).toEqual([]);
   });
 
   it('points at the file it tells the author to paste', () => {
