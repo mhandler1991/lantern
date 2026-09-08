@@ -20,6 +20,7 @@ import { orphanReport } from '../../model/orphans';
 import { parsePack, reportProblems as reportPackProblems, type Pack } from '../../model/pack';
 import type { ResolvedStack } from '../../model/pack-resolver';
 import { resolvePacks } from '../../model/pack-resolver';
+import { useRolls } from '../../state/use-rolls';
 import { CHARACTER_KEY } from '../../state/character-storage';
 import { App } from '../App';
 import { CharacterSheet } from './CharacterSheet';
@@ -125,6 +126,7 @@ function fixture(): Character {
 /** The sheet with a real setter behind it, so an edit that is allowed actually lands. */
 function Harness({ stack }: { readonly stack: ResolvedStack }): ReactElement {
   const [character, setCharacter] = useState(fixture);
+  const rolls = useRolls();
 
   return (
     <CharacterSheet
@@ -132,6 +134,7 @@ function Harness({ stack }: { readonly stack: ResolvedStack }): ReactElement {
       setCharacter={setCharacter}
       orphans={orphanReport(character, stack)}
       stack={stack}
+      rolls={rolls}
     />
   );
 }

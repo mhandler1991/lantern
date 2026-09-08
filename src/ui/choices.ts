@@ -194,3 +194,24 @@ export function spellTier(stack: ResolvedStack, reference: Ref | null): number |
 
   return found.entry.tier;
 }
+
+/**
+ * What a loaded pack says a row hits for — `1d8`, or `1d4/1d8` for a weapon used in one
+ * hand or two (DATA-MODEL.md §4). `null` for a row nothing answers for, and for one that
+ * is not a weapon.
+ *
+ * Read back out of the stack every render like every other thing a pack answers for, so
+ * a supplement that overrides a blade changes what its row rolls without touching what
+ * the sheet holds. A row the player typed in themselves has no damage here and gets no
+ * button: the sheet is not the place to invent what somebody's own words hit for.
+ *
+ * 🚫 Nothing evaluates it. The string is split into notations and handed to
+ * `model/dice.ts`; what the number means once it is rolled is the table's business
+ * (PRD.md principle 1).
+ */
+export function weaponDamage(stack: ResolvedStack, reference: Ref | null): string | null {
+  const found = reference === null ? undefined : stack.byRef.get(reference);
+  if (found === undefined || found.kind !== 'item') return null;
+
+  return found.entry.weapon?.damage ?? null;
+}

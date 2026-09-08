@@ -7,6 +7,12 @@
  * cannot disagree: the slot count in the gear banner and the coin line below it are the
  * same object.
  *
+ * The dice come in from above for a different reason: there is one corner in the app and
+ * the rolls that start on the sheet belong in it (DESIGN.md §4). Two panels take it —
+ * gear, where a weapon rolls its own damage, and talents, where a class's table is
+ * rolled on level up — and a roll from either is for the same people as the last roll
+ * from the handle, because the audience is the hook's rather than the handle's.
+ *
  * The orphan report comes in from above rather than being computed here, because it is
  * a question about the packs that are loaded and the sheet is not where that list lives.
  * Panels that hold a reference take it; `TalentsPanel` does not, and that omission is
@@ -43,7 +49,7 @@ import { IdentityPanel } from './IdentityPanel';
 import { JournalPanel } from './JournalPanel';
 import { LightsPanel } from './LightsPanel';
 import { QuestsPanel } from './QuestsPanel';
-import type { Casting, OrphanProps, PanelProps, StackProps } from './sheet-props';
+import type { Casting, OrphanProps, PanelProps, RollsProps, StackProps } from './sheet-props';
 import { SpellsPanel } from './SpellsPanel';
 import { TalentsPanel } from './TalentsPanel';
 import { VitalsPanel } from './VitalsPanel';
@@ -53,7 +59,8 @@ export function CharacterSheet({
   setCharacter,
   orphans,
   stack,
-}: PanelProps & OrphanProps & StackProps): ReactElement {
+  rolls,
+}: PanelProps & OrphanProps & StackProps & RollsProps): ReactElement {
   const items = useMemo(() => itemLookup(stack), [stack]);
 
   const modifiers = useMemo(() => abilityModifiers(character.stats), [character.stats]);
@@ -102,6 +109,7 @@ export function CharacterSheet({
           orphans={orphans}
           stack={stack}
           choices={choices}
+          rolls={rolls}
           carry={carry}
         />
         <LightsPanel
@@ -128,6 +136,7 @@ export function CharacterSheet({
           setCharacter={setCharacter}
           stack={stack}
           choices={choices}
+          rolls={rolls}
         />
         <QuestsPanel character={character} setCharacter={setCharacter} />
         <JournalPanel character={character} setCharacter={setCharacter} />

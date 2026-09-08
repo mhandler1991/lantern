@@ -8,6 +8,8 @@ import {
   MAX_CONDITIONS,
   MAX_ITEMS,
   MAX_STAT,
+  MAX_TABLE_ROLL,
+  MAX_TEXT_LENGTH,
   MIN_STAT,
 } from '../constants';
 import type { CarriedItem } from '../model/character';
@@ -26,6 +28,7 @@ import {
   newTalent,
   removeCondition,
   removeRow,
+  rolledTalent,
   setHitPoints,
   setStat,
   updateRow,
@@ -118,6 +121,32 @@ describe('a row added by hand', () => {
 
   it('gets an id of its own, so two of a thing are two rows', () => {
     expect(newItem().id).not.toBe(newItem().id);
+  });
+});
+
+describe('a talent a table produced', () => {
+  it('records the words, the table and the number that found them', () => {
+    const rolled = rolledTalent('A knack for knots', 'core:table:thief-talents', 5);
+
+    expect(rolled.text).toBe('A knack for knots');
+    expect(rolled.source).toBe('core:table:thief-talents');
+    expect(rolled.rolled).toBe(5);
+    expect(parseCharacter({ ...blank, talents: [rolled] }).ok).toBe(true);
+  });
+
+  it('holds a total from the largest table anyone can write, not just a die face', () => {
+    // `rolled` is a table total: 10d100 is a legal notation and 1000 is a legal answer.
+    const rolled = rolledTalent('Words', null, MAX_TABLE_ROLL);
+
+    expect(rolled.rolled).toBe(MAX_TABLE_ROLL);
+    expect(parseCharacter({ ...blank, talents: [rolled] }).ok).toBe(true);
+  });
+
+  it('cuts a row longer than a sheet can hold rather than failing to save', () => {
+    const rolled = rolledTalent('x'.repeat(MAX_TEXT_LENGTH + 100), null, 2);
+
+    expect(rolled.text).toHaveLength(MAX_TEXT_LENGTH);
+    expect(parseCharacter({ ...blank, talents: [rolled] }).ok).toBe(true);
   });
 });
 

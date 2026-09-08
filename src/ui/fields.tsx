@@ -371,6 +371,39 @@ export function AddRowButton({
   );
 }
 
+/**
+ * Rolls dice from where the roll comes from: a weapon on the sheet, a class's talent
+ * table on level up (DESIGN.md §4). 🚫 Never a table browsed from the corner.
+ *
+ * What it rolls is what it prints — `1d8`, or the table's own name — because that is the
+ * thing a player checks before pressing it. The sentence around it is the accessible
+ * name, because `1d8` on the eleventh row of a gear list is not one.
+ */
+export function RollButton({
+  label,
+  text,
+  disabled = false,
+  onClick,
+}: {
+  readonly label: string;
+  readonly text: string;
+  readonly disabled?: boolean;
+  readonly onClick: () => void;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      className="button button--roll"
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span aria-hidden="true">{text}</span>
+      <span className="visually-hidden">{label}</span>
+    </button>
+  );
+}
+
 /** Removes one row. Labelled with what it removes, because the glyph alone is not. */
 export function RemoveRowButton({
   label,

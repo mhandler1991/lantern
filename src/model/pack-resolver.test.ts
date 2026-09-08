@@ -14,6 +14,7 @@ import {
   resolvePacks,
   spellcastingFor,
   spellsForClass,
+  talentTableFor,
   type ResolvedStack,
 } from './pack-resolver';
 
@@ -631,5 +632,65 @@ describe('the spellcasting a class supplies', () => {
 
   it('is null for a reference that names something that is not a class', () => {
     expect(spellcastingFor(resolvePacks([CORE]), 'core:item:dagger')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The table a class rolls its talents on. DATA-MODEL.md §5.
+// ---------------------------------------------------------------------------
+
+describe('talentTableFor', () => {
+  const WITH_TALENTS = loaded({
+    id: 'core',
+    name: 'Core',
+    classes: [wizard()],
+    tables: [{ ...table('wizard-talents', [{ roll: [2, 12], text: 'A knack for knots' }]) }],
+  });
+
+  it('answers the table the class names, namespaced by its own pack', () => {
+    const stack = resolvePacks([WITH_TALENTS]);
+    const found = talentTableFor(stack, 'core:class:wizard');
+
+    expect(found?.ref).toBe('core:table:wizard-talents');
+    expect(found?.entry.name).toBe('A table');
+  });
+
+  it('rolls on the overriding pack’s table when a supplement replaced the class', () => {
+    const supplement = loaded({
+      id: 'frostbound',
+      name: 'Frostbound',
+      classes: [{ ...wizard(), overrides: 'core:class:wizard' }],
+      tables: [table('wizard-talents', [{ roll: [2, 12], text: 'Cold-forged' }])],
+    });
+
+    // The reference is normalised against the pack whose class *won*, which is what
+    // `override` is for: a supplement naming `wizard-talents` means its own.
+    const stack = resolvePacks([WITH_TALENTS, supplement]);
+    expect(talentTableFor(stack, 'core:class:wizard')?.ref).toBe('frostbound:table:wizard-talents');
+  });
+
+  it('carries the rows an extension added, not only the entry’s own', () => {
+    const supplement = loaded({
+      id: 'frostbound',
+      name: 'Frostbound',
+      extends: [{ target: 'core:table:wizard-talents', rows: [{ roll: 13, text: 'Cold-forged' }] }],
+    });
+
+    const stack = resolvePacks([WITH_TALENTS, supplement]);
+    expect(talentTableFor(stack, 'core:class:wizard')?.rows).toHaveLength(2);
+  });
+
+  it.each([
+    ['no class chosen', null],
+    ['a class no loaded pack defines', 'frostbound:class:rimewalker'],
+    ['a reference that is not a class at all', 'core:table:wizard-talents'],
+  ])('answers null for %s', (_case, reference) => {
+    expect(talentTableFor(resolvePacks([WITH_TALENTS]), reference)).toBeNull();
+  });
+
+  it('answers null when nothing loaded defines the table the class names', () => {
+    // CORE's wizard names `wizard-talents` and no pack here defines one. That is a
+    // warning at resolution, never a refusal — and here it is simply nothing to roll.
+    expect(talentTableFor(resolvePacks([CORE]), 'core:class:wizard')).toBeNull();
   });
 });

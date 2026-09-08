@@ -58,14 +58,14 @@ const TALENTS: RollableTable = {
 };
 
 /**
- * A pool from the handle, in front of the whole table unless a test says otherwise.
+ * A pool from the handle.
  *
  * Every field a roll needs has a default here so each test states only the ones it is
- * actually about — a test of the dwell should not have to have an opinion about who sees
- * the roll, and one about visibility should say nothing but that.
+ * actually about. 🚫 No audience: who a roll is for is the hook's, sticky across rolls
+ * and set through `setVisibility`, so a caller has none to pass.
  */
 function pool(request: Partial<FreeRoll> = {}): FreeRoll {
-  return { die: 'd20', count: 1, modifier: 0, label: '', visibility: 'everyone', ...request };
+  return { die: 'd20', count: 1, modifier: 0, label: '', ...request };
 }
 
 let container: HTMLDivElement;
@@ -127,9 +127,11 @@ describe('rolling', () => {
 
   it('records who each roll was for, chosen at the roll and not after it', async () => {
     await mount(scripted(1, 2, 3));
-    await run(() => rolls().roll(pool({ label: 'open', visibility: 'everyone' })));
-    await run(() => rolls().roll(pool({ label: 'secret', visibility: 'just-me' })));
-    await run(() => rolls().roll(pool({ label: 'for the DM', visibility: 'dm-only' })));
+    await run(() => rolls().roll(pool({ label: 'open' })));
+    await run(() => rolls().setVisibility('just-me'));
+    await run(() => rolls().roll(pool({ label: 'secret' })));
+    await run(() => rolls().setVisibility('dm-only'));
+    await run(() => rolls().roll(pool({ label: 'for the DM' })));
 
     // Per roll, not per player: three in a row, three different audiences, and each
     // entry keeps its own (DESIGN.md §4).
@@ -188,7 +190,7 @@ describe('rolling', () => {
 describe('table rolls', () => {
   it('is a roll plus a lookup, and nothing else', async () => {
     await mount(scripted(4, 4));
-    await run(() => rolls().rollTable(TALENTS, 'Human talents', 'everyone'));
+    await run(() => rolls().rollTable(TALENTS, 'Human talents'));
 
     const entry = rolls().showing as RollEntry;
     expect(rollTotal(entry.roll)).toBe(8);
@@ -200,14 +202,44 @@ describe('table rolls', () => {
 
   it('records the visibility it was rolled with, the same as a free roll', async () => {
     await mount(scripted(4, 4));
-    await run(() => rolls().rollTable(TALENTS, 'Human talents', 'dm-only'));
+    await run(() => rolls().setVisibility('dm-only'));
+    await run(() => rolls().rollTable(TALENTS, 'Human talents'));
 
+    // The audience is the hook's, so a table rolled from the sheet is for whoever the
+    // last roll was for — not for the whole table because it did not come off the
+    // handle (DESIGN.md §4).
     expect((rolls().showing as RollEntry).visibility).toBe('dm-only');
+  });
+
+  it('hands the entry back so the caller can record what it found', async () => {
+    await mount(scripted(4, 4));
+
+    let entry: RollEntry | null = null;
+    await run(() => {
+      entry = rolls().rollTable(TALENTS, 'Human talents');
+    });
+
+    // What is done with a result is the caller's: a talent is written down as words,
+    // a loot row is not written anywhere (PRD.md principle 1).
+    expect(entry).not.toBeNull();
+    expect((entry as unknown as RollEntry).lookup).toEqual({ row: 'The name of a river' });
+  });
+
+  it('hands back nothing when no dice were rolled at all', async () => {
+    await mount(BROKEN);
+
+    let entry: RollEntry | null = null;
+    await run(() => {
+      entry = rolls().rollTable(TALENTS, 'Human talents');
+    });
+
+    expect(entry).toBeNull();
+    expect(rolls().failure?.reason).toBe('source-threw');
   });
 
   it('reports a number no row covers rather than substituting a neighbour', async () => {
     await mount(scripted(6, 5));
-    await run(() => rolls().rollTable(TALENTS, 'Human talents', 'everyone'));
+    await run(() => rolls().rollTable(TALENTS, 'Human talents'));
 
     const entry = rolls().showing as RollEntry;
     expect(rollTotal(entry.roll)).toBe(11);

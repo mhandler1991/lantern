@@ -269,7 +269,13 @@ roll 2d6 → 8 → look up in a table → show that row's text
 
 Free rolls come from the handle. **Table rolls are never chosen from the overlay** —
 they arrive from context: level up opens your class's talent table, the DM's loot button
-opens a loot table.
+opens a loot table. The corner has a die, a count, a modifier, a label and an audience,
+and deliberately no list of tables to browse.
+
+A weapon arrives the same way: its row on the sheet rolls the `damage` its pack supplies,
+and a `1d4/1d8` offers one roll per hand rather than deciding which the player meant. The
+result is a number in the corner and nothing else — a talent table's row is written onto
+the sheet as words, and nothing anywhere subtracts damage from anybody.
 
 **The app never parses a result.** "+2 to your spellcasting checks" is a string from a
 pack. We look up which row you rolled and print it. That is the whole operation.
@@ -277,7 +283,8 @@ pack. We look up which row you rolled and print it. That is the whole operation.
 ### Visibility
 
 Per roll, not per player: `everyone` | `just-me` | `dm-only`. Chosen in the handle before
-the roll, defaulting to `everyone`, sticking between rolls, and recorded on the entry —
+the roll, defaulting to `everyone`, sticking between rolls **whatever starts the next one**
+— the handle, a weapon on the sheet, a talent table — and recorded on the entry —
 so the feed says who each roll was for, including the public ones. A secret roll must be
 told apart by what the record *says*, never by a missing mark, because a missing mark is
 also what a bug looks like.

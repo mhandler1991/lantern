@@ -264,8 +264,11 @@ function fixedRolls(showing: RollEntry | null): Rolls {
     feed: showing === null ? [] : [showing],
     showing,
     failure: null,
+    visibility: 'everyone',
+    setVisibility: () => undefined,
     roll: () => undefined,
-    rollTable: () => undefined,
+    rollNotation: () => undefined,
+    rollTable: () => null,
     record: () => undefined,
     dismiss: () => undefined,
   };

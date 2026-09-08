@@ -570,7 +570,7 @@ The character is local and never sent whole. Export writes this file.
 | `quests` | `{ text, done }` | |
 | `lights[].litAt` | epoch ms or `null` | **When** it was lit, never how much is left. Remaining time is computed from the clock, so a backgrounded tab cannot drift it. |
 | `lights[].minutes` | 1-1440 | How long it burns, when no loaded pack answers for the row. An item's `light` block wins (§4); this is the fallback, and it is what a row falls back *to* when the pack is turned off. |
-| `talents[].rolled` | number or `null` | The face that produced it; null when it was chosen. |
+| `talents[].rolled` | number or `null` | The **total** that produced it — a `2d6` table starts at 2 — bounded by the largest total any table notation can roll; null when it was chosen. |
 
 Every object is **strict**: an unknown key is rejected, not ignored. That is what makes
 "no derived values" enforceable rather than merely intended — a file carrying an `ac` or

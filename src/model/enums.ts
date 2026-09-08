@@ -92,16 +92,36 @@ export const DieNotation = z
   });
 export type DieNotation = z.infer<typeof DieNotation>;
 
+/** What separates a weapon's two damage notations. A weapon in one hand, or in two. */
+const DAMAGE_SEPARATOR = '/';
+
+/**
+ * The notations a damage string names: one for `1d8`, two for `1d4/1d8` — the same
+ * weapon used in one hand or in two (DATA-MODEL.md §4).
+ *
+ * 🚫 It splits and does not choose. Which of the two applies is the player's, so the
+ * sheet offers a roll for each rather than deciding from what else is carried; deciding
+ * would be adjudication (PRD.md principle 1). A string that is not a damage notation at
+ * all — this never sees one, `DamageNotation` refuses it — comes back as its own parts,
+ * and rolling one fails the way `model/dice.ts` fails any notation it cannot read.
+ */
+export function damageNotations(damage: string): readonly string[] {
+  return damage.split(DAMAGE_SEPARATOR);
+}
+
 /**
  * What a weapon deals: one notation, or two separated by `/` for a weapon used in one
  * hand or two (DATA-MODEL.md §4). **Never an expression.** `1d8` and `1d4/1d8` pass;
  * `1d8 + level/2` does not, and nothing in this app would evaluate it if it did.
+ *
+ * Split by the same function the sheet rolls through, so what validates and what is
+ * offered as a button cannot come apart.
  */
 export const DamageNotation = z
   .string()
   .max(MAX_DAMAGE_LENGTH)
   .refine((damage) => {
-    const parts = damage.split('/');
+    const parts = damageNotations(damage);
     if (parts.length > MAX_DAMAGE_NOTATION_PARTS) return false;
     return parts.every((part) => dieNotationParts(part) !== null);
   }, { message: 'expected damage such as 1d8, or 1d4/1d8 — never a formula' });

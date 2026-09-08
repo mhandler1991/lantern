@@ -183,6 +183,7 @@ export function App(): ReactElement {
           setCharacter={setCharacter}
           orphans={orphans}
           stack={packs.stack}
+          rolls={rolls}
         />
       </main>
 
