@@ -13,6 +13,7 @@ import type { ItemLookup } from '../../model/derived';
 import type { OrphanReport } from '../../model/orphans';
 import type { Stat } from '../../model/character';
 import type { ResolvedStack } from '../../model/pack-resolver';
+import type { Rolls } from '../../state/use-rolls';
 import type { SheetChoices } from '../choices';
 
 export type SetCharacter = Dispatch<SetStateAction<Character>>;
@@ -82,4 +83,19 @@ export type Casting = {
 
 export type CastingProps = {
   readonly casting: Casting | null;
+};
+
+/**
+ * The corner, as a panel asks it for dice.
+ *
+ * Taken by the two panels a roll starts from: gear, where a weapon rolls its own damage,
+ * and talents, where a class's table is rolled on level up. **A table roll arrives from
+ * context and is never chosen from the overlay** (DESIGN.md §4), which is why this is a
+ * prop on a panel rather than a list of tables somewhere in the corner.
+ *
+ * The result of a roll is *recorded*, never applied: a talent's words land in a box
+ * (PRD.md principle 1). Nothing a panel does with this touches a stat.
+ */
+export type RollsProps = {
+  readonly rolls: Rolls;
 };

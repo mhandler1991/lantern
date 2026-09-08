@@ -660,3 +660,28 @@ export function spellcastingFor(
 
   return found.entry.spellcasting ?? null;
 }
+
+/**
+ * The table a class rolls its talents on (DATA-MODEL.md §5), or `null` when there is
+ * none to roll.
+ *
+ * `null` answers four questions at once — no class chosen, a class no loaded pack
+ * defines, a `talentTable` naming something no loaded pack defines, and a reference that
+ * turned out to name something that is not a table — because all four mean the same
+ * thing to a sheet: there is nothing to offer, and the free-text row records a talent
+ * from anywhere else (PRD.md principle 4). 🚫 It never throws and never blocks.
+ *
+ * The reference is normalised against **the pack whose class won**, not the pack that
+ * first defined it: a supplement that overrides `core:class:fighter` and names
+ * `fighter-talents` unqualified means its own table, which is what `override` is for.
+ */
+export function talentTableFor(
+  stack: ResolvedStack,
+  classRef: Ref | null,
+): ResolvedTable | null {
+  const found = classRef === null ? undefined : stack.byRef.get(classRef);
+  if (found === undefined || found.kind !== 'class') return null;
+
+  const table = lookup(stack, found.entry.talentTable, 'table', found.packId);
+  return table !== undefined && table.kind === 'table' ? table : null;
+}

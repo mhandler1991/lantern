@@ -26,6 +26,8 @@ import {
   DEFAULT_LIGHT_MINUTES,
   MAX_CONDITION_LENGTH,
   MAX_CONDITIONS,
+  MAX_TABLE_ROLL,
+  MAX_TEXT_LENGTH,
 } from '../constants';
 import type {
   CarriedItem,
@@ -42,6 +44,9 @@ import { newRowId } from './new-character';
 
 /** Nothing typed, nothing carried. A floor, not a business rule. */
 const NONE = 0;
+
+/** The smallest number any table can roll: one die showing its lowest face. */
+const MIN_TABLE_ROLL = 1;
 
 // ---------------------------------------------------------------------------
 // Values
@@ -140,6 +145,29 @@ export function newSpell(ref: Ref | null = null): KnownSpell {
  */
 export function newTalent(text = '', source: Ref | null = null): Talent {
   return { id: newRowId(), text, source, rolled: null };
+}
+
+/**
+ * A talent a table produced: the row's own words, the table they came from, and the
+ * number that found them (DATA-MODEL.md §12).
+ *
+ * **The words are copied and then they are the player's**, exactly as they are when a
+ * talent is picked — which is what lets the pack that supplied the table go off without
+ * the sheet losing the paragraph. `rolled` is the *total*, not a face: a `2d6` table
+ * starts at 2, and the number is what makes the row traceable back to the table it came
+ * off. Text is cut to the schema's cap for the reason everything here is: an edit that
+ * made a sheet unsaveable would read as data loss.
+ *
+ * 🚫 Nothing reads the words. A table result is recorded, never applied — no stat moves
+ * because of one, here or anywhere (PRD.md principle 1, DATA-MODEL.md §8).
+ */
+export function rolledTalent(text: string, source: Ref | null, rolled: number): Talent {
+  return {
+    id: newRowId(),
+    text: clampText(text, MAX_TEXT_LENGTH),
+    source,
+    rolled: clampInt(rolled, MIN_TABLE_ROLL, MAX_TABLE_ROLL),
+  };
 }
 
 /**

@@ -27,6 +27,7 @@ import { orphanReport } from '../../model/orphans';
 import type { ResolvedStack } from '../../model/pack-resolver';
 import { resolvePacks } from '../../model/pack-resolver';
 import { newCharacter } from '../../state/new-character';
+import { useRolls } from '../../state/use-rolls';
 import { CharacterSheet } from './CharacterSheet';
 
 declare global {
@@ -67,6 +68,7 @@ const NO_PACKS = resolvePacks([]);
 /** The sheet with a real setter behind it, and a stack that can be turned off under it. */
 function Harness({ stack }: { readonly stack: ResolvedStack }): ReactElement {
   const [character, setCharacter] = useState(newCharacter);
+  const rolls = useRolls();
 
   return (
     <CharacterSheet
@@ -74,6 +76,7 @@ function Harness({ stack }: { readonly stack: ResolvedStack }): ReactElement {
       setCharacter={setCharacter}
       orphans={orphanReport(character, stack)}
       stack={stack}
+      rolls={rolls}
     />
   );
 }

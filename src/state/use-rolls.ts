@@ -29,8 +29,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DICE_OVERLAY_DWELL_MS, MAX_ROLL_FEED_ENTRIES } from '../constants';
-import type { RandomWords, Roll, RollVisibility, RollWarning } from '../model/dice';
-import { cryptoWords, rollPool } from '../model/dice';
+import type {
+  RandomWords,
+  Roll,
+  RollResult,
+  RollVisibility,
+  RollWarning,
+} from '../model/dice';
+import { cryptoWords, rollNotation, rollPool } from '../model/dice';
 import type { Die } from '../model/enums';
 import type { RollableTable, TableRollFailure } from '../model/tables';
 import { rollOnTable } from '../model/tables';
@@ -38,6 +44,16 @@ import { newRowId } from './new-character';
 
 /** The start of a list, and a count of nothing. */
 const NONE = 0;
+
+/** No modifier. A table roll never takes one, and a damage roll is the weapon's dice. */
+const UNMODIFIED = 0;
+
+/**
+ * Who a roll is for before anybody says otherwise. Most rolls at a table are made in
+ * front of everybody, and a default of anything narrower would quietly hide rolls the
+ * player meant to share (DESIGN.md §4).
+ */
+const DEFAULT_VISIBILITY: RollVisibility = 'everyone';
 
 // ---------------------------------------------------------------------------
 // What an entry is
@@ -103,13 +119,18 @@ export type RollEntry = {
   readonly warnings: readonly RollWarning[];
 };
 
-/** A pool from the handle: a die, how many, what to add, what it was for, and who for. */
+/**
+ * A pool from the handle: a die, how many, what to add, and what it was for.
+ *
+ * 🚫 No audience. Who a roll is for is the hook's, not the caller's — see `visibility`
+ * on `Rolls` — so a roll from the sheet and a roll from the handle are for the same
+ * people without either of them having to ask the other.
+ */
 export type FreeRoll = {
   readonly die: Die;
   readonly count: number;
   readonly modifier: number;
   readonly label: string;
-  readonly visibility: RollVisibility;
 };
 
 // ---------------------------------------------------------------------------
@@ -123,12 +144,32 @@ export type Rolls = {
   readonly showing: RollEntry | null;
   /** Why the last attempt produced no dice at all. Cleared by the next roll that works. */
   readonly failure: TableRollFailure | null;
+  /**
+   * Who the next roll is for, whatever starts it (DESIGN.md §4).
+   *
+   * It lives here rather than in the handle that renders the picker, because a roll no
+   * longer only starts there: a weapon's damage and a talent table are rolled from the
+   * sheet, and an audience the handle kept to itself would mean a DM's secret loot roll
+   * going out in front of the table the moment it came off a button instead of a
+   * `<select>`. One sticky choice, one place, whoever asks for the dice.
+   */
+  readonly visibility: RollVisibility;
+  readonly setVisibility: (visibility: RollVisibility) => void;
   readonly roll: (request: FreeRoll) => void;
-  readonly rollTable: (
-    table: RollableTable,
-    label: string,
-    visibility: RollVisibility,
-  ) => void;
+  /**
+   * A pool named the way a pack names it — a weapon's `1d8` (DATA-MODEL.md §4). The
+   * notation is read by `model/dice.ts`; nothing here evaluates a string.
+   */
+  readonly rollNotation: (notation: string, label: string) => void;
+  /**
+   * Roll on a table, and hand back the entry so the caller can record what it found.
+   *
+   * `null` when no dice were rolled at all — the reason is on `failure`. The entry is
+   * returned rather than pushed at the sheet because **what is done with a result is the
+   * caller's**: a talent table's row is written down as words (PRD.md principle 1), and
+   * a loot table's is not written anywhere. Nothing in this hook knows the difference.
+   */
+  readonly rollTable: (table: RollableTable, label: string) => RollEntry | null;
   /** A roll that happened somewhere else. The seam Phase 5 broadcasts into. */
   readonly record: (entry: RollEntry) => void;
   readonly dismiss: () => void;
@@ -143,6 +184,7 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
   const [feed, setFeed] = useState<readonly RollEntry[]>([]);
   const [showing, setShowing] = useState<RollEntry | null>(null);
   const [failure, setFailure] = useState<TableRollFailure | null>(null);
+  const [visibility, setVisibility] = useState<RollVisibility>(DEFAULT_VISIBILITY);
 
   /**
    * The one way an entry reaches the feed, whoever rolled it. Prepending and capping in
@@ -154,34 +196,68 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
     setFailure(null);
   }, []);
 
-  const roll = useCallback(
-    (request: FreeRoll): void => {
-      const rolled = rollPool(
-        { die: request.die, count: request.count, modifier: request.modifier },
-        random,
-      );
-
-      // A roll that produced no dice is said out loud and shows nothing. 🚫 There is no
-      // substitute number: `model/dice.ts` refuses rather than guessing, and a corner
-      // that invented one would undo that in the last inch (DESIGN.md §4).
+  /**
+   * A pool that has already been rolled, put in the feed. The one place an entry of our
+   * own is built, so a free roll, a weapon and a table cannot describe themselves
+   * differently.
+   *
+   * A roll that produced no dice is said out loud and shows nothing. 🚫 There is no
+   * substitute number: `model/dice.ts` refuses rather than guessing, and a corner that
+   * invented one would undo that in the last inch (DESIGN.md §4).
+   */
+  const keep = useCallback(
+    (
+      rolled: RollResult,
+      label: string,
+      lookup: RollLookup | null,
+    ): RollEntry | null => {
       if (!rolled.ok) {
         setFailure(rolled.failure);
         setShowing(null);
-        return;
+        return null;
       }
 
-      record({
+      const entry: RollEntry = {
         id: newRowId(),
         at: Date.now(),
         origin: MINE,
-        label: request.label,
-        visibility: request.visibility,
+        label,
+        visibility,
         roll: rolled.roll,
-        lookup: null,
+        lookup,
         warnings: rolled.warnings,
-      });
+      };
+      record(entry);
+
+      return entry;
     },
-    [random, record],
+    [record, visibility],
+  );
+
+  const roll = useCallback(
+    (request: FreeRoll): void => {
+      keep(
+        rollPool(
+          { die: request.die, count: request.count, modifier: request.modifier },
+          random,
+        ),
+        request.label,
+        null,
+      );
+    },
+    [keep, random],
+  );
+
+  /**
+   * A weapon's own dice, rolled as the pack wrote them. 🚫 No modifier is added: what a
+   * strength bonus does to damage is the table's business, not the app's (PRD.md
+   * principle 1), and the handle is where a player adds one on purpose.
+   */
+  const rollNotated = useCallback(
+    (notation: string, label: string): void => {
+      keep(rollNotation(notation, UNMODIFIED, random), label, null);
+    },
+    [keep, random],
   );
 
   /**
@@ -193,26 +269,21 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
    * hand, and `label` is what that caller calls it.
    */
   const rollTable = useCallback(
-    (table: RollableTable, label: string, visibility: RollVisibility): void => {
+    (table: RollableTable, label: string): RollEntry | null => {
       const rolled = rollOnTable(table, random);
       if (!rolled.ok) {
         setFailure(rolled.failure);
         setShowing(null);
-        return;
+        return null;
       }
 
-      record({
-        id: newRowId(),
-        at: Date.now(),
-        origin: MINE,
+      return keep(
+        { ok: true, roll: rolled.result.roll, warnings: [] },
         label,
-        visibility,
-        roll: rolled.result.roll,
-        lookup: { row: rolled.result.row?.text ?? null },
-        warnings: [],
-      });
+        { row: rolled.result.row?.text ?? null },
+      );
     },
-    [random, record],
+    [keep, random],
   );
 
   const dismiss = useCallback((): void => setShowing(null), []);
@@ -232,7 +303,18 @@ export function useRolls(random: RandomWords = cryptoWords): Rolls {
   }, [showing]);
 
   return useMemo(
-    () => ({ feed, showing, failure, roll, rollTable, record, dismiss }),
-    [feed, showing, failure, roll, rollTable, record, dismiss],
+    () => ({
+      feed,
+      showing,
+      failure,
+      visibility,
+      setVisibility,
+      roll,
+      rollNotation: rollNotated,
+      rollTable,
+      record,
+      dismiss,
+    }),
+    [feed, showing, failure, visibility, roll, rollNotated, rollTable, record, dismiss],
   );
 }

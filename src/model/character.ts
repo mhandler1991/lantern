@@ -29,7 +29,6 @@ import {
   MAX_COIN,
   MAX_CONDITION_LENGTH,
   MAX_CONDITIONS,
-  MAX_DIE_SIDES,
   MAX_HP,
   MAX_ITEM_QUANTITY,
   MAX_ITEM_SLOTS,
@@ -46,6 +45,7 @@ import {
   MAX_REF_LENGTH,
   MAX_SPELLS_KNOWN,
   MAX_STAT,
+  MAX_TABLE_ROLL,
   MAX_TALENTS,
   MAX_TEXT_LENGTH,
   MAX_XP,
@@ -171,13 +171,19 @@ export type KnownSpell = z.infer<typeof KnownSpell>;
  * The one place a sheet keeps text rather than a reference, and the reason is the whole
  * design: the talent's words may have come from a pack that is later turned off, and
  * the sheet has to survive that intact. `source` records where it came from so the pack
- * can be re-offered; `rolled` is the face that produced it, or null when it was chosen.
+ * can be re-offered; `rolled` is the number that produced it, or null when it was chosen.
+ *
+ * That number is a **table total**, not a die face: a talent arrives from a roll on a
+ * table (DATA-MODEL.md §8) and a `2d6` one starts at 2. So it is bounded by the largest
+ * total any table's notation can produce — `MAX_TABLE_ROLL` — rather than by the largest
+ * die there is, which a `3d100` table would pass on its way to a sheet that then would
+ * not save.
  */
 export const Talent = z.strictObject({
   id: RowId,
   text: z.string().max(MAX_TEXT_LENGTH),
   source: Ref.nullable(),
-  rolled: z.int().min(1).max(MAX_DIE_SIDES).nullable(),
+  rolled: z.int().min(1).max(MAX_TABLE_ROLL).nullable(),
 });
 export type Talent = z.infer<typeof Talent>;
 

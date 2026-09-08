@@ -19,6 +19,14 @@
  * A row whose `ref` no loaded pack defines is *reported*, never dropped and never
  * guessed at — turning a pack off leaves the gear on the sheet (PRD.md principle 4).
  * A pack being off must not trap a row either.
+ *
+ * **A weapon rolls its own damage from its row** (DESIGN.md §4 — a roll arrives from the
+ * context that already knows what is being rolled). The dice are the pack's `damage`,
+ * read back out of the stack every render like every other thing a pack answers for, and
+ * a `1d4/1d8` gets a button each: which hand the weapon was in is the player's to say,
+ * and picking for them would be adjudication. 🚫 Nothing is added to the roll and nothing
+ * is done with the number — the corner shows it and the sheet is untouched (PRD.md
+ * principle 1).
  */
 
 import type { ReactElement } from 'react';
@@ -30,9 +38,10 @@ import {
   MAX_NAME_LENGTH,
 } from '../../constants';
 import type { Carry } from '../../model/derived';
+import { damageNotations } from '../../model/enums';
 import { packOfRef } from '../../model/orphans';
 import { appendRow, isAtLimit, newItem, removeRow, updateRow } from '../../state/character-edits';
-import { displayName } from '../choices';
+import { displayName, weaponDamage } from '../choices';
 import {
   AddFromPack,
   AddRowButton,
@@ -42,10 +51,11 @@ import {
   OrphanMark,
   Panel,
   RemoveRowButton,
+  RollButton,
   TextField,
   Warning,
 } from '../fields';
-import type { ContentProps, OrphanProps, PanelProps } from './sheet-props';
+import type { ContentProps, OrphanProps, PanelProps, RollsProps } from './sheet-props';
 
 /** Nothing carried, nothing owed. A floor, not a business rule. */
 const NONE = 0;
@@ -56,8 +66,12 @@ export function GearPanel({
   orphans,
   stack,
   choices,
+  rolls,
   carry,
-}: PanelProps & OrphanProps & ContentProps & { readonly carry: Carry }): ReactElement {
+}: PanelProps &
+  OrphanProps &
+  ContentProps &
+  RollsProps & { readonly carry: Carry }): ReactElement {
   const full = isAtLimit(character.items, MAX_ITEMS);
 
   return (
@@ -82,6 +96,9 @@ export function GearPanel({
             const label = displayName(stack, item.ref, item.name);
             // A pack answers for a referenced row's name and slot cost, on or off.
             const isFromPack = item.ref !== null;
+            // And for what it hits for, while the pack is on. A row the player typed in
+            // has no damage to roll, and the sheet does not invent one for it.
+            const damage = weaponDamage(stack, item.ref);
 
             return (
               <li
@@ -140,6 +157,15 @@ export function GearPanel({
                     }))
                   }
                 />
+                {damage !== null &&
+                  damageNotations(damage).map((notation) => (
+                    <RollButton
+                      key={notation}
+                      text={notation}
+                      label={`Roll ${notation} damage for ${label}`}
+                      onClick={() => rolls.rollNotation(notation, `${label} damage`)}
+                    />
+                  ))}
                 <RemoveRowButton
                   label={`Remove ${label === '' ? 'this item' : label}`}
                   onClick={() =>

@@ -15,14 +15,15 @@ import {
   ArmorType,
   Currency,
   DamageNotation,
+  damageNotations,
   Die,
   DieNotation,
+  dieNotationParts,
   Duration,
   Range,
   Stat,
   Tier,
   WeaponType,
-  dieNotationParts,
 } from './enums';
 
 describe('the vocabulary of DATA-MODEL.md §2', () => {
@@ -112,6 +113,13 @@ describe('dice notation', () => {
 });
 
 describe('damage notation', () => {
+  it('reads a weapon as the one or two pools it can be rolled as', () => {
+    expect(damageNotations('1d8')).toEqual(['1d8']);
+    // A weapon in one hand or in two. Which one applies is the player's to say — the
+    // sheet offers a roll for each rather than deciding (DATA-MODEL.md §4).
+    expect(damageNotations('1d4/1d8')).toEqual(['1d4', '1d8']);
+  });
+
   it.each(['1d8', 'd6', '2d6', '1d4/1d8', 'd4/d8'])('takes %s', (damage) => {
     expect(DamageNotation.safeParse(damage).success).toBe(true);
   });
