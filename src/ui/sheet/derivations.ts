@@ -28,7 +28,7 @@ import type { ArmorClass, Carry, ItemLookup, LevelProgress } from '../../model/d
 import type { Character, Stat } from '../../model/character';
 import type { ResolvedStack } from '../../model/pack-resolver';
 import { itemLookup, spellcastingFor } from '../../model/pack-resolver';
-import type { SheetChoices } from '../choices';
+import type { PackLabel, SheetChoices } from '../choices';
 import { sheetChoices } from '../choices';
 import type { Casting } from './sheet-props';
 
@@ -42,9 +42,16 @@ export type SheetDerivations = {
   readonly casting: Casting | null;
 };
 
+/**
+ * `packLabel` is the one thing the sheet and the walkthrough answer differently: the
+ * sheet names a pack only where two options share a name, and creation names it on
+ * every option (issue #35, `ui/choices.ts`). It is a parameter rather than two hooks
+ * because everything else here is the same question with the same answer.
+ */
 export function useSheetDerivations(
   character: Character,
   stack: ResolvedStack,
+  packLabel: PackLabel = 'when-ambiguous',
 ): SheetDerivations {
   const items = useMemo(() => itemLookup(stack), [stack]);
 
@@ -55,8 +62,8 @@ export function useSheetDerivations(
 
   /** Every picker on the sheet, built once so two panels cannot offer two lists. */
   const choices = useMemo(
-    () => sheetChoices(stack, character.class.ref),
-    [stack, character.class.ref],
+    () => sheetChoices(stack, character.class.ref, packLabel),
+    [stack, character.class.ref, packLabel],
   );
 
   const casting = useMemo<Casting | null>(() => {

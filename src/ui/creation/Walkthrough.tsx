@@ -22,6 +22,12 @@
  *     (PRD.md principle 4). A walkthrough a player cannot leave is a walkthrough that
  *     has taken their sheet hostage.
  *
+ * **Roll or choose** (#35) is the strip above each panel: `ui/creation/StepRoll.tsx`
+ * offers the dice, the panel below is where the same thing is picked by hand, and every
+ * option in it says which pack supplied it. The rolls belong to creation rather than to
+ * the panels, which is why they are a strip here and not a button inside `AbilitiesPanel`
+ * — the sheet is unchanged by any of it.
+ *
  * The review step is the only one that is not a panel of the sheet's, and it does two
  * things: it lists what is still blank — a report, never a gate — and it says out loud
  * whether the character validates, which is the acceptance criterion for this step of
@@ -35,6 +41,7 @@ import { parseCharacter } from '../../model/character';
 import { Panel } from '../fields';
 import { ProblemReport } from '../ProblemReport';
 import { AbilitiesPanel } from '../sheet/AbilitiesPanel';
+import type { SheetDerivations } from '../sheet/derivations';
 import { useSheetDerivations } from '../sheet/derivations';
 import { GearPanel } from '../sheet/GearPanel';
 import { IdentityPanel } from '../sheet/IdentityPanel';
@@ -44,6 +51,7 @@ import { SpellsPanel } from '../sheet/SpellsPanel';
 import { TalentsPanel } from '../sheet/TalentsPanel';
 import { VitalsPanel } from '../sheet/VitalsPanel';
 import type { CreationStepId } from './creation';
+import { StepRoll } from './StepRoll';
 import {
   CREATION_STEPS,
   nextOf,
@@ -118,7 +126,14 @@ function ReviewStep({ character }: { readonly character: Character }): ReactElem
   );
 }
 
-/** One step's body: a panel of the sheet's, or the review. */
+/**
+ * One step: what it offers to roll, and the panel it is choosing in.
+ *
+ * Both halves read the same `choices`, built once here. The pack label is `always`, which
+ * is the one thing creation asks of them that the sheet does not — issue #35's third
+ * criterion, argued in `ui/choices.ts`: during creation an option's pack is the point,
+ * and on the sheet it is noise.
+ */
 function StepBody({
   step,
   character,
@@ -130,7 +145,45 @@ function StepBody({
   const { items, modifiers, armor, carry, progress, choices, casting } = useSheetDerivations(
     character,
     stack,
+    'always',
   );
+
+  return (
+    <>
+      <StepRoll
+        step={step}
+        character={character}
+        setCharacter={setCharacter}
+        stack={stack}
+        choices={choices}
+        rolls={rolls}
+      />
+      <StepPanel
+        step={step}
+        character={character}
+        setCharacter={setCharacter}
+        orphans={orphans}
+        stack={stack}
+        rolls={rolls}
+        derived={{ items, modifiers, armor, carry, progress, choices, casting }}
+      />
+    </>
+  );
+}
+
+/** The choose half: a panel of the sheet's, unchanged, or the review. */
+function StepPanel({
+  step,
+  character,
+  setCharacter,
+  orphans,
+  stack,
+  rolls,
+  derived,
+}: Omit<WalkthroughProps, 'onGo' | 'onLeave' | 'canResume'> & {
+  readonly derived: SheetDerivations;
+}): ReactElement {
+  const { items, modifiers, armor, carry, progress, choices, casting } = derived;
 
   switch (step) {
     case 'abilities':
