@@ -300,7 +300,11 @@ Random tables are first class. Talents, loot, monsters, creation, quirks — all
   different act and is always available
 - Gaps and overlaps are **warnings, not refusals** (`PRD.md` principle 4). The schema
   checks that each row is well formed; coverage is checked where the lookup happens,
-  `src/model/tables.ts`
+  `src/model/tables.ts`. `resolvePacks` runs it over every resolved table — after every
+  extension has applied, so a table its own pack left short and a supplement finished is
+  finished — and the problems land in `stack.warnings` beside every other resolution
+  fault, pathed `tables[2].rows[3].roll` and naming the table's reference in the line.
+  The content screen prints them
 - A lookup answers with the **first** row covering the number, so an overlap still reads
   the same on every machine at the table, and with **no row** for a face nothing covers —
   the number rolled is still shown, and no neighbouring row is substituted for it
@@ -497,7 +501,7 @@ Four things ship together, and all four are in the repository:
 | `schema/pack.schema.json` | JSON Schema (draft 2020-12), for models and editors | Hand written, so it carries descriptions a generated one would not — and held to `model/pack.ts` by generating a schema from the Zod one and requiring the committed file to carry every constraint it expresses, with the same fields and the same required lists |
 | `docs/authoring-prompt.md` | The prompt to paste, the paste-the-errors loop, and what to check before loading | Its enum lists are compared against `model/enums.ts` member by member |
 | `packs/example-pack.json` | One of everything, at the repository root because nothing fetches it at runtime | Parsed by the real `parsePack` and resolved against core, with every reference in it required to resolve |
-| `packs/broken-pack.json` | The same file with a mistake in every entry, so the error report can be seen rather than described — load it to watch §10 work | Its twelve paths are asserted one by one; a report that stopped naming one of them would have quietly got vaguer |
+| `packs/broken-pack.json` | The same file with a mistake in every entry, so the error report can be seen rather than described — load it to watch §10 work. Its last table is the exception: well formed, with a gap and an overlap, because coverage warns rather than refuses (§8) | Its twelve paths are asserted one by one; a report that stopped naming one of them would have quietly got vaguer. The coverage table is resolved on its own, so the two warnings it produces are asserted as well |
 | The in-app validator | `ui/ProblemReport.tsx` — the whole block, heading and all, behind one **Copy the problems** button | A player picking lines out of a paragraph pastes half the problem |
 
 `src/model/pack-authoring.test.ts` is the last column, executable. The example pack now

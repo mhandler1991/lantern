@@ -284,6 +284,37 @@ describe('the content screen', () => {
     expect(text()).toContain('id — expected');
   });
 
+  // #142. A hole in a table used to be invisible until somebody rolled into it: nothing
+  // asked `coverageProblems`, so the pack loaded in silence. It is a warning like every
+  // other, which means the pack is still loaded and the table is still on the screen.
+  it('prints a table’s gap, and loads the pack that has it anyway', async () => {
+    const holed = packText({
+      id: 'brokenwood',
+      name: 'Brokenwood',
+      version: '1.0.0',
+      tables: [
+        {
+          id: 'brambleback-loot',
+          name: 'Brambleback loot',
+          die: '2d6',
+          rows: [
+            { roll: [2, 5], text: 'The low band' },
+            { roll: [5, 8], text: 'The band that starts a face late' },
+            { roll: [10, 12], text: 'The band that leaves 9 to nobody' },
+          ],
+        },
+      ],
+    });
+
+    await mount();
+    await pick(holed, 'brokenwood.json');
+
+    expect(order()).toEqual(['Core', 'Brokenwood']);
+    expect(text()).toContain('nothing covers 9');
+    expect(text()).toContain('brokenwood:table:brambleback-loot');
+    expect(text()).toContain('this is a report, not a refusal');
+  });
+
   it('prints the resolver’s warnings without refusing anything', async () => {
     const dangling = packText({
       id: 'dangling',

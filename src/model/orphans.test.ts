@@ -49,7 +49,7 @@ const CORE = loaded({
       id: 'thief-talents',
       name: 'Thief talents',
       die: 'd12',
-      rows: [{ roll: [2, 12], text: 'A knack' }],
+      rows: [{ roll: [1, 12], text: 'A knack' }],
     },
   ],
 });

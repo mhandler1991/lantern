@@ -5,7 +5,7 @@
   "name": "Brokenwood",
   "version": "1.0.0",
   "author": "The Lantern example",
-  "description": "Deliberately broken. Every entry carries a mistake an author actually makes, so the report can be read — and pasted back into an AI along with the file — to see each one named by its path.",
+  "description": "Deliberately broken. Every entry carries a mistake an author actually makes, so the report can be read — and pasted back into an AI along with the file — to see each one named by its path. The last table is well formed: its gap and its overlap are warnings, not refusals.",
   "classes": [
     {
       "id": "hedge-knight",
@@ -63,6 +63,17 @@
       "rows": [
         { "roll": [8, 3], "text": "A talent whose band runs backwards" }
       ]
+    },
+    {
+      "id": "brambleback-loot",
+      "name": "Brambleback loot",
+      "die": "2d6",
+      "rows": [
+        { "roll": [2, 5], "text": "A band that runs one face too far" },
+        { "roll": [5, 8], "text": "A band that starts on a face already taken" },
+        { "roll": [10, 12], "text": "A band that leaves 9 to nobody" }
+      ],
+      "page": null
     }
   ]
 }

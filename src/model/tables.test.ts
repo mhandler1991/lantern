@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest';
 import { CORE_PACK_PATH, MAX_TABLE_REROLLS } from '../constants';
 import type { RandomWords } from './dice';
 import { parsePack } from './pack';
-import type { TableRow } from './pack';
+import type { Pack, TableRow } from './pack';
 import { resolvePacks } from './pack-resolver';
 import type { Problem } from './problems';
 import {
@@ -30,6 +30,7 @@ import {
   rollOnTable,
   rollableTable,
   rowFor,
+  tableCoverageProblems,
   tableSpan,
   type RollableTable,
   type TableResult,
@@ -518,6 +519,91 @@ describe('rollableTable', () => {
     expect(table.rerollable).toBe(false);
     expect(coverageProblems(table)).toEqual([]);
     expect(textOf(rowFor(table, 15))).toBe('from the supplement');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Coverage over a whole stack
+// ---------------------------------------------------------------------------
+
+describe('tableCoverageProblems', () => {
+  /** A pack that must parse, so a fixture the schema would refuse fails here loudly. */
+  const packOf = (fields: Record<string, unknown>): Pack => {
+    const parsed = parsePack({ format: 'lantern-pack', formatVersion: 1, version: '1.0.0', ...fields });
+    if (!parsed.ok) throw new Error(`the fixture pack must parse: ${parsed.problems[0]?.path}`);
+    return parsed.pack;
+  };
+
+  const gapped = packOf({
+    id: 'brokenwood',
+    name: 'Brokenwood',
+    tables: [
+      { id: 'clean', name: 'Clean', die: 'd6', rows: [{ roll: [1, 6], text: 'Anything' }] },
+      {
+        id: 'holed',
+        name: 'Holed',
+        die: '2d6',
+        rows: [
+          { roll: [2, 5], text: 'The low band' },
+          { roll: [5, 8], text: 'The band that starts a face late' },
+          { roll: [10, 12], text: 'The band that leaves 9 to nobody' },
+        ],
+      },
+    ],
+  });
+
+  it('paths a problem to the table it is about, and names that table', () => {
+    const stack = resolvePacks([gapped]);
+
+    expect(lines(tableCoverageProblems(stack.tables))).toEqual([
+      'tables[1].rows[1].roll — expected a band no other row covers — 5 is already covered ' +
+        'by rows[0] (brokenwood:table:holed)',
+      'tables[1].rows — expected a row for every roll 2d6 can make — nothing covers 9 ' +
+        '(brokenwood:table:holed)',
+    ]);
+  });
+
+  it('says nothing about a stack whose tables all cover their dice', () => {
+    const whole = packOf({
+      id: 'whole',
+      name: 'Whole',
+      tables: [{ id: 'quirks', name: 'Quirks', die: 'd20', rows: [{ roll: [1, 20], text: 'A quirk' }] }],
+    });
+
+    expect(tableCoverageProblems(resolvePacks([whole]).tables)).toEqual([]);
+  });
+
+  // The reason this reads `rollableTable` rather than the entry: a table half filled by
+  // its own pack and finished by a supplement is finished, and calling it short would
+  // teach an author to ignore the report.
+  it('counts the rows an extension added before it calls a table short', () => {
+    const base = packOf({
+      id: 'base-pack',
+      name: 'Base',
+      tables: [{ id: 'quirks', name: 'Quirks', die: 'd20', rows: [{ roll: [1, 10], text: 'The low half' }] }],
+    });
+    const supplement = packOf({
+      id: 'more-pack',
+      name: 'More',
+      extends: [{ target: 'base-pack:table:quirks', rows: [{ roll: [11, 20], text: 'The high half' }] }],
+    });
+
+    expect(tableCoverageProblems(resolvePacks([base]).tables)).toHaveLength(1);
+    expect(tableCoverageProblems(resolvePacks([base, supplement]).tables)).toEqual([]);
+  });
+
+  // PRD.md principle 4, at the one boundary that matters: the report is a report. The
+  // table it named is still in the stack, still rollable, and still answers for every
+  // face it does cover.
+  it('leaves the table it warned about rollable, gap and all', () => {
+    const stack = resolvePacks([gapped]);
+    const holed = stack.tables[1];
+    if (holed === undefined) throw new Error('the table must resolve');
+
+    expect(tableCoverageProblems(stack.tables).length).toBeGreaterThan(0);
+    expect(stack.byRef.has('brokenwood:table:holed')).toBe(true);
+    expect(textOf(resultOf(rollOnTable(rollableTable(holed), faces([2, 2]))).row)).toBe('The low band');
+    expect(resultOf(rollOnTable(rollableTable(holed), faces([4, 5]))).row).toBeNull();
   });
 });
 
