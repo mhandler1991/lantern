@@ -529,6 +529,114 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+ * The walkthrough
+ *
+ * One page at a time, on the table where the sheet's three columns would be. It takes
+ * the sheet's own measure rather than the lobby's, because what is inside it is a
+ * sheet panel and a panel that changed width between the walkthrough and the sheet
+ * would read as a different control (DESIGN.md §6).
+ *
+ * The progress list is set in the label face and tracked out like every other small
+ * caps run in the room. The step you are on takes the torch: it is the one warm thing
+ * on a line of cold ones, which is the whole of what the list has to say.
+ * ------------------------------------------------------------------------ */
+
+.walkthrough {
+  max-width: var(--measure);
+  margin: var(--space-0) auto var(--space-6);
+}
+
+.walkthrough__head {
+  margin-bottom: var(--space-4);
+  color: var(--text-on-room);
+}
+
+.walkthrough__title {
+  margin: var(--space-0);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-display);
+}
+
+.walkthrough__position {
+  margin: var(--space-1) var(--space-0) var(--space-3);
+  color: var(--text-on-room-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.walkthrough__steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.walkthrough__step {
+  color: var(--text-on-room-muted);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.walkthrough__step--here {
+  color: var(--state-focus);
+  font-weight: var(--weight-bold);
+}
+
+/* The prompt sits on the room rather than on paper: it is the walkthrough talking, not
+   the sheet, and the torch rule is the same one an offer takes everywhere else. */
+.walkthrough .prompt {
+  color: var(--text-on-room);
+}
+
+.walkthrough .warning {
+  color: var(--text-on-room);
+}
+
+.walkthrough__actions {
+  margin-top: var(--space-4);
+}
+
+.walkthrough__missing {
+  margin: var(--space-2) var(--space-0) var(--space-0);
+  padding-left: var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+/* ---------------------------------------------------------------------------
+ * The offer of a walkthrough
+ *
+ * Above the sheet and quiet: it is a door, not a gate. On an untouched sheet it says a
+ * sentence first; on one with anything on it, the button alone.
+ * ------------------------------------------------------------------------ */
+
+.creation-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  max-width: var(--measure);
+  margin-bottom: var(--space-5);
+  color: var(--text-on-room);
+}
+
+.creation-offer__pitch {
+  flex: 1 1 var(--measure-column);
+  margin: var(--space-0);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+/* ---------------------------------------------------------------------------
  * The character file
  *
  * The same page-above-the-table treatment the lobby gets, and for the opposite reason:

@@ -22,6 +22,13 @@
  * Turning a pack off warns and marks; it never touches a row (PRD.md principle 4,
  * DESIGN.md §5).
  *
+ * The walkthrough takes the sheet's place rather than sitting above it, and only while
+ * a player asked for it. It is the same panels in a sequence (`ui/creation/creation.ts`),
+ * writing to the same character through the same setter, so nothing here has to know
+ * whether creation is running — the sheet is the character either way, and the lobby,
+ * the packs and the character file stay reachable throughout, because loading a pack
+ * mid-creation is exactly what a player walking through it will want to do.
+ *
  * The character file sits above the sheet for the opposite reason: it is not optional.
  * A character lives in this browser and nowhere else (DESIGN.md §8), so export is the
  * only mitigation there is against losing one, and a mitigation nobody can see is not
@@ -35,6 +42,7 @@ import { orphanReport, updatePacksUsed } from '../model/orphans';
 import { itemLookup } from '../model/pack-resolver';
 import { toPublicCharacter } from '../net/projection';
 import type { CharacterLoad } from '../state/character-storage';
+import { useCreation } from '../state/use-creation';
 import { usePacks } from '../state/use-packs';
 import { usePersistentCharacter } from '../state/use-persistent-character';
 import { usePresence } from '../state/use-presence';
@@ -42,6 +50,10 @@ import { useRecordedPacks } from '../state/use-recorded-packs';
 import { useRoom } from '../state/use-room';
 import { useRolls } from '../state/use-rolls';
 import { ContentScreen } from './ContentScreen';
+import type { CreationStepId } from './creation/creation';
+import { CREATION_STEP_IDS } from './creation/creation';
+import { CreationOffer } from './creation/CreationOffer';
+import { Walkthrough } from './creation/Walkthrough';
 import { DiceOverlay } from './DiceOverlay';
 import { Lobby } from './Lobby';
 import { Portability } from './Portability';
@@ -74,6 +86,13 @@ export function App(): ReactElement {
   const room = useRoom();
   const packs = usePacks();
   const rolls = useRolls();
+
+  /**
+   * Where the walkthrough is, keyed to the character on screen. It edits this same
+   * sheet through this same setter, so there is no draft anywhere and no commit at the
+   * end — `ui/creation/Walkthrough.tsx` says why that is the whole design.
+   */
+  const creation = useCreation<CreationStepId>(character.id, CREATION_STEP_IDS);
 
   /**
    * Every edit, with the sheet's pack record brought up to date on the way through.
@@ -178,13 +197,31 @@ export function App(): ReactElement {
         <div className="portability">
           <Portability character={character} setCharacter={setCharacter} />
         </div>
-        <CharacterSheet
-          character={character}
-          setCharacter={setCharacter}
-          orphans={orphans}
-          stack={packs.stack}
-          rolls={rolls}
-        />
+
+        {creation.step === null ? (
+          <>
+            <CreationOffer character={character} onStart={creation.start} />
+            <CharacterSheet
+              character={character}
+              setCharacter={setCharacter}
+              orphans={orphans}
+              stack={packs.stack}
+              rolls={rolls}
+            />
+          </>
+        ) : (
+          <Walkthrough
+            step={creation.step}
+            onGo={creation.go}
+            onLeave={creation.leave}
+            canResume={creation.failure === null}
+            character={character}
+            setCharacter={setCharacter}
+            orphans={orphans}
+            stack={packs.stack}
+            rolls={rolls}
+          />
+        )}
       </main>
 
       <DiceOverlay rolls={rolls} />

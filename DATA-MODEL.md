@@ -661,6 +661,7 @@ forward by one migration path and cannot drift apart.
 | `lantern:character.rejected` | A value the app could not read, copied aside before anything overwrote it. Never parsed and never written over; read back only to hand the raw text to the player as a file. |
 | `lantern:packs` | The packs a DM ticked Keep on, in load order, each with the on/off state it had. Written only when something is kept, and cleared when nothing is. |
 | `lantern:packs.rejected` | The same treatment for a kept-pack store the app could not read. |
+| `lantern:creation` | Where the creation walkthrough had got to: the character it was building, and the step on screen. A bookmark, not player data. |
 
 ### Reading
 
@@ -730,6 +731,33 @@ back is reported while the DM is still looking at the screen.
 restore does not want — it happens in a reducer initialiser so the first paint already
 has the packs — and the quota it would buy is answered instead by bounding the opt-in,
 which a DM can see and an unbounded store cannot.
+
+### Where the walkthrough got to
+
+`lantern:creation` holds four short fields — `format: "lantern-creation"`, a
+`formatVersion`, the `characterId` being built, and the `step` that was on screen — and
+it is the one stored value in the app that is **not** player data.
+
+That is the whole design of creation, stated as storage. The walkthrough is the sheet's
+own panels shown one at a time (`src/ui/creation/creation.ts`); every field a player
+fills in on a step is written to `lantern:character` by the same debounced autosave as
+any other edit, validated by the same schema. There is no draft character anywhere and
+nothing is committed at the end, so a tab that closes on step four has already saved
+everything typed into steps one to three. What resuming restores is only the *place*.
+
+It follows that this key is treated differently from the two above it:
+
+- A value that cannot be read is **dropped, not quarantined**. Losing a bookmark costs a
+  player one press of a button; parking it would offer them a file that says nothing
+  about their character.
+- A `step` naming something this build no longer has reads as nothing stored, so removing
+  or renaming a step cannot strand anyone mid-sequence.
+- The `characterId` is half the record. A sheet replaced by an import is a different
+  character, and a bookmark into the previous one stops applying the moment it arrives —
+  derived on read, so the stored value is left alone rather than deleted on the way past.
+
+Bounded and parsed like anything else that arrives from outside (§10): a value under our
+key is a value another tab on this origin could have written.
 
 ### `formatVersion`
 
