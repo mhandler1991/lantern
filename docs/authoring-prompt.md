@@ -97,7 +97,7 @@ nothing collides — you get two Skalds, each labelled with the pack it came fro
 ## 4. The example
 
 `packs/example-pack.json` is one of everything: a class, an ancestry, two spells, two
-items, a talent, a table, and both kinds of `extends`. It is homebrew invented for that file, so
+items, a talent, a table that offers a reroll, and both kinds of `extends`. It is homebrew invented for that file, so
 you can copy any of it. Reading it beside the schema is faster than reading either alone.
 
 It also shows the two operations that are not just "put the thing in an array":
@@ -112,6 +112,11 @@ It also shows the two operations that are not just "put the thing in an array":
 
 The pack's second extension points at its own table, so the file stands alone. Yours will
 usually point at somebody else's.
+
+Its table also sets `"rerollable": true`, which is the one flag a table has: the app offers
+a single reroll before the result is kept, and shows the row that was passed up. Leave it
+out and a result is simply the result — rolling on the table again from the top is a
+different act and is always available either way.
 
 **A talent comes in two shapes and they are not interchangeable.** An entry in `talents`
 is a *named* talent — a choice a class can be offered — and it is what an `extends` block
