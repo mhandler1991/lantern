@@ -19,11 +19,15 @@
  *
  * **Only the class has dependents.** The sheet's later steps read one earlier answer:
  * a class narrows the spell picker (`model/pack-resolver.ts` — a spell names its
- * classes) and supplies the talent list and talent table. Ancestry, alignment and the
- * ability scores narrow nothing, and nothing derived from a score is stored, so changing
- * one invalidates nothing to report. **Hit points are deliberately not in here**: they
- * were possibly rolled on the old class's die, but the sheet records the number and not
- * the die, so flagging one would be a guess dressed as a finding.
+ * classes) and supplies the talent list and talent table, and it says what hit points
+ * are rolled on. Ancestry, alignment and the ability scores narrow nothing, and nothing
+ * derived from a score is stored, so changing one invalidates nothing to report.
+ *
+ * Hit points were once left out of this on the grounds that the sheet recorded the
+ * number and not the die, which made any flag a guess. Issue 161 closed that by writing
+ * the die down (`hpRolledOn`, DATA-MODEL.md §12), so the check here is now an equality
+ * rather than an inference — and it is still only ever a flag: 🚫 nothing re-rolls hit
+ * points and nothing rewrites the total because a class moved.
  *
  * **A row nothing answers for is not this module's business.** A row the player typed in
  * has no reference and can never be checked against a list; a row whose pack is merely
@@ -44,7 +48,7 @@ import { MAX_FLAG_EXCERPT } from '../../constants';
 import type { Character } from '../../model/character';
 import type { Ref } from '../../model/pack';
 import type { ResolvedClass, ResolvedStack } from '../../model/pack-resolver';
-import { spellsForClass, talentTableFor } from '../../model/pack-resolver';
+import { hitDieFor, spellsForClass, talentTableFor } from '../../model/pack-resolver';
 import { displayName } from '../choices';
 import type { CreationStepId } from './creation';
 
@@ -55,6 +59,9 @@ const NONE = 0;
 const START = 0;
 
 const NOTHING: readonly CreationFlag[] = [];
+
+/** Hit points are one field rather than a list, so their flag's key is a constant. */
+const HP_FLAG_ID = 'hp';
 
 /**
  * One row that no longer follows from the answers above it.
@@ -86,6 +93,41 @@ function excerpt(text: string): string {
   return flat.length <= MAX_FLAG_EXCERPT
     ? flat
     : `${flat.slice(START, MAX_FLAG_EXCERPT).trimEnd()}…`;
+}
+
+/**
+ * A hit point total rolled on a die the chosen class does not roll.
+ *
+ * Three things have to be true before there is anything to say, and each missing one is
+ * silence rather than a flag: the number has to have been **rolled** (`hpRolledOn` is
+ * null for one typed in, and typing over the box clears it — `state/character-edits.ts`),
+ * a loaded pack has to answer for what this class rolls, and the two dice have to
+ * actually differ. Two classes that both roll a `d8` leave nothing worth saying, and a
+ * class whose pack is off leaves nothing to compare against — the same reading as
+ * "a row nothing answers for is not this module's business".
+ *
+ * The id is a constant because there is only ever one of these: `hp` is a field, not a
+ * row, and no row id can collide with it (`ROW_ID_PATTERN` requires the `r_` prefix).
+ */
+function hitPointFlags(
+  character: Character,
+  stack: ResolvedStack,
+  chosen: ResolvedClass,
+): readonly CreationFlag[] {
+  const rolledOn = character.hpRolledOn;
+  if (rolledOn === null) return NOTHING;
+
+  const die = hitDieFor(stack, chosen.ref);
+  if (die === null || die === rolledOn) return NOTHING;
+
+  return [
+    {
+      id: HP_FLAG_ID,
+      step: 'vitals',
+      what: `hit points, rolled on ${rolledOn}`,
+      why: `${chosen.entry.name} rolls ${die} for them`,
+    },
+  ];
 }
 
 /**
@@ -174,7 +216,11 @@ export function flagged(character: Character, stack: ResolvedStack): readonly Cr
   const chosen = stack.byRef.get(classRef);
   if (chosen === undefined || chosen.kind !== 'class') return NOTHING;
 
-  return [...talentFlags(character, stack, chosen), ...spellFlags(character, stack, chosen)];
+  return [
+    ...hitPointFlags(character, stack, chosen),
+    ...talentFlags(character, stack, chosen),
+    ...spellFlags(character, stack, chosen),
+  ];
 }
 
 /** The flags belonging to one step, for the strip that sits above its panel. */

@@ -23,7 +23,8 @@
  *     (`model/dice.ts`). So a supplement being on changes what can come up, with nothing
  *     here knowing anything about which packs are loaded.
  *   - **Hit points** roll the class's own `hitDie`, which is a pack's answer
- *     (DATA-MODEL.md §5) and absent when no loaded pack gives one.
+ *     (DATA-MODEL.md §5) and absent when no loaded pack gives one. The die is written
+ *     down beside the number so a class changed afterwards can be reported (issue 161).
  *   - **Talents** get no strip: `TalentsPanel` already rolls the class's talent table
  *     from inside the step, and a table roll arrives from context rather than from a
  *     second button beside it (DESIGN.md §4).
@@ -207,8 +208,15 @@ export function StepRoll({
 
             // Both halves, because a character who has not been hit yet is at full. The
             // two are separate fields and stay separately editable (DATA-MODEL.md §12).
+            //
+            // The die goes down with the number. It is a record and nothing else: it
+            // never re-rolls anything and never rewrites the total, and it is what lets
+            // a class changed afterwards be reported rather than guessed at
+            // (`ui/creation/consequences.ts`). Typing over the box clears it.
             const rolled = rollTotal(entry.roll);
-            setCharacter((previous) => setHitPoints(previous, { max: rolled, current: rolled }));
+            setCharacter((previous) =>
+              setHitPoints(previous, { max: rolled, current: rolled }, hitDie),
+            );
           }}
         />
       </Strip>

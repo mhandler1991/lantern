@@ -148,6 +148,10 @@ const EXPOSURE: Readonly<Record<keyof Character, Exposure>> = {
   lights: 'flag',
   stats: 'flag',
 
+  // Where a rolled number came from is a creation detail, and the party view has no use
+  // for it: `hp` travels, and how it was arrived at does not (#161).
+  hpRolledOn: 'none',
+
   format: 'none',
   formatVersion: 'none',
   id: 'none',
@@ -183,6 +187,7 @@ const FULL: Character = {
 
   stats: { str: 17, dex: 16, con: 15, int: 14, wis: 13, cha: 12 },
   hp: { current: 7, max: 11 },
+  hpRolledOn: 'd12',
   luck: 1,
   gold: { gp: 654_321, sp: 654_322, cp: 654_323 },
 

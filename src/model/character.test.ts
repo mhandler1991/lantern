@@ -14,6 +14,7 @@ import {
   type CharacterProblem,
 } from './character';
 import {
+  CHARACTER_FORMAT_VERSION,
   MAX_CHARACTER_ID_LENGTH,
   MAX_CHARACTER_LEVEL,
   MAX_CHARACTER_NAME_LENGTH,
@@ -31,7 +32,7 @@ import {
 
 const VESS = {
   format: 'lantern-character',
-  formatVersion: 2,
+  formatVersion: 3,
   id: 'c_9f3a2b',
   name: 'Vess of the Low Road',
   ancestry: { ref: 'core:ancestry:human', name: '' },
@@ -41,6 +42,7 @@ const VESS = {
   xp: 6,
   stats: { str: 13, dex: 16, con: 11, int: 9, wis: 12, cha: 6 },
   hp: { current: 11, max: 17 },
+  hpRolledOn: 'd8',
   luck: 1,
   gold: { gp: 22, sp: 0, cp: 0 },
   items: [
@@ -110,6 +112,12 @@ describe('the documented shape', () => {
 
   it('holds a dying character rather than refusing to load one', () => {
     expect(parseCharacter(withField('hp', { current: -3, max: 17 })).ok).toBe(true);
+  });
+
+  it('holds hit points nothing is known about, which is most of them', () => {
+    // Null is not a missing value here: it is the sheet saying the number was typed
+    // in, or brought forward from a build that did not record where it came from.
+    expect(parseCharacter(withField('hpRolledOn', null)).ok).toBe(true);
   });
 
   it('keeps a talent whose pack is gone — text and source, chosen or rolled', () => {
@@ -209,7 +217,7 @@ describe('no derived value can be stored', () => {
 describe('the envelope', () => {
   it('rejects unrelated JSON early', () => {
     expect(parseCharacter(withField('format', 'lantern-pack')).ok).toBe(false);
-    expect(parseCharacter(withField('formatVersion', 3)).ok).toBe(false);
+    expect(parseCharacter(withField('formatVersion', CHARACTER_FORMAT_VERSION + 1)).ok).toBe(false);
   });
 
   it.each([null, undefined, 'a string', 42, [], true])('rejects %p', (input) => {
@@ -253,6 +261,16 @@ describe('numbers a hostile file would inflate', () => {
     expect(parseCharacter(withField('luck', -1)).ok).toBe(false);
     expect(parseCharacter(withField('gold', { gp: MAX_COIN + 1, sp: 0, cp: 0 })).ok).toBe(false);
     expect(parseCharacter(withField('xp', Number.MAX_SAFE_INTEGER)).ok).toBe(false);
+  });
+
+  it('refuses a die there is no such thing as', () => {
+    // The enum is the pack's own (DATA-MODEL.md §2), so a sheet cannot claim its hit
+    // points came off a d7 — or off a whole notation, which is a table's shape and not
+    // a hit die's.
+    expect(parseCharacter(withField('hpRolledOn', 'd7')).ok).toBe(false);
+    expect(parseCharacter(withField('hpRolledOn', '2d6')).ok).toBe(false);
+    expect(parseCharacter(withField('hpRolledOn', 8)).ok).toBe(false);
+    expect(pathsOf(withField('hpRolledOn', 'd7'))).toContain('hpRolledOn');
   });
 
   it('bounds the lists, so an import cannot exhaust the tab', () => {

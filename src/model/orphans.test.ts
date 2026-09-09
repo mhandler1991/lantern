@@ -81,7 +81,7 @@ const OVERRIDING = loaded({
 /** A sheet built with Frostbound: an ancestry, an item, a spell and a talent from it. */
 const SHEET: unknown = {
   format: 'lantern-character',
-  formatVersion: 2,
+  formatVersion: 3,
   id: 'c_vess',
   name: 'Vess',
   ancestry: { ref: 'frostbound:ancestry:thawborn', name: '' },
@@ -91,6 +91,7 @@ const SHEET: unknown = {
   xp: 0,
   stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   hp: { current: 5, max: 5 },
+  hpRolledOn: null,
   luck: 0,
   gold: { gp: 0, sp: 0, cp: 0 },
   items: [

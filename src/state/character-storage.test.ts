@@ -478,4 +478,75 @@ describe('formatVersion 1 to 2', () => {
     expect(load.migratedFrom).toBe(1);
     expect(load.character.name).toBe('Vess of the Low Road');
   });
+
+  it('walks a version 1 sheet through every later step, not just the first', () => {
+    const result = migrateVessV1();
+    if (!result.ok) throw new Error('expected the migration to succeed');
+
+    expect(result.document.formatVersion).toBe(CHARACTER_FORMAT_VERSION);
+    expect(result.document.hpRolledOn).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Provenance, added in version 3
+// ---------------------------------------------------------------------------
+
+/**
+ * A version 2 sheet: rows have ids and names, but nothing says where a number came from.
+ * The key is removed rather than set to undefined — a stored document has never seen an
+ * undefined, and one here would be spread straight over the default the step supplies.
+ */
+function vessV2(over: Readonly<Record<string, unknown>> = {}): StoredDocument {
+  const document: Record<string, unknown> = { ...vess, formatVersion: 2 };
+  delete document.hpRolledOn;
+  return { ...document, ...over };
+}
+
+describe('formatVersion 2 to 3', () => {
+  it('brings a version 2 character forward and parses it', () => {
+    const result = migrateCharacterDocument(vessV2());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.from).toBe(2);
+    expect(parseCharacter(result.document).ok).toBe(true);
+  });
+
+  it('says nothing is known about where its hit points came from, rather than guessing', () => {
+    // A v2 sheet recorded the number and not the die. Inventing one from the class it
+    // happens to carry is the guess `hpRolledOn` exists to avoid.
+    const result = migrateCharacterDocument(vessV2({ class: { ref: 'core:class:fighter', name: '' } }));
+    if (!result.ok) throw new Error('expected the migration to succeed');
+
+    expect(result.document.hpRolledOn).toBeNull();
+  });
+
+  it('loses nothing a version 2 sheet was carrying', () => {
+    const result = migrateCharacterDocument(vessV2());
+    if (!result.ok) throw new Error('expected the migration to succeed');
+
+    expect(result.document.name).toBe(vess.name);
+    expect(result.document.hp).toEqual(vess.hp);
+    expect(result.document.level).toBe(vess.level);
+  });
+
+  it('never overwrites a die a stored sheet already carried', () => {
+    const result = migrateCharacterDocument(vessV2({ hpRolledOn: 'd10' }));
+    if (!result.ok) throw new Error('expected the migration to succeed');
+
+    expect(result.document.hpRolledOn).toBe('d10');
+  });
+
+  it('reads a version 2 sheet back out of storage as a loaded character', () => {
+    localStorage.setItem(CHARACTER_KEY, JSON.stringify(vessV2()));
+
+    const load = loadCharacter();
+
+    expect(load.kind).toBe('loaded');
+    if (load.kind !== 'loaded') return;
+    expect(load.migratedFrom).toBe(2);
+    expect(load.character.hpRolledOn).toBeNull();
+  });
 });
