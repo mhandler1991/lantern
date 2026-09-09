@@ -238,6 +238,15 @@ export const MAX_NAME_LENGTH = 60;
 export const MAX_TEXT_LENGTH = 1_000;
 export const MAX_DESCRIPTION_LENGTH = 300;
 
+/**
+ * How much of a talent a creation flag prints when it names the row it is about.
+ *
+ * A talent is a paragraph (`MAX_TEXT_LENGTH`) and a flag is one line in a list, so the
+ * words are cut to about what a name takes: enough for a player to recognise which row
+ * is meant, and never enough to reproduce what the row says.
+ */
+export const MAX_FLAG_EXCERPT = MAX_NAME_LENGTH;
+
 /** Per content array — classes, spells, items, talents, tables, ancestries. */
 export const MAX_ENTRIES_PER_ARRAY = 500;
 
