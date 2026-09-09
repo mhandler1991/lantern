@@ -228,6 +228,9 @@ describe('rolling a step', () => {
 
     await press('Roll d8');
     expect(character().hp).toEqual({ current: 6, max: 6 });
+    // The die goes down with the number, so a class changed afterwards can be reported
+    // rather than guessed at (#161).
+    expect(character().hpRolledOn).toBe('d8');
   });
 
   it('offers no hit die when no loaded pack answers for the class', async () => {
