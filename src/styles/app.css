@@ -590,6 +590,33 @@ body {
   font-weight: var(--weight-bold);
 }
 
+/* Every step in the list is a button, because any of them can be gone to (#36). It is
+   a button rather than a link — nothing here navigates — and it inherits the list's
+   face entirely, so the list still reads as a list of steps rather than a row of
+   controls. The affordance is the pointer and the underline on hover. */
+.walkthrough__jump {
+  margin: var(--space-0);
+  border: none;
+  padding: var(--space-0);
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.walkthrough__jump:hover {
+  color: var(--state-focus);
+  text-decoration: underline;
+}
+
+/* A step holding something that no longer follows from an answer above it. Caution
+   rather than the torch: the torch is where you are, and this is where you are not. */
+.walkthrough__wants {
+  color: var(--state-caution);
+}
+
 /* The prompt sits on the room rather than on paper: it is the walkthrough talking, not
    the sheet, and the torch rule is the same one an offer takes everywhere else. */
 .walkthrough .prompt {
@@ -610,6 +637,45 @@ body {
   color: var(--text-secondary);
   font-size: var(--text-sm);
   line-height: var(--leading-snug);
+}
+
+/* ---------------------------------------------------------------------------
+ * What no longer follows
+ *
+ * Rows a later step chose under an answer that has since moved (#36,
+ * `ui/creation/consequences.ts`). It takes the caution rule rather than the torch,
+ * because something wants a second look — and it is a rule beside the list rather than
+ * a box around it, because nothing is wrong enough to interrupt with.
+ * ------------------------------------------------------------------------ */
+
+.flags {
+  margin: var(--space-0) var(--space-0) var(--space-3);
+  border-left: var(--border-thick) solid var(--state-caution);
+  padding-left: var(--space-3);
+  color: var(--text-on-room);
+}
+
+/* Inside the review it is on paper rather than on the room, like everything else in
+   that panel. */
+.panel .flags {
+  color: var(--text-secondary);
+}
+
+.flags__say {
+  margin: var(--space-0);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.flags__list {
+  margin: var(--space-2) var(--space-0) var(--space-0);
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.flags__what {
+  font-weight: var(--weight-bold);
 }
 
 /* ---------------------------------------------------------------------------
