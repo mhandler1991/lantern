@@ -18,7 +18,7 @@
  */
 
 import * as z from 'zod';
-import { Alignment, Stat } from './enums';
+import { Alignment, Die, Stat } from './enums';
 import { formatProblems, reportProblems, validate, type Problem } from './problems';
 import {
   CHARACTER_FORMAT,
@@ -72,9 +72,10 @@ const NONE = 0;
  * DATA-MODEL.md §2. A sheet and a pack say these words the same way, so they are defined
  * once in `model/enums.ts` and re-exported here — every existing import of `Stat` or
  * `Alignment` from the character contract keeps working, and there is only ever one
- * spelling of either to keep correct.
+ * spelling of either to keep correct. `Die` joins them because a sheet now records the
+ * one its hit points came off, and a class's `hitDie` is that same enum (§5).
  */
-export { Alignment, Stat } from './enums';
+export { Alignment, Die, Stat } from './enums';
 
 /**
  * A reference into pack content — `core:class:thief`. The length cap is checked before
@@ -246,6 +247,26 @@ export const Character = z.strictObject({
 
   stats: Stats,
   hp: HitPoints,
+
+  /**
+   * What `hp.max` was rolled on, or null when it was typed in.
+   *
+   * A record, never an adjudication (PRD.md principle 1): nothing re-rolls hit points
+   * and nothing rewrites the number when the class changes. It exists so that going
+   * back and taking a different class can be *reported* — `ui/creation/consequences.ts`
+   * compares this against the chosen class's `hitDie` and says so when the two differ,
+   * which without it would be a guess dressed as a finding.
+   *
+   * It sits beside `hp` rather than inside it because `HitPoints` is also the shape the
+   * public projection puts on the wire (`net/protocol.ts`), and where a number came
+   * from is nobody else's business.
+   *
+   * The die, not the class it was rolled for: two classes that both roll a `d8` leave
+   * nothing worth saying, and a die that no loaded pack answers for leaves nothing to
+   * compare against rather than a false alarm.
+   */
+  hpRolledOn: Die.nullable(),
+
   luck: z.int().min(NONE).max(MAX_LUCK),
   gold: Gold,
 

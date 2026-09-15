@@ -532,7 +532,7 @@ The character is local and never sent whole. Export writes this file.
 ```json
 {
   "format": "lantern-character",
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "c_9f3a2b",
   "name": "Vess of the Low Road",
   "ancestry": { "ref": "core:ancestry:human", "name": "" },
@@ -542,6 +542,7 @@ The character is local and never sent whole. Export writes this file.
   "xp": 6,
   "stats": { "str": 13, "dex": 16, "con": 11, "int": 9, "wis": 12, "cha": 6 },
   "hp": { "current": 11, "max": 17 },
+  "hpRolledOn": "d8",
   "luck": 1,
   "gold": { "gp": 22, "sp": 0, "cp": 0 },
   "items": [
@@ -576,6 +577,7 @@ The character is local and never sent whole. Export writes this file.
 | `lights[].litAt` | epoch ms or `null` | **When** it was lit, never how much is left. Remaining time is computed from the clock, so a backgrounded tab cannot drift it. |
 | `lights[].minutes` | 1-1440 | How long it burns, when no loaded pack answers for the row. An item's `light` block wins (§4); this is the fallback, and it is what a row falls back *to* when the pack is turned off. |
 | `talents[].rolled` | number or `null` | The **total** that produced it — a `2d6` table starts at 2 — bounded by the largest total any table notation can roll; null when it was chosen. |
+| `hpRolledOn` | `Die` or `null` | What `hp.max` was rolled on; null when it was typed. A **record**, never an adjudication — nothing re-rolls hit points and nothing rewrites the number when the class changes. |
 
 Every object is **strict**: an unknown key is rejected, not ignored. That is what makes
 "no derived values" enforceable rather than merely intended — a file carrying an `ac` or
@@ -771,7 +773,12 @@ the stored version to the current one.
   build cannot know what a later one added; downgrading it would be the data loss
   PRD.md principle 4 forbids.
 
-**1 → 2** is the only step so far. Version 1 could name a thing only when a loaded pack
+**2 → 3** adds `hpRolledOn`, filled with `null`. A v2 sheet recorded the number and not
+the die, and inventing one from the class the sheet happens to carry would be the guess
+the field exists to avoid — so every character written before this build says, honestly,
+that nothing is known about where its hit points came from.
+
+**1 → 2**: version 1 could name a thing only when a loaded pack
 defined it, which made a character built with no packs unrepresentable; version 2 gives
 every content row a `{ ref, name }` pair, an `id`, and — on items — a `slots` fallback.
 The migration wraps a v1 `ancestry` and `class` ref, stamps an id on every row, and fills

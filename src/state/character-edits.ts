@@ -33,6 +33,7 @@ import type {
   CarriedItem,
   Character,
   Condition,
+  Die,
   JournalEntry,
   KnownSpell,
   Light,
@@ -233,12 +234,23 @@ export function removeCondition(conditions: Condition[], text: string): Conditio
  * potion can put a character over, and the sheet records what the player says rather
  * than deciding it cannot be so. It may also go negative: a dying character is a state
  * the sheet has to hold.
+ *
+ * `rolledOn` is what produced the new `max`, and it defaults to nothing on purpose: a
+ * number typed into the sheet must never claim a die it did not come off, and the one
+ * writer is the only place that can be guaranteed. So it moves **only when `max` does**
+ * — healing to full, or taking damage, leaves a rolled total's provenance alone — and a
+ * caller that writes a `max` without naming a die clears it (DATA-MODEL.md §12).
  */
 export function setHitPoints(
   character: Character,
   hp: Partial<Character['hp']>,
+  rolledOn: Die | null = null,
 ): Character {
-  return { ...character, hp: { ...character.hp, ...hp } };
+  return {
+    ...character,
+    hp: { ...character.hp, ...hp },
+    hpRolledOn: hp.max === undefined ? character.hpRolledOn : rolledOn,
+  };
 }
 
 /** One of the six. The other five are untouched, and no modifier is written anywhere. */

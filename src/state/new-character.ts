@@ -94,6 +94,8 @@ export function createCharacter(id: string, name = ''): Character {
       cha: DEFAULT_STAT_SCORE,
     },
     hp: { current: NONE, max: NONE },
+    // Nothing rolled them, because nothing has happened yet (DATA-MODEL.md §12).
+    hpRolledOn: null,
     luck: NONE,
     gold: { gp: NONE, sp: NONE, cp: NONE },
 

@@ -82,6 +82,11 @@ function withClass(reference: string | null, name = ''): Character {
   return { ...character, class: { ref: reference, name } };
 }
 
+/** Hit points rolled on `die`, the way `StepRoll` writes them. */
+function rolledHitPoints(character: Character, die: 'd4' | 'd6' | 'd8', total: number): Character {
+  return { ...character, hp: { current: total, max: total }, hpRolledOn: die };
+}
+
 /** A wizard who learned two of the wizard's spells, the way the picker writes them. */
 function wizardWithSpells(): Character {
   const character = withClass('core:class:wizard');
@@ -222,5 +227,68 @@ describe('what no longer follows from an earlier answer', () => {
     expect(flagsFor(flags, 'gear')).toEqual([]);
     // Talents come before spells, because the sequence does: the list is a route back.
     expect(flags[0]?.step).toBe('talents');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hit points (#161)
+// ---------------------------------------------------------------------------
+
+describe('a number rolled on a die the class no longer rolls', () => {
+  // The gap issue #36 shipped with: roll on a fighter's d8, go back and take a wizard,
+  // and the number stays with nothing said about it.
+  it('flags hit points rolled on the class that was chosen before', () => {
+    const fighter = rolledHitPoints(withClass('core:class:fighter'), 'd8', 6);
+    const wizard: Character = { ...fighter, class: { ref: 'core:class:wizard', name: '' } };
+
+    const flags = flagged(wizard, STACK);
+
+    expect(flags).toHaveLength(1);
+    expect(flags[0]?.step).toBe('vitals');
+    expect(flags[0]?.what).toContain('d8');
+    expect(flags[0]?.why).toContain('Wizard');
+    expect(flags[0]?.why).toContain('d4');
+    // Flagged, never touched. The number is still the player's.
+    expect(wizard.hp).toEqual({ current: 6, max: 6 });
+    expect(wizard.hpRolledOn).toBe('d8');
+  });
+
+  it('says nothing while the die and the class still agree', () => {
+    const fighter = rolledHitPoints(withClass('core:class:fighter'), 'd8', 6);
+
+    expect(flagged(fighter, STACK)).toEqual([]);
+  });
+
+  it('says nothing about a number that was typed in', () => {
+    const typed: Character = {
+      ...withClass('core:class:wizard'),
+      hp: { current: 8, max: 8 },
+      hpRolledOn: null,
+    };
+
+    expect(flagged(typed, STACK)).toEqual([]);
+  });
+
+  it('says nothing when no loaded pack answers for what this class rolls', () => {
+    const fighter = rolledHitPoints(withClass('core:class:fighter'), 'd8', 6);
+
+    expect(flagged(fighter, EMPTY)).toEqual([]);
+    expect(flagged({ ...fighter, class: { ref: null, name: 'Fighter' } }, STACK)).toEqual([]);
+  });
+
+  it('comes before the later steps, because vitals is step three', () => {
+    const fighter = rolledHitPoints(withClass('core:class:fighter'), 'd8', 6);
+    const wizard: Character = {
+      ...fighter,
+      class: { ref: 'core:class:wizard', name: '' },
+      talents: [newTalent('Shield wall', 'core:talent:shield-wall')],
+    };
+
+    const flags = flagged(wizard, STACK);
+
+    expect(flags.map((flag) => flag.step)).toEqual(['vitals', 'talents']);
+    expect(stepsFlagged(flags)).toEqual(new Set(['vitals', 'talents']));
+    expect(flagsFor(flags, 'vitals')).toHaveLength(1);
+    expect(new Set(flags.map((flag) => flag.id)).size).toBe(flags.length);
   });
 });

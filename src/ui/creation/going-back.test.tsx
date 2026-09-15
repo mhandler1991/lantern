@@ -237,6 +237,38 @@ describe('what the change left behind', () => {
     expect(wanting()).toEqual(['Spells — look again']);
   });
 
+  it('flags hit points rolled on the die the class chosen before rolled', async () => {
+    // Core's fighter rolls d8 and its wizard rolls d4. The number stays exactly where
+    // the player left it; only the flag is new (issue 161).
+    const rolled: Character = {
+      ...newCharacter(),
+      class: { ref: 'core:class:fighter', name: '' },
+      hp: { current: 6, max: 6 },
+      hpRolledOn: 'd8',
+    };
+    const changed: Character = { ...rolled, class: { ref: 'core:class:wizard', name: '' } };
+    await mount(changed, 'vitals');
+
+    expect(flagsShown()).toHaveLength(1);
+    expect(flagsShown()[0]).toContain('d8');
+    expect(flagsShown()[0]).toContain('Wizard');
+    expect(character().hp).toEqual({ current: 6, max: 6 });
+  });
+
+  it('says nothing about hit points the class still rolls, or ones typed in', async () => {
+    const rolled: Character = {
+      ...newCharacter(),
+      class: { ref: 'core:class:fighter', name: '' },
+      hp: { current: 6, max: 6 },
+      hpRolledOn: 'd8',
+    };
+    await mount(rolled, 'vitals');
+    expect(flagsShown()).toEqual([]);
+
+    await mount({ ...rolled, hpRolledOn: null, class: { ref: 'core:class:wizard', name: '' } }, 'vitals');
+    expect(flagsShown()).toEqual([]);
+  });
+
   it('flags a talent taken from a list this class is not offered', async () => {
     // Frostbound extends the fighter with Cold-Forged; the wizard was never offered it.
     const character: Character = {

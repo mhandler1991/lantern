@@ -49,6 +49,7 @@ const FIRST_FORMAT_VERSION = 1;
 /** A migration's endpoints are fixed labels: 1 → 2 stays 1 → 2 after the format moves on. */
 const FORMAT_VERSION_1 = 1;
 const FORMAT_VERSION_2 = 2;
+const FORMAT_VERSION_3 = 3;
 
 /** Nothing carried. A floor, not a business rule. */
 const NONE = 0;
@@ -104,12 +105,26 @@ function migrateCharacter1To2(document: StoredDocument): StoredDocument {
 }
 
 /**
+ * 2 → 3. The sheet gained `hpRolledOn` — what `hp.max` was rolled on, or null when it
+ * was typed. Null is the honest answer for every sheet written before this: a v2
+ * character records the number and not the die, and inventing a die from the class it
+ * happens to carry would be exactly the guess the field exists to avoid.
+ *
+ * Written *under* the document rather than over it, like `withRowIds`, so a stored key
+ * this build did not expect is the player's and the parse that follows is what judges it.
+ */
+function migrateCharacter2To3(document: StoredDocument): StoredDocument {
+  return { hpRolledOn: null, ...document, formatVersion: FORMAT_VERSION_3 };
+}
+
+/**
  * Keyed by the version being migrated **from**; each entry produces the next one up.
  * The chain that walks this map is tested against injected migrations as well, so a
  * future step is proven before it is written rather than on the day it ships.
  */
 export const CHARACTER_MIGRATIONS: ReadonlyMap<number, CharacterMigration> = new Map([
   [FORMAT_VERSION_1, migrateCharacter1To2],
+  [FORMAT_VERSION_2, migrateCharacter2To3],
 ]);
 
 export type MigrationResult =

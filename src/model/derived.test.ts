@@ -39,7 +39,7 @@ import {
 
 const BASE: Character = {
   format: 'lantern-character',
-  formatVersion: 2,
+  formatVersion: 3,
   id: 'c_test',
   name: 'Test',
   ancestry: { ref: null, name: '' },
@@ -49,6 +49,7 @@ const BASE: Character = {
   xp: 0,
   stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   hp: { current: 5, max: 5 },
+  hpRolledOn: null,
   luck: 0,
   gold: { gp: 0, sp: 0, cp: 0 },
   items: [],

@@ -336,12 +336,15 @@ export const MAX_CHARACTER_LEVEL = 10;
 export const CHARACTER_FORMAT = 'lantern-character';
 
 /**
+ * 3 — the sheet records what its hit points were rolled on, so a class changed after
+ * the roll can be reported rather than guessed at (`ui/creation/consequences.ts`).
+ *
  * 2 — every row that points at pack content also carries the player's own words, and
  * every row carries a local `id`. Version 1 could only name a thing a loaded pack
  * defined, which made a sheet built with no packs unrepresentable and contradicted
- * PRD.md principle 6. `state/character-storage.ts` migrates 1 forward.
+ * PRD.md principle 6. `state/character-storage.ts` migrates every one forward.
  */
-export const CHARACTER_FORMAT_VERSION = 2;
+export const CHARACTER_FORMAT_VERSION = 3;
 
 /** An exported character, as JSON. Import refuses anything larger. */
 export const MAX_CHARACTER_BYTES = 512 * 1024;

@@ -208,4 +208,26 @@ describe('the character itself', () => {
     const blessed = setHitPoints(blank, { current: 12, max: 8 });
     expect(parseCharacter(blessed).ok).toBe(true);
   });
+
+  it('writes down what a rolled maximum was rolled on', () => {
+    const rolled = setHitPoints(blank, { current: 6, max: 6 }, 'd8');
+
+    expect(rolled.hpRolledOn).toBe('d8');
+    expect(parseCharacter(rolled).ok).toBe(true);
+  });
+
+  it('clears the die when a maximum is typed in, so no number claims one it did not come off', () => {
+    const rolled = setHitPoints(blank, { current: 6, max: 6 }, 'd8');
+    const typed = setHitPoints(rolled, { max: 9 });
+
+    expect(typed.hpRolledOn).toBeNull();
+  });
+
+  it('leaves the die alone when only current moves — damage is not a re-roll', () => {
+    const rolled = setHitPoints(blank, { current: 6, max: 6 }, 'd8');
+    const hurt = setHitPoints(rolled, { current: 2 });
+
+    expect(hurt.hp).toEqual({ current: 2, max: 6 });
+    expect(hurt.hpRolledOn).toBe('d8');
+  });
 });
